@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block styles %}
+    .welcome-block {
+        width: 50%;
+        margin: 10px auto;
+
+    }
+{% endblock %}
+
+{% block title %}Welcome to AMI{% endblock %}
+{% block heading %}Welcome to AMI{% endblock %}
+
+{% block content %}
+<div class="welcome-block">
+<h1>Welcome!</h1>
+<h2>Artificial Modular Intellegence</h2>
+<p>Here is where AMI is descibed on how to use. We will cover a lot of information with links to more information.</p>
+
+<h4>AMI is an AI that consits of multiple parts</h4>
+<ul>
+    <li>A Flask server. In part the visual UI and in part the app that controls the AI.</li>
+    <li>A tkinter GUI. This runs on the main thread of the main process and controls what the user sees.</li>
+    <li>A python AI with multiple Headspaces for seperation of thought and responsibility.</li>
+    <li>Headsapces, which are basically LLM agents with filesystem access. These are communitiy driven add-ons for this platform. Instructions to build your own Headspace can be found here(no link yet)</li>
+</ul>
+
+<h3>First steps:</h3>
+<p>I recommend you try a few basic commands to familize yourself with AMI</p>
+
+</div>
+{% endblock %}
+
+
+

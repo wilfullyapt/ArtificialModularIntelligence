@@ -1,0 +1,200 @@
+
+
+
+{% extends "base.html" %}
+
+{% block styles %}
+        .container {
+        position: relative;
+        text-align: center;
+      }
+
+      .dropdown-btn .dir-up-btn {
+        background-color: #4CAF50;
+        color: #fff;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+      }
+
+      .dropdown-btn:hover {
+        background-color: #3e8e41;
+      }
+
+      .dropdown-menu {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background-color: #f9f9f9;
+        border: 1px solid #ccc;
+        padding: 10px;
+        display: none;
+        text-align: center;
+      }
+
+      .dropdown-menu li {
+        list-style: none;
+        padding: 10px;
+        border-bottom: 1px solid #ccc;
+      }
+
+      .dropdown-menu li:last-child {
+        border-bottom: none;
+      }
+
+      .dropdown-menu li a {
+        color: #337ab7;
+        text-decoration: none;
+      }
+
+      .dropdown-menu li a:hover {
+        color: #23527c;
+      }
+
+      .dropdown-menu.show {
+        display: block;
+      }
+      .upload-container {
+    text-align: center;
+    margin-top: 40px;
+}
+
+.upload-area {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.upload-label {
+    display: inline-block;
+    padding: 10px 20px;
+    background-color: #333;
+    color: #fff;
+    cursor: pointer;
+    border-radius: 5px;
+    margin-right: 10px;
+}
+
+.upload-icon {
+    font-size: 18px;
+    margin-right: 5px;
+}
+
+#uploadButton {
+    padding: 10px 20px;
+    background-color: #333;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    border-radius: 5px;
+}
+
+#uploadButton:disabled {
+    background-color: #666;
+    cursor: not-allowed;
+}
+
+#fileInput {
+    display: none;
+}
+{% endblock %}
+
+
+{% block title %}AMI | Uploader{% endblock %}
+{% block heading %}<h3>Uploader</h3>{% endblock %}
+
+{% block content %}
+    <div class="container">
+      <button id="dir-up-btn">..</button>
+      <h4>Upload destination: <span class="code">{{ local_path }}</span></h4>
+      <ul class="dropdown-menu" style="left: 0; right: 0; text-align: center;">
+        {% for directory in directories %}
+          <li><a onclick="selectDirectory('{{ local_path }}/{{ directory }}')"> {{ directory }} </a></li>
+        {% endfor %}
+      </ul>
+    </div>
+     <div class="upload-container">
+        <h2>Upload Files</h2>
+        <div class="upload-area">
+            <input type="file" id="fileInput" multiple>
+            <label for="fileInput" class="upload-label">
+                <span class="upload-icon">&#8681;</span>
+                <span class="upload-text">Click to select files</span>
+            </label>
+            <button id="uploadButton" disabled>Upload</button>
+        </div>
+    </div>
+{% endblock %}
+
+
+{% block script %}
+const dropdownBtn = document.querySelector('.dropdown-btn');
+const dropdownMenu = document.querySelector('.dropdown-menu');
+
+document.getElementById('dir-up-btn').addEventListener('click', function() {
+  const url = window.location.href;
+  const lastSlashIndex = url.lastIndexOf('/');
+  const newUrl = url.substring(0, lastSlashIndex);
+  window.location.href = newUrl;
+});
+
+dropdownBtn.addEventListener('click', () => {
+  dropdownMenu.classList.toggle('show');
+});
+
+document.addEventListener('click', (e) => {
+  if (!dropdownBtn.contains(e.target) &&!dropdownMenu.contains(e.target)) {
+    dropdownMenu.classList.remove('show');
+  }
+});
+
+function selectDirectory(directory) {
+  console.log(directory)
+  window.location.href = directory;
+  dropdownMenu.classList.remove('show');
+}
+
+
+// Upload area Javascript
+
+const fileInput = document.getElementById('fileInput');
+const uploadButton = document.getElementById('uploadButton');
+
+fileInput.addEventListener('change', function() {
+    if (fileInput.files.length > 0) {
+        uploadButton.disabled = false;
+    } else {
+        uploadButton.disabled = true;
+    }
+});
+
+uploadButton.addEventListener('click', function() {
+    const files = fileInput.files;
+    const formData = new FormData();
+
+    for (let i = 0; i < files.length; i++) {
+        formData.append('files[]', files[i]);
+    }
+
+    fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        if (response.ok) {
+            console.log('Files uploaded successfully');
+            // Reset the input field
+            fileInput.value = '';
+            uploadButton.disabled = true;
+        } else {
+            console.error('Failed to upload files');
+        }
+    })
+    .catch(error => {
+        console.error('Error uploading files:', error);
+    });
+});
+{% endblock %}

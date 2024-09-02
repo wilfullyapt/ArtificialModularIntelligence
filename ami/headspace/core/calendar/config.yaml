@@ -1,0 +1,15 @@
+# Not sure if this is necesarry
+module_name: calender
+
+# This is placement of the module on the GUI
+placement:
+  relx: 0.5
+  rely: 0.1
+  anchor: n
+
+# Does this headspace need a filesystem?
+filesystem: True
+
+## Calendar filename and calendar mode
+calendar_filename: calendar.json
+calendar_mode: week

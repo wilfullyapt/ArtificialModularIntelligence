@@ -1,0 +1,55 @@
+######################################################################
+# Configuation file for Artifical Modular Intelligence (AMI)
+#   These are settings for the AI that can only be user configured
+
+# API Keys for services used
+together_apikey:
+
+# Landsmith optional
+langsmith_apikey:
+
+# Timezone information; run homeai.utils.py:get_timezones() to see a list of inputs here
+timezone: America/Los_Angeles
+
+# Silence threshold when listening to the user
+silence_threshold: 4
+
+# AI filesystem directory
+ai_filesystem: filespace
+
+# This setting, if enabled, saves all voice interations to a directory
+recording_dir: recordings
+
+# Server Host
+host: 0.0.0.0
+
+# Server Port
+port: 5000
+
+# File Selects for triggers and utilies for the AI
+hot_word: computer.umdl
+
+# Log configuration
+logging:
+  stdout: True
+  directory: logs
+  # Literal: DEBUG | INFO | WARNING | ERROR | CRITICAL
+  level: WARNING
+
+# QR Codes are saved to this directory
+#TODO Delete this
+#DEPRICATE THIS
+qr_directory: qr_codes
+
+# Modules
+## Modules are essentionally 3rd party agents
+## The defaults in modules at core run the AI
+
+# 3rd Party Module Headspaces directory
+modules_dir: modules
+
+# Enabled Headspaces (core and imported)
+enabled_headspaces:
+  - time
+  - markdown
+  - calendar

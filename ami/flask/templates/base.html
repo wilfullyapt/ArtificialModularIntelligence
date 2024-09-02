@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+    {% if title %}
+    <title>{{ title }}</title>
+    {% else %}
+    <title>{{ headspace }}</title>
+    {% endif %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    {% if css %}<link rel="stylesheet" href="{{ url_for(headspace + '.static', filename=css) }}">{% endif %}
+    </head>
+<body>
+    <div class="top-bar">
+        <div class="hamburger" onclick="toggleMenu()">&#9776;</div>
+        <h3>{% if header %}{{ header }}{% else %}{{ headspace }}{% endif %}</h3>
+        {% if buttons %}
+            <div class="header-buttons">
+                {% for button in buttons %}
+                    <input type="submit" value="{{ button.value }}" form="{{ button.form }}" style="float: right; margin-right: 10px;">
+                {% endfor %}
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="slide-menu" id="slide-menu">
+        <span class="close-btn" onclick="toggleMenu()">&times;</span>
+        <div class="menu-items">
+            <a href="{{ url_for('welcome') }}">Welcome!</a>
+            <a href="{{ url_for('tree') }}">Tree</a>
+            <a href="{{ url_for('logs') }}">Logs</a>
+            <a href="https://github.com/wmawhinney1990/ArtificialModularIntelligence">GitHub</a>
+            {% if menu_items %}
+                {% for item in menu_items %}
+                    <a href="{{ item.url }}">{{ item.name }}</a>
+                {% endfor %}
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="content">{{ content | safe }}</div>
+
+    <script>
+        function toggleMenu() {
+            var slideMenu = document.getElementById('slide-menu');
+            slideMenu.classList.toggle('show');
+        }
+        {% block script %}{% endblock %}
+    </script>
+    {% if js %}<script src="{{ url_for(headspace + 'static', filename=js) }}"></script>{% endif %}
+</body>
+</html>

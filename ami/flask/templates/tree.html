@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block styles %}
+    .tree-selection {
+        cursor: pointer;
+    }
+        
+{% endblock %}
+
+
+{% block title %}Directory Tree{% endblock %}
+{% block heading %}<h3>Directory Tree</h3>{% endblock %}
+
+{% block content %}
+    <ul>
+        {% for name, subtree in tree.items() %}
+            <li><span onclick="navigation('{{ name }}')" class="tree-selection">{{ name }}</span>
+                {% if subtree %}
+                    <ul>
+                        {% macro render_tree_recursive(subtree, path) %}
+                            {% for subname, subsubtree in subtree.items() %}
+                                <li><span onclick="navigation('{{ path }}/{{ subname }}')" class="tree-selection">{{ subname }}</span>
+                                    {% if subsubtree %}
+                                        <ul>{{ render_tree_recursive(subsubtree, path + '/' + subname) }}</ul>
+                                    {% endif %}
+                                </li>
+                            {% endfor %}
+                        {% endmacro %}
+                        {{ render_tree_recursive(subtree, name) }}
+                    </ul>
+                {% endif %}
+            </li>
+        {% endfor %}
+    </ul>
+{% endblock %}
+
+
+{% block script %}
+
+        function downloadFile(url, displayName) {
+            fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/octet-stream'
+                }
+            })
+            .then(response => response.blob())
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = displayName;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+            })
+            .catch(error => console.error('Error downloading file:', error));
+        }
+
+        function getUrlPrefix(url) {
+            const extension = url.split('.').pop();
+            if (!extension) {
+                return 'upload/';
+            } else if (extension === 'json' || extension === 'md' || extension === 'yaml') {
+                return 'editor/';
+            } else if (extension === 'pdf') {
+                return 'download/';
+            } else if (extension === 'log') {
+                return 'logs/';
+            } else {
+                return 'upload/';
+            }
+        }
+
+        function navigation(target) {
+            const currentUrl = window.location.href;
+            const lastSlashIndex = currentUrl.lastIndexOf('/');
+            const baseUrl = currentUrl.substring(0, lastSlashIndex);
+
+            const urlPrefix = getUrlPrefix(target);
+            const newUrl = new URL(baseUrl);
+            newUrl.pathname += urlPrefix + target;
+
+            if (urlPrefix === 'download/') {
+                const fileName = target.split('/').pop();
+                downloadFile(newUrl.toString(), fileName)
+            } else {
+                window.location.href = newUrl.toString();
+            }
+        }
+{% endblock %}

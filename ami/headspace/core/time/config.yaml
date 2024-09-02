@@ -1,0 +1,19 @@
+# Not sure if this is necesarry
+module_name: time
+
+# This is placement of the module on the GUI
+placement:
+  x: 1
+  y: 1
+  anchor: nw
+
+# Time specific perameters
+
+# Font options includes "Arial", "Times New Roman", "Courier", "Helvetica", "Geogia", "Verdana"
+font: Helvetica
+
+# Highlight is the color of the hours, minuts, and date
+highlight_color : '#C34456'
+
+# Lowlight color is the color of the am/pm and seconds
+lowlight_color : '#331111'

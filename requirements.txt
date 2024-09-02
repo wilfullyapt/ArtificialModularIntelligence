@@ -1,0 +1,13 @@
+gunicorn==22.0.0
+langchain==0.2.15
+langchain_community==0.2.15
+langchain_core==0.2.37
+langchain_together==0.1.5
+Flask==3.0.3
+Markdown==3.7
+Pillow==10.4.0
+pydantic==2.8.2
+pytz==2024.1
+PyYAML==6.0.2
+qrcode==7.4.2
+SpeechRecognition==3.10.4

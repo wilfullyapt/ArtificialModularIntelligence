@@ -1,4 +1,4 @@
-# Artificial Modular Intelligence 🧠
+# Artificial Modular Intelligence 🧩🧠
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -11,6 +11,7 @@
 *Coming soon*
 - Financial Advisor: Upload your financial documents and gain insight and personalized financial guidance
 - Integration and syncing with calendar apps like Google and Apple
+- Sharable Picture Frame/Albums
 
 ### 🚀 Getting Started
 
@@ -22,11 +23,13 @@
     - Creates a virtual enviornment
     - Installs all related packages
     - Copies a fresh `config.yaml` from template, unless one exists already
-    - Clones, compiles, and installs Snowboy
-    - Copies necesarry Snowboy binaries and resource files
-    - Deletes the cloned Snowboy repo directory
-4. Update `config.yaml` with TogertherAI key
+. Update `config.yaml` with TogertherAI key
 5. Run the AI: `./run.sh`
+
+### 🔮 ML Models at work
+- Hot Word / Wake word detection (local): [openWakeWord](https://github.com/dscripka/openWakeWord)
+- Speech to Text (STT): Sphinx (local) or Google (cloud) => [SpeechRecognition](https://github.com/Uberi/speech_recognition).Recognizer()
+- LLM Inference: [LangChain](https://github.com/langchain-ai/langchain) (local) & [TogetherAI](https://api.together.xyz/) (cloud / actual inference)
 
 
 ### 💻 AMI Directory Structure
@@ -51,17 +54,17 @@ ami/
 ```
 
 ### 🧭 Roadmap
-- Tools Headspace (Calibrate Audio / Train new Hot Word, Config editor (core, headspaces, add-ons), self update, notifications
+- Tools Headspace (Calibrate Audio / Train new Hot Word, Config editor (core, headspaces, add-ons), self update, notifications)
 - Finacial Assisstant Headspace
 - Conversational Headspace. Allow for a Headspace to get to know the user through conversation. Answer question about the device.
 - Researcher Headspace (Perplexity style search, Perplexity level subject matter research document, RAG agent)
 - GitHub Wiki entry tracking add-on modules
-- Discord Headspace
+- Discord or Telegram Headspace
 
 ### ✨ Inspired by
 The entire e/acc community
 MagicMirror2
 Obsidian paradigm: File > App
 
-### Build your own Headspace
+### 🧩 Build your own Headspace
 See ami.ai.headspace directory to understand how the GUI, Blueprint, and Headspace tie into the Headspace Module

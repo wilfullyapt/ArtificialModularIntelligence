@@ -133,7 +133,8 @@ class Ears(Base):
 
         try:
             audio = sr.AudioData(audio_data.getvalue(), sample_rate=16000, sample_width=2)
-            text = self.r.recognize_google(audio)  # google is the cloud
+            text = self.r.recognize_google(audio)      # google is the cloud
+#           text = self.r.recognize_sphinx(audio)      # sphinx is local
             self.logs.info("recognize_google used for audio STT")
             return text
 

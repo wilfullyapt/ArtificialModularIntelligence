@@ -85,9 +85,16 @@ class Config:
         return ai_dir_path
 
     @property
-    def hot_word(self):
+    def oww_models_dir(self) -> Path:
+        """ Get the path for OWW models, create the directory if it doesn't exist """
+        models_dir = self.ai_dir / "resources" / "models"
+        models_dir.mkdir(parents=True, exist_ok=True)
+        return models_dir
+
+    @property
+    def hot_word(self) -> str:
         """ Get the Path for the hot word file """
-        return self.ai_dir / self["hot_word"]
+        return self["hot_word"]
 
     @property
     def recordings_dir(self):

@@ -399,6 +399,7 @@ class AIDialogWindow(Frame):
             return
         self._popup.destroy()
         self._popup = None
+        self.parent.temp_comms.publish("gui.interaction_finished")
 
 class GUI(Tk, Base):
     """
@@ -409,11 +410,12 @@ class GUI(Tk, Base):
     Attributes:
         popup (AIDialogWindow): This is the popup window for visual indication with the AI.
     """
-    def __init__(self, *args, **kwargs):
+    def __init__(self, temp_comms, *args, **kwargs):
         """ Initialize the GUI """
         Tk.__init__(self, *args, **kwargs)
         Base.__init__(self)
 
+        self.temp_comms = temp_comms
         self.popup = AIDialogWindow(self)
 
         self.title('Artificial Modular Intelligence')

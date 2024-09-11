@@ -26,8 +26,12 @@ host: 0.0.0.0
 # Server Port
 port: 5000
 
-# File Selects for triggers and utilies for the AI
-hot_word: computer.umdl
+# Hot Word is a literal used by openWakeWord for the model to use for hotword detection
+# Literal[ "alexa", "hey_mycroft", "hey_jarvis", "hey_rhasspy" ]
+hot_word: hey_rhasspy
+
+# Audio Silence Threshold (int) is the audio levels where voice is detected versus not
+audio_silence_threshold: 11000
 
 # Log configuration
 logging:

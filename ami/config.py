@@ -97,6 +97,10 @@ class Config:
         return self["hot_word"]
 
     @property
+    def silence_threshold(self):
+        return int(self["audio_silence_threshold"])
+
+    @property
     def recordings_dir(self):
         """ Get the Path for where to put the audio recording """
         if self.get("recording_dir") is None:

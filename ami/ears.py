@@ -80,6 +80,7 @@ class Ears(Base):
 
         self.r = sr.Recognizer()
         config = Config()
+        self.AUDIO_SILENCE_THRESHOLD = config.silence_threshold
 
         self.model = self.get_model(
             config.oww_models_dir,
@@ -190,13 +191,14 @@ class Ears(Base):
                     audio = np.frombuffer(mic_stream.read(self.CHUNK), dtype=np.int16)
                     audio_buffer.append(audio)
 
-                    print(f"\rSilence threshold: {np.max(np.abs(audio))}", end="", flush=True)
-                    if np.max(np.abs(audio)) < 30_000:  # Adjust this threshold as needed
+                    print(f"\rSilence threshold: {np.max(np.abs(audio))} | {np.max(np.abs(audio))/self.AUDIO_SILENCE_THRESHOLD}", end="", flush=True)
+                    if np.max(np.abs(audio)) < self.AUDIO_SILENCE_THRESHOLD:
                         silence_counter = time.time() - start_time
                     else:
                         start_time = time.time()
                         silence_counter = 0
 
+                self.running = False
                 audio_data = np.concatenate(audio_buffer)
                 with io.BytesIO() as f:
                     sf.write(f, audio_data, 16000, format='wav')
@@ -204,7 +206,6 @@ class Ears(Base):
 
                 self.logs.info(f"Transcribed text: {text}")
                 self.temp_comms.publish("ears.recorder_callback", text)
-                self.running = False
 
         mic_stream.stop_stream()
         mic_stream.close()

@@ -80,7 +80,6 @@ class Ears(Base):
 
         self.r = sr.Recognizer()
         config = Config()
-        self.AUDIO_SILENCE_THRESHOLD = config.silence_threshold
 
         self.model = self.get_model(
             config.oww_models_dir,
@@ -162,7 +161,8 @@ class Ears(Base):
             This method is intended to be run in a separate thread to avoid blocking
             the main program execution.
         """
-        mic_stream = pyaudio.PyAudio().open(
+        p = pyaudio.PyAudio()
+        mic_stream = p.open(
             format=pyaudio.paInt16,
             channels=1,
             rate=16000,
@@ -172,43 +172,75 @@ class Ears(Base):
 
         audio_buffer = []
         silence_counter = 0
+        last_minute_buffer = []
 
-        while self.running:
-            audio = np.frombuffer(mic_stream.read(self.CHUNK), dtype=np.int16)
-            prediction = self.model.predict(audio)
-            detection = any(self.model.prediction_buffer[mdl][-1] > self.DETECTION_THRESHOLD
-                for mdl in self.model.prediction_buffer.keys()
-            )
+        self.logs.debug("Listening started ...")
 
-            if detection:
-                self.temp_comms.publish("ears.hotword_detected")
-                self.logs.info("Hotword detected!")
-                audio_buffer = [audio]
-                silence_counter = 0
+        try:
+            while self.running:
+                audio = np.frombuffer(mic_stream.read(self.CHUNK), dtype=np.int16)
+                last_minute_buffer.append(audio)
+                if len(last_minute_buffer) > 60 * 16000 // self.CHUNK:  # Keep last minute of audio
+                    last_minute_buffer.pop(0)
 
-                start_time = time.time()
-                while silence_counter < self.talk_gap and self.running:
-                    audio = np.frombuffer(mic_stream.read(self.CHUNK), dtype=np.int16)
-                    audio_buffer.append(audio)
+                prediction = self.model.predict(audio)
+                detection = any(self.model.prediction_buffer[mdl][-1] > self.DETECTION_THRESHOLD
+                    for mdl in self.model.prediction_buffer.keys()
+                )
 
-                    print(f"\rSilence threshold: {np.max(np.abs(audio))} | {np.max(np.abs(audio))/self.AUDIO_SILENCE_THRESHOLD}", end="", flush=True)
-                    if np.max(np.abs(audio)) < self.AUDIO_SILENCE_THRESHOLD:
-                        silence_counter = time.time() - start_time
-                    else:
-                        start_time = time.time()
-                        silence_counter = 0
+                if detection:
+                    self.temp_comms.publish("ears.hotword_detected")
+                    self.logs.debug("Hotword detected!")
+                    last_minute_audio = np.concatenate(last_minute_buffer)
+                    positive_audio = np.abs(last_minute_audio)
+                    min_amplitude = np.min(positive_audio)
+                    max_amplitude = np.max(positive_audio)
+                    std_amplitude = np.std(positive_audio)
+                    silence_threshold = min_amplitude + std_amplitude
+                    self.logs.debug(f"Listening... min={min_amplitude} max={max_amplitude} std={std_amplitude}, threshold={silence_threshold}")
 
-                self.running = False
-                audio_data = np.concatenate(audio_buffer)
-                with io.BytesIO() as f:
-                    sf.write(f, audio_data, 16000, format='wav')
-                    text = self.string_from_audio(f)
+                    audio_buffer = [audio]
+                    silence_counter = 0
+                    speech_started = False
+                    start_time = time.time()
 
-                self.logs.info(f"Transcribed text: {text}")
-                self.temp_comms.publish("ears.recorder_callback", text)
+                    while silence_counter < self.talk_gap and self.running:
+                        audio = np.frombuffer(mic_stream.read(self.CHUNK), dtype=np.int16)
+                        audio_buffer.append(audio)
 
-        mic_stream.stop_stream()
-        mic_stream.close()
+                        if time.time() - start_time > 1 and not speech_started:
+                            if np.max(np.abs(audio)) > silence_threshold:
+                                speech_started = True
+                                start_time = time.time()
+
+                        if speech_started:
+                            if self.logs.level in [ 'DEBUG', 'INFO' ]:
+                                print(f"\rSilence threshold: {np.max(np.abs(audio))} | {np.max(np.abs(audio))/silence_threshold}", end="", flush=True)
+                            if np.max(np.abs(audio)) < silence_threshold:
+                                silence_counter = time.time() - start_time
+                            else:
+                                start_time = time.time()
+                                silence_counter = 0
+
+                    audio_data = np.concatenate(audio_buffer)
+                    with io.BytesIO() as f:
+                        sf.write(f, audio_data, 16000, format='wav')
+                        text = self.string_from_audio(f)
+
+                    self.temp_comms.publish("ears.recorder_callback", text)
+                    self.logs.info(f"Transcribed text: {text}. Listening finished.")
+                    break
+
+        except Exception as e:
+            self.logs.error(f"Error in listen method: {str(e)}")
+
+        finally:
+            self.running = False
+            mic_stream.stop_stream()
+            mic_stream.close()
+            p.terminate()
+            self.model.reset()
+            self.logs.info("Thread Exiting")
 
     def start_listening(self):
         """ Start Listening """

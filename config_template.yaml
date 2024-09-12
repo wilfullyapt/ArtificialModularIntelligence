@@ -30,9 +30,6 @@ port: 5000
 # Literal[ "alexa", "hey_mycroft", "hey_jarvis", "hey_rhasspy" ]
 hot_word: hey_rhasspy
 
-# Audio Silence Threshold (int) is the audio levels where voice is detected versus not
-audio_silence_threshold: 11000
-
 # Log configuration
 logging:
   stdout: True

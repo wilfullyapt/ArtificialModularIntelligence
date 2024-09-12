@@ -1,11 +1,16 @@
 """ eary.py """
-import os
-import shutil
+import io
+import time
 from pathlib import Path
 from threading import Thread
 
+import numpy as np
 import speech_recognition as sr
-from snowboy import snowboydecoder
+import pyaudio
+import openwakeword
+from openwakeword.utils import download_models
+from openwakeword.model import Model
+import soundfile as sf
 
 from ami.base import Base
 from ami.config import Config
@@ -13,43 +18,62 @@ from ami.config import Config
 SENSITIVITY = 0.3
 SILENCE_THRESHOLD = 5
 
+def get_melspec_filepath(models_dir: Path, search_string: str="melspectrogram", extension: str="tflite"):
+    """ Get the melspec model for OpenWakeWord """
+    for file in models_dir.glob(f"*{search_string}*.{extension}"):
+        return file
+    return None
+
+def get_embeddings_filepath(models_dir: Path, search_string: str="embedding", extension: str="tflite"):
+    """ Get the embeddings model for OpenWakeWord """
+    for file in models_dir.glob(f"*{search_string}*.{extension}"):
+        return file
+    return None
+
+class InvalidModel(Exception):
+    """Exception raised for invalid hotword models."""
+    pass
+
 class Ears(Base):
     """
-        Ears the module that listens!
+    A class for handling audio input, hotword detection, and speech-to-text conversion.
 
-        r: sr.Recognizer = sr.Recognizer()
-        detector: snowboydecoder.HotwordDetector = snowboydecoder.HotwordDetector(model_path)
-            The snowboy Hotword Detector is an offline model that pick up on a specific word said
-        talk_gap: int
-            This is set in the config.yaml file as silence_threshold, defualted to SILENCE_THRESHOLD
-            Talk Gap is fed into Ears.detector.start as a kwarg: silent_count_threshold
+    This class uses OpenWakeWord for hotword detection and Google Speech Recognition
+    for speech-to-text conversion. It runs in a separate thread to continuously listen
+    for a specified hotword and then record and transcribe subsequent audio input.
 
-        References:
+    Attributes:
+        temp_comms (TempComms): An instance of the TempComms class for communication.
+        thread (Thread): A thread object for running the hotword detection.
+        r (Recognizer): A speech recognition recognizer instance.
+        model (openwakeword.Model): An OpenWakeWord Model instance.
+        running (bool): A flag indicating whether the hotword detection is running.
+        talk_gap (int): The silence threshold for detecting the end of speech.
+        recordings_directory (Path): The directory path for storing audio recordings.
 
-        snowboydecoder.HotwordDetector:
-            https://github.com/seasalt-ai/snowboy/tree/master?tab=readme-ov-file#quick-start-for-python-demo
-
-
+    Methods:
+        get_model: Get or download the hotword detection model.
+        string_from_audio: Convert audio data to text.
+        listen: Continuously listen for the hotword and process audio input.
+        start_listening: Start the listening thread.
+        stop: Stop the listening thread.
     """
-
     def __init__(self, temp_comms):
         """
         Initialize the Ears class.
 
         Args:
-            temp_comms (TempComms): An instance of the TempComms class for communication.
+            temp_comms: An instance of the TempComms class for communication.
 
-        Attributes:
-            temp_comms (TempComms): An instance of the TempComms class for communication.
-            thread (Thread): A thread object for running the hotword detection.
-            r (Recognizer): A speech recognition recognizer instance.
-            model (str): The path to the hotword detection model.
-            detector (HotwordDetector): A hotword detector instance.
-            running (bool): A flag indicating whether the hotword detection is running.
-            talk_gap (int): The silence threshold for detecting the end of speech.
-            recordings_directory (Path): The directory path for storing audio recordings.
+        This method sets up the initial state of the Ears object, including:
+        - Configuring audio processing parameters
+        - Setting up the speech recognition recognizer
+        - Loading the hotword detection model
+        - Initializing various attributes for audio processing and recording
         """
         super().__init__()
+        self.CHUNK = 1280
+        self.DETECTION_THRESHOLD = 0.5
 
         self.temp_comms = temp_comms
         self.thread = None
@@ -57,36 +81,61 @@ class Ears(Base):
         self.r = sr.Recognizer()
         config = Config()
 
-        self.model = str(config.hot_word)
-        self.detector = snowboydecoder.HotwordDetector(self.model, sensitivity=SENSITIVITY)
+        self.model = self.get_model(
+            config.oww_models_dir,
+            config.hot_word,
+            melspec_model_path=str(get_melspec_filepath(config.oww_models_dir)),
+            embedding_model_path=str(get_embeddings_filepath(config.oww_models_dir))
+        )
         self.running = False
 
         self.talk_gap = int(config.get("silence_threshold", SILENCE_THRESHOLD))
+        self.logs.info(f"talk_gap is {self.talk_gap}")
         self.recordings_directory = config.recordings_dir
 
-    def handle_audio_file(self, fname) -> None:
-        """ Based on class parameters, delete or move the recording file """
-        if self.recordings_directory is None:
-            self.logs.warn(f"Ears.recordings_directory not found! Deleting {fname}.")
-            os.remove(fname)
-        else:
-            if not self.recordings_directory.is_dir():
-                self.recordings_directory.mkdir()
-            shutil.move(Path(fname), self.recordings_directory / fname)
+    def get_model(self, models_dir: Path, hotword: str, **kwargs) -> Model:
+        """
+        Get or download the hotword detection model.
 
-    def string_from_audio(self, fname) -> str:
-        """ Convert the audio file to text """
-        self.logs.info(f" Audio to text in progress ... {fname}")
+        Args:
+            models_dir (Path): The directory where models are stored.
+            hotword (str): The name of the hotword to detect.
+
+        Returns:
+            Model: An instance of the OpenWakeWord Model class.
+
+        Raises:
+            InvalidModel: If the specified hotword is not valid.
+
+        This method checks if a model for the specified hotword exists in the models directory.
+        If found, it returns a Model instance using the existing file. If not found, it attempts
+        to download the model from the OpenWakeWord repository. If the hotword is not valid,
+        it raises an InvalidModel exception.
+        """
+        tflite_files = list(models_dir.glob(f"*{hotword}*.tflite"))
+
+        if len(tflite_files) > 0:
+            return Model(wakeword_models=[str(tflite_files[0])], **kwargs)
+
+        else:
+            if hotword not in openwakeword.MODELS.keys():
+                err_msg = f"Hotword {hotword} not valid. Please reconfigire with one of the following {openwakeword.MODELS.keys()}"
+                self.logs.error(err_msg)
+                raise InvalidModel(err_msg)
+            else:
+                download_models(model_names=[hotword], target_directory=str(models_dir))
+                return self.get_model(models_dir, hotword)
+
+    def string_from_audio(self, audio_data) -> str:
+        """ Convert the audio data to text """
+        self.logs.info("Audio to text in progress...")
         self.temp_comms.publish("gui.popup.loading_message", "Transcribing Audio")
 
-        with sr.AudioFile(fname) as source:
-            audio = self.r.record(source)
-
         try:
-#           text = self.r.recognize_sphinx(audio)      # sphinx is local
+            audio = sr.AudioData(audio_data.getvalue(), sample_rate=16000, sample_width=2)
             text = self.r.recognize_google(audio)      # google is the cloud
-
-            self.handle_audio_file(fname)
+#           text = self.r.recognize_sphinx(audio)      # sphinx is local
+            self.logs.info("recognize_google used for audio STT")
             return text
 
         except sr.UnknownValueError:
@@ -96,35 +145,108 @@ class Ears(Base):
             self.logs.error(f"Could not request results for speech recognition service; {e}")
             return ""
 
-    def _on_detection(self):
-        """ Detection callback """
-        self.temp_comms.publish("ears.hotword_detected")
+    def listen(self):
+        """
+        Continuously listen for the hotword and process audio input.
 
-    def _on_recorder_callback(self, fname):
-        """ Recording finished callback """
-        message = self.string_from_audio(fname)
-        self.temp_comms.publish("ears.recorder_callback", message)
+        This method opens a microphone stream and continuously analyzes the audio input
+        for the presence of a hotword. When the hotword is detected, it starts recording
+        the subsequent audio until a period of silence is detected. The recorded audio
+        is then transcribed to text and published via temp_comms.
 
-    def _hotword_listen(self):
-        """ Inner start listening method """
-#       passthru_keys are meant to be the arguement names for self.detector.start
-#       passthru_keys = ["detected_callback", "interrupt_check", "sleep_time",
-#                        "audio_recorder_callback", "silent_count_threshold", "recording_timeout"]
+        The method runs in a loop while self.running is True, allowing it to be stopped
+        externally by setting self.running to False.
+
+        Note:
+            This method is intended to be run in a separate thread to avoid blocking
+            the main program execution.
+        """
+        p = pyaudio.PyAudio()
+        mic_stream = p.open(
+            format=pyaudio.paInt16,
+            channels=1,
+            rate=16000,
+            input=True,
+            frames_per_buffer=self.CHUNK
+        )
+
+        audio_buffer = []
+        silence_counter = 0
+        last_minute_buffer = []
+
+        self.logs.debug("Listening started ...")
+
         try:
             while self.running:
-                self.detector.start(detected_callback=self._on_detection,
-                                    audio_recorder_callback=self._on_recorder_callback)
-        except KeyboardInterrupt:
-            self.running = False
-            self.logs.info(" <ctlr-C> detected!!")
-            if self.detector:
-                self.detector.terminate()
+                audio = np.frombuffer(mic_stream.read(self.CHUNK), dtype=np.int16)
+                last_minute_buffer.append(audio)
+                if len(last_minute_buffer) > 60 * 16000 // self.CHUNK:  # Keep last minute of audio
+                    last_minute_buffer.pop(0)
 
-    def listen(self):
-        """ Start listening """
+                prediction = self.model.predict(audio)
+                detection = any(self.model.prediction_buffer[mdl][-1] > self.DETECTION_THRESHOLD
+                    for mdl in self.model.prediction_buffer.keys()
+                )
+
+                if detection:
+                    self.temp_comms.publish("ears.hotword_detected")
+                    self.logs.debug("Hotword detected!")
+                    last_minute_audio = np.concatenate(last_minute_buffer)
+                    positive_audio = np.abs(last_minute_audio)
+                    min_amplitude = np.min(positive_audio)
+                    max_amplitude = np.max(positive_audio)
+                    std_amplitude = np.std(positive_audio)
+                    silence_threshold = min_amplitude + std_amplitude
+                    self.logs.debug(f"Listening... min={min_amplitude} max={max_amplitude} std={std_amplitude}, threshold={silence_threshold}")
+
+                    audio_buffer = [audio]
+                    silence_counter = 0
+                    speech_started = False
+                    start_time = time.time()
+
+                    while silence_counter < self.talk_gap and self.running:
+                        audio = np.frombuffer(mic_stream.read(self.CHUNK), dtype=np.int16)
+                        audio_buffer.append(audio)
+
+                        if time.time() - start_time > 1 and not speech_started:
+                            if np.max(np.abs(audio)) > silence_threshold:
+                                speech_started = True
+                                start_time = time.time()
+
+                        if speech_started:
+                            if self.logs.level in [ 'DEBUG', 'INFO' ]:
+                                print(f"\rSilence threshold: {np.max(np.abs(audio))} | {np.max(np.abs(audio))/silence_threshold}", end="", flush=True)
+                            if np.max(np.abs(audio)) < silence_threshold:
+                                silence_counter = time.time() - start_time
+                            else:
+                                start_time = time.time()
+                                silence_counter = 0
+
+                    audio_data = np.concatenate(audio_buffer)
+                    with io.BytesIO() as f:
+                        sf.write(f, audio_data, 16000, format='wav')
+                        text = self.string_from_audio(f)
+
+                    self.temp_comms.publish("ears.recorder_callback", text)
+                    self.logs.info(f"Transcribed text: {text}. Listening finished.")
+                    break
+
+        except Exception as e:
+            self.logs.error(f"Error in listen method: {str(e)}")
+
+        finally:
+            self.running = False
+            mic_stream.stop_stream()
+            mic_stream.close()
+            p.terminate()
+            self.model.reset()
+            self.logs.info("Thread Exiting")
+
+    def start_listening(self):
+        """ Start Listening """
         if not self.running:
             self.running = True
-            self.thread = Thread(target=self._hotword_listen, daemon=True)
+            self.thread = Thread(target=self.listen, daemon=True)
             self.logs.info("Ears running!")
             self.thread.start()
 
@@ -132,9 +254,6 @@ class Ears(Base):
         """ Stop listening """
         if self.running:
             self.running = False
-            if self.detector:
-                self.logs.info("Detector Terminated!")
-                self.detector.terminate()
             if self.thread:
                 self.logs.info("Listener thread.join() called!")
                 self.thread.join()

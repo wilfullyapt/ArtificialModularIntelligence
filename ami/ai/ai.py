@@ -112,7 +112,7 @@ class AI(Base):
         self.temp_comms = TemporalCommunications()
         self.ears = Ears(temp_comms=self.temp_comms)
 
-        self.gui = GUI()
+        self.gui = GUI(temp_comms=self.temp_comms)
         self.flask_manager = FlaskManager(self.stop_event)
         self.brain = Brain(headspaces=self.get_modules_part("headspace"))
 
@@ -205,7 +205,7 @@ class AI(Base):
         app = create_flask_app(self.get_modules_part("blueprint"), self.flask_pipe)
         self.flask_manager.start(app)
 
-        self.ears.listen()
+        self.ears.start_listening()
         self.attn.start()
         self.attn.schedule(self.process_whisperer())
 
@@ -225,6 +225,7 @@ class AI(Base):
         self.temp_comms.subscribe("ears.hotword_detected", self.start_chat)
         self.temp_comms.subscribe("ears.recorder_callback", self.human_to_ai)
         self.temp_comms.subscribe("gui.popup.loading_message", self.gui.popup.set_loading_message)
+        self.temp_comms.subscribe("gui.interaction_finished", self.ears.start_listening)
         self.temp_comms.subscribe("attn.schedule", self.attn.schedule)
 
     def start_chat(self):

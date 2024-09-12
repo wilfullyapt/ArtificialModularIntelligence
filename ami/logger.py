@@ -59,6 +59,11 @@ class Logger:
         return f"Logger(name={self.name}, config={self._config}, logger={self._logger})"
 
     @property
+    def level(self):
+        """ Return the log level """
+        return self._config.log_level
+
+    @property
     def config(self) -> LoggerConfig:
         """ config member """
         return self._config

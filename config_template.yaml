@@ -26,8 +26,9 @@ host: 0.0.0.0
 # Server Port
 port: 5000
 
-# File Selects for triggers and utilies for the AI
-hot_word: computer.umdl
+# Hot Word is a literal used by openWakeWord for the model to use for hotword detection
+# Literal[ "alexa", "hey_mycroft", "hey_jarvis", "hey_rhasspy" ]
+hot_word: hey_rhasspy
 
 # Log configuration
 logging:

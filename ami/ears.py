@@ -124,7 +124,7 @@ class Ears(Base):
                 raise InvalidModel(err_msg)
             else:
                 download_models(model_names=[hotword], target_directory=str(models_dir))
-                return self.get_model(models_dir, hotword)
+                return self.get_model(models_dir, hotword, **kwargs)
 
     def string_from_audio(self, audio_data) -> str:
         """ Convert the audio data to text """
@@ -196,7 +196,7 @@ class Ears(Base):
                     min_amplitude = np.min(positive_audio)
                     max_amplitude = np.max(positive_audio)
                     std_amplitude = np.std(positive_audio)
-                    silence_threshold = min_amplitude + std_amplitude
+                    silence_threshold = max(min_amplitude + 2 * std_amplitude, 5000)  # Ensure a minimum positive threshold
                     self.logs.debug(f"Listening... min={min_amplitude} max={max_amplitude} std={std_amplitude}, threshold={silence_threshold}")
 
                     audio_buffer = [audio]

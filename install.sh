@@ -24,11 +24,12 @@ fi
 
 # Step 1: Install dependencies
 echo -e "${GREEN}Installing dependencies...${NC}"
-apt-get update && apt-get install -y python3 python3-pip python3-venv git
+apt-get update && apt-get install -y 
+python3.10 python3-pip python3-venv git portaudio19-dev build-essential
 
 # Step 2: Create and activate virtual environment
 echo -e "${GREEN}Setting up virtual environment ...${NC}"
-python3 -m venv venv
+python3.10 -m venv venv
 source venv/bin/activate || cleanup_and_exit
 
 trap cleanup_and_exit ERR

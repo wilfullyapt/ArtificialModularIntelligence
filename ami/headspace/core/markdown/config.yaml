@@ -12,8 +12,8 @@ filesystem: true
 
 # Which files the module should display on the GUI
 files:
-  - alpha.md
-  - omega.md
+  - effective_accelerationism.md
+  - techno_optimist.md
 
 font-settings:
   # fonts can inclue "Arial", "Times New Roman", "Courier", "Helvetica", "Geogia", "Verdana"

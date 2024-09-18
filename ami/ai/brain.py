@@ -266,6 +266,7 @@ class Brain(Base):
         if isinstance(load_msg_callback, Callable):
             load_msg_callback("Ingesting Commmand")
         headspace = self.get_headspace_from_prompt(human_prompt)
+        self.logs.debug(f"The AI has choosen to use the {headspace.name} Headspace.")
 
         if isinstance(load_msg_callback, Callable):
             load_msg_callback("Thinking ...")

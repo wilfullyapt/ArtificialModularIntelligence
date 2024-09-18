@@ -1,0 +1,24 @@
+# Not sure if this is necesarry
+module_name: markdown
+
+# This is placement of the module on the GUI
+placement:
+  anchor: center
+  relx: 0.5
+  rely: 0.7
+
+# Does this headspace need a filesystem?
+filesystem: true
+
+# Which files the module should display on the GUI
+files:
+  - effective_accelerationism.md
+  - techno_optimist.md
+
+font-settings:
+  # fonts can inclue "Arial", "Times New Roman", "Courier", "Helvetica", "Geogia", "Verdana"
+  font: Verdana
+  font-size: 9
+  h1-size: 16
+  h2-size: 14
+  h3-size: 12

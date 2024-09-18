@@ -1,0 +1,50 @@
+    <form id="yaml-editor" method="POST">
+
+        {% macro render_item(idx, key, value, prefix='') %}
+            <div class="form-group">
+                {% set comment = get_comment(idx-1) %}
+                {% if comment %}<div class="comment">{{ comment }}</div>{% endif %}
+
+                {% if value.__class__.__name__ == "str" %}
+                    <label for="{{ prefix ~ key }}">{{ key }}:</label>
+                    <input type="text" name="{{ prefix ~ key ~ "(" ~ idx ~ ")" }}" value="{{ value }}">
+
+                {% elif value.__class__.__name__ == "list" %}
+                    <label for="{{ prefix ~ key }}">{{ key }}:</label>
+                    <div class="nested">
+                        {% for trio in value %}
+                            {{ render_item(trio[0], trio[1], trio[2], prefix ~ key ~ '.') }}
+                        {% endfor %}
+                    </div>
+
+                {% elif value is sequence %}
+                    <label for="{{ prefix ~ key }}">{{ key }}:</label>
+                    <div class="nested">
+                        {% for item in value %}
+                            <input type="text" name="{{ prefix ~ key }}[]" value="{{ item }}">
+                        {% endfor %}
+                        <input type="text" name="{{ prefix ~ key }}[]" placeholder="Add new item">
+                    </div>
+
+                {% else %}
+                    <label for="{{ prefix ~ key }}">{{ key }}:</label>
+                    <input type="text" name="{{ prefix ~ key }}" value="{{ value }}">
+
+                {% endif %}
+
+            </div>
+           {% if verbose %}
+                <div class="verbose-info">
+                    {{ " :str: " ~ value ~ " :: " ~ value.__class__.__name__ }}
+                </div>
+            {% endif %}
+
+        {% endmacro %}
+
+
+        {% for i, key, value in data %}
+            {{ render_item(i, key, value) }}
+        {% endfor %}
+
+    </form>
+</div>

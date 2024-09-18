@@ -4,6 +4,8 @@ venv
 .git
 
 /config.yaml
+**/config.yaml
+
 /setup.py
 
 /private

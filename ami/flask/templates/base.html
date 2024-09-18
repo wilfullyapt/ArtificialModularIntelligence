@@ -4,18 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
-    {% if title %}
-    <title>{{ title }}</title>
-    {% else %}
-    <title>{{ headspace }}</title>
-    {% endif %}
+    <title>{% block page_title %}{{ title }}{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
     {% if css %}<link rel="stylesheet" href="{{ url_for(headspace + '.static', filename=css) }}">{% endif %}
-    </head>
+    {% block extra_styles %}{% endblock %}
+</head>
 <body>
     <div class="top-bar">
         <div class="hamburger" onclick="toggleMenu()">&#9776;</div>
-        <h3>{% if header %}{{ header }}{% else %}{{ headspace }}{% endif %}</h3>
+        <h3>{% block page_header %}{{ header }}{% endblock %}</h3>
         {% if buttons %}
             <div class="header-buttons">
                 {% for button in buttons %}
@@ -40,7 +37,9 @@
         </div>
     </div>
 
-    <div class="content">{{ content | safe }}</div>
+    <div class="content">
+        {% block contents %}{{ content | safe }}{% endblock %}
+    </div>
 
     <script>
         function toggleMenu() {

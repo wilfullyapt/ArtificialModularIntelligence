@@ -423,7 +423,7 @@ class GUI(Tk, Base):
         self.popup = AIDialogWindow(self)
 
         self.title('Artificial Modular Intelligence')
-        self.config(background='black')
+        self.config(background='black', cursor='none')
         self.attributes('-fullscreen', True)
         self.withdraw()
 

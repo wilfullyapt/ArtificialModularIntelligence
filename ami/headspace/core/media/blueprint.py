@@ -27,5 +27,4 @@ class Markdown(Blueprint):
                 heading=filepath,
                 buttons=[HeaderButton(form='editor-form', value='Save')]
         )
-
         return render_template('editor.html', tempsets=tempate_settings, content=content)

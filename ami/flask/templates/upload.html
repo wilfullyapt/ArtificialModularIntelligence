@@ -1,112 +1,12 @@
-
-
-
 {% extends "base.html" %}
 
-{% block styles %}
-        .container {
-        position: relative;
-        text-align: center;
-      }
-
-      .dropdown-btn .dir-up-btn {
-        background-color: #4CAF50;
-        color: #fff;
-        padding: 10px 20px;
-        border: none;
-        border-radius: 5px;
-        cursor: pointer;
-      }
-
-      .dropdown-btn:hover {
-        background-color: #3e8e41;
-      }
-
-      .dropdown-menu {
-        position: absolute;
-        top: 100%;
-        left: 0;
-        right: 0;
-        background-color: #f9f9f9;
-        border: 1px solid #ccc;
-        padding: 10px;
-        display: none;
-        text-align: center;
-      }
-
-      .dropdown-menu li {
-        list-style: none;
-        padding: 10px;
-        border-bottom: 1px solid #ccc;
-      }
-
-      .dropdown-menu li:last-child {
-        border-bottom: none;
-      }
-
-      .dropdown-menu li a {
-        color: #337ab7;
-        text-decoration: none;
-      }
-
-      .dropdown-menu li a:hover {
-        color: #23527c;
-      }
-
-      .dropdown-menu.show {
-        display: block;
-      }
-      .upload-container {
-    text-align: center;
-    margin-top: 40px;
-}
-
-.upload-area {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin-bottom: 20px;
-}
-
-.upload-label {
-    display: inline-block;
-    padding: 10px 20px;
-    background-color: #333;
-    color: #fff;
-    cursor: pointer;
-    border-radius: 5px;
-    margin-right: 10px;
-}
-
-.upload-icon {
-    font-size: 18px;
-    margin-right: 5px;
-}
-
-#uploadButton {
-    padding: 10px 20px;
-    background-color: #333;
-    color: #fff;
-    border: none;
-    cursor: pointer;
-    border-radius: 5px;
-}
-
-#uploadButton:disabled {
-    background-color: #666;
-    cursor: not-allowed;
-}
-
-#fileInput {
-    display: none;
-}
-{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='upload.css') }}">{% endblock %}
 
 
-{% block title %}AMI | Uploader{% endblock %}
-{% block heading %}<h3>Uploader</h3>{% endblock %}
+{% block page_title %}AMI | Uploader{% endblock %}
+{% block page_heading %}<h3>Uploader</h3>{% endblock %}
 
-{% block content %}
+{% block contents %}
     <div class="container">
       <button id="dir-up-btn">..</button>
       <h4>Upload destination: <span class="code">{{ local_path }}</span></h4>

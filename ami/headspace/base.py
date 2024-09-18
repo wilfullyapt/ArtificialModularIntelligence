@@ -19,6 +19,17 @@ class LocalConfig:
         """
         config_filepath = Path(config_filepath)
 
+def resolve_config(directory: Path) -> Path:
+    """ Input a directory, check for config, backup is config_template, copy, return """
+    config_file = directory / "config.yaml"
+    if not config_file.exists():
+        template_file = directory / "config_template.yaml"
+        if template_file.exists():
+            config_file.write_text(template_file.read_text())
+        else:
+            raise FileNotFoundError(f"Neither config.yaml nor config_template.yaml found in {directory}")
+    return config_file
+
 class Primitive(Base):
     """
     Primitive is the object all module specific Parent inherit from.
@@ -45,7 +56,8 @@ class Primitive(Base):
         super().__init__()
         try:
             package = sys_modules[self.__module__].__package__
-            config_file = Path(sys_modules[package].__path__[0]) / "config.yaml"
+            config_file = resolve_config(Path(sys_modules[package].__path__[0]))
+#           config_file = Path(sys_modules[package].__path__[0]) / "config.yaml"
             self.logs.info(f"Primitive modules: {self.__module__}")
             self.logs.info(f"Primitive package: {package}")
             self.logs.info(f"Primitive config_file: {config_file}")

@@ -1,13 +1,16 @@
 """ AMI Headspace Core Funcionality """
 
 from functools import wraps
+from pathlib import Path
 from types import ModuleType
 from typing import Any, List
 
 from langchain.agents import AgentExecutor, create_structured_chat_agent
 from langchain.tools import StructuredTool
 from langchain.prompts import ChatPromptTemplate, PromptTemplate
+import qrcode
 
+from ami.config import Config
 from ami.headspace.base import Primitive
 
 from .dialog import Dialog
@@ -18,10 +21,10 @@ def agent_observation(observation:str):
 
 def ami_tool(func):
     """ Decorator for creating tools within AI-controlled classes.
-    
+
     This decorator marks a function as a tool that can be used by the AI agent.
     It adds an 'is_tool' attribute to the function for easy identification.
-    
+
     Returns:
         Callable: The decorated function with an added 'is_tool' attribute.
     """
@@ -31,6 +34,20 @@ def ami_tool(func):
         return func
 
     return wrapper()
+
+
+def generate_qr_image(url) -> Path:
+    qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=10, border=4)
+    qr.add_data(url)
+    qr.make(fit=True)
+
+    img = qr.make_image(fill_color="black", back_color="white")
+
+    qr_img_path = Config().ai_dir / "resources" / "img_dump" / "qr_code.png"
+    qr_img_path.parent.mkdir(parents=True, exist_ok=True)
+
+    img.save(qr_img_path)
+    return qr_img_path
 
 STRUCTURED_AGENT_USER = """{input}
 
@@ -130,7 +147,11 @@ class Headspace(Primitive):
 
     def __repr__(self):
         """ Custom __repr__ function for the Headspace instanced """
-        return f"Headspace(name={self.__class__.__name__}, spawner={self.spawn_llm.__repr__()})"
+        return f"Headspace(name={self.name}, spawner={self.spawn_llm.__repr__()})"
+
+    @property
+    def name(self):
+        return self.__class__.__name__.lower()
 
     def get_summerize_agent_prompt(self) -> PromptTemplate:
         """

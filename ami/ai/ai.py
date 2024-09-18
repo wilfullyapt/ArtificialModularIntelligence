@@ -271,9 +271,12 @@ class AI(Base):
             try:
                 data = self.ai_pipe.recv()
                 payload = pickle.loads(data)
-                if not isinstance(payload, Payload):
+
+                if isinstance(payload, Payload):
+                    self.handle_payload(payload)
+                else:
                     raise ValueError("Received data is not a valid Payload object")
-                self.handle_payload(payload)
+
             except pickle.UnpicklingError as e:
                 self.logs.error(f"Failed to unpickle payload: {e}")
             except ValidationError as e:

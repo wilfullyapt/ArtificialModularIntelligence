@@ -1,0 +1,80 @@
+#yaml-editor {
+    font-family: Arial, sans-serif;
+    padding: 20px;
+}
+
+#yaml-editor form {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+#yaml-editor .form-group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    margin-bottom: 15px;
+}
+
+#yaml-editor label {
+    min-width: 100px;
+    margin-right: 10px;
+    font-weight: bold;
+    padding-top: 5px;
+}
+
+#yaml-editor input[type="text"] {
+    flex: 1;
+    min-width: 200px;
+    padding: 5px;
+}
+
+#yaml-editor .nested {
+    width: 100%;
+    margin-left: 20px; /* Adjust based on your label width + margin */
+    margin-top: 10px;
+}
+
+#yaml-editor .nested .form-group {
+    margin-bottom: 10px;
+}
+
+#yaml-editor .nested input[type="text"] {
+    width: calc(100% - 160px); /* Adjust based on your label width + margin */
+}
+#yaml-editor .verbose-info {
+    width: 100%;
+    font-style: italic;
+    color: #A5A;
+    margin-bottom: 5px;
+}
+#yaml-editor .comment {
+    width: 100%;
+    font-style: italic;
+    color: #666;
+    margin-bottom: 5px;
+}
+
+/* For sequence inputs */
+#yaml-editor .nested input[type="text"][name$="[]"] {
+    width: calc(100% - 160px);
+    margin-bottom: 5px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+#yaml-editor .form-group {
+    flex-direction: column;
+}
+
+#yaml-editor label {
+    width: 100%;
+    margin-bottom: 5px;
+}
+
+#yaml-editor input[type="text"],
+#yaml-editor .nested,
+#yaml-editor .nested input[type="text"] {
+    width: 100%;
+    margin-left: 0;
+}
+}

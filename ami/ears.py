@@ -206,7 +206,7 @@ class Ears(Base):
                     std_amplitude = np.std(positive_audio)
                     calc_threshold = (min_amplitude*2)+std_amplitude
                     silence_threshold = max(calc_threshold, self.SILENCE_THRESHOLD)
-                    silence_threshold = max((min_amplitude*2)+std_amplitude, 10_000)
+#                   silence_threshold = max((min_amplitude*2)+std_amplitude, 10_000)
                     self.logs.debug(f"Listening... min={min_amplitude}, calc={calc_threshold}, std={std_amplitude}, threshold={silence_threshold}")
 
                     audio_buffer = [audio]
@@ -272,6 +272,7 @@ class Ears(Base):
 
     def start_listening(self):
         """ Start Listening """
+        time.sleep(0.5)
         if not self.running:
             self.running = True
             self.thread = Thread(target=self.listen, daemon=True)

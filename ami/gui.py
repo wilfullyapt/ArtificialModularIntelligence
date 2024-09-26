@@ -355,7 +355,7 @@ class AIDialogWindow(Frame):
                 image_label.grid(row=1, column=0)
 
         self.parent.redraw(dialog.headspace)
-        self.timeout_bar.start_timeout(dialog.timeout, callback=self.close)
+        self.timeout_bar.start_timeout(dialog.timeout, callback=self._close)
 
     def set_human_message(self, message:str):
         """ Hand off method for outside access to self.human_message via the tkinter Queue """
@@ -393,13 +393,17 @@ class AIDialogWindow(Frame):
         self.timeout_bar.rowconfigure(0, weight=0)
         self.timeout_bar.reset()
 
-    def close(self):
+    def _close(self):
         """ Close the popup """
         if self._popup is None:
             return
         self._popup.destroy()
         self._popup = None
         self.parent.temp_comms.publish("gui.interaction_finished")
+
+    def close(self):
+        """ Public facing close method """
+        self._after(0, self._close)
 
 class GUI(Tk, Base):
     """

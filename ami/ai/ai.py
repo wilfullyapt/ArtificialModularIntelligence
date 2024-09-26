@@ -224,6 +224,7 @@ class AI(Base):
         """ Core temporal communication pipelines """
         self.temp_comms.subscribe("ears.hotword_detected", self.start_chat)
         self.temp_comms.subscribe("ears.recorder_callback", self.human_to_ai)
+        self.temp_comms.subscribe("ears.timeout", self.gui.popup.close)
         self.temp_comms.subscribe("gui.popup.loading_message", self.gui.popup.set_loading_message)
         self.temp_comms.subscribe("gui.interaction_finished", self.ears.start_listening)
         self.temp_comms.subscribe("attn.schedule", self.attn.schedule)
@@ -246,7 +247,7 @@ class AI(Base):
             """ async function that does all the work """
             self.gui.popup.set_human_message(message)
             dialog = self.brain.query(message, load_msg_callback=self.gui.popup.set_loading_message)
-            self.q = dialog
+#           self.q = dialog
             self.gui.popup.set_ai_response(dialog)
 
         self.attn.schedule(_human_to_ai(message))

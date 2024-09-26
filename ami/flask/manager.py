@@ -9,6 +9,20 @@ from gunicorn.app.base import BaseApplication
 from ami.base import Base
 from ami.config import Config
 
+def get_network_url_rpi(remote_host="www.x.com" ):
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        remote_ip = socket.gethostbyname(remote_host)
+        s.connect((remote_ip, 80))
+        ip_address = s.getsockname()[0]
+        s.close()
+        port = Config().server_port
+        return f"{ip_address}:{port}"
+        return ip_address
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return None
+
 def get_network_url():
     """ get the ip address and port for the hosted flask server """
     hostname = socket.gethostname()
@@ -29,6 +43,7 @@ def is_valid_ip(ip_str: str):
 def is_valid_port(port: int):
     """ Validate the port """
     return isinstance(port, int) and 0 < port < 65536
+
 class GunicornServer(BaseApplication):
     """
     A custom Gunicorn server application that extends the BaseApplication class.
@@ -91,7 +106,7 @@ class FlaskManager(Base):
     @property
     def url(self):
         """ Return the network url """
-        return get_network_url()
+        return get_network_url_rpi()
 
     def start(self, flask_app):
         """ Start the server """

@@ -11,14 +11,17 @@ langsmith_apikey:
 # Timezone information; run homeai.utils.py:get_timezones() to see a list of inputs here
 timezone: America/Los_Angeles
 
-# Silence threshold when listening to the user
-silence_threshold: 4
+# Listening Patience is the gap of time between when the user stop speaking and the AI start digesting, in seconds
+listening_patience: 2
+
+# Listening Timeout (seconds) will cancel the interaction after this time if the listening isn;t completed
+listening_timeout: 30
+
+# Minimun Silence Threshold is the minimum mic input volume to determine if the Human is speaking or not
+min_silence_threshold: 4000
 
 # AI filesystem directory
 ai_filesystem: filespace
-
-# This setting, if enabled, saves all voice interations to a directory
-recording_dir: recordings
 
 # Server Host
 host: 0.0.0.0

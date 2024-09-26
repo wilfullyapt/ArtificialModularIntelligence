@@ -1,6 +1,7 @@
 """ eary.py """
 import io
 import time
+import traceback
 from pathlib import Path
 from threading import Thread
 
@@ -16,7 +17,6 @@ from ami.base import Base
 from ami.config import Config
 
 SENSITIVITY = 0.3
-SILENCE_THRESHOLD = 5
 
 def get_melspec_filepath(models_dir: Path, search_string: str="melspectrogram", extension: str="tflite"):
     """ Get the melspec model for OpenWakeWord """
@@ -34,6 +34,10 @@ class InvalidModel(Exception):
     """Exception raised for invalid hotword models."""
     pass
 
+class ListeningTimeout(Exception):
+    """Exception raised when listening timeout occurs."""
+    pass
+
 class Ears(Base):
     """
     A class for handling audio input, hotword detection, and speech-to-text conversion.
@@ -48,8 +52,8 @@ class Ears(Base):
         r (Recognizer): A speech recognition recognizer instance.
         model (openwakeword.Model): An OpenWakeWord Model instance.
         running (bool): A flag indicating whether the hotword detection is running.
-        talk_gap (int): The silence threshold for detecting the end of speech.
-        recordings_directory (Path): The directory path for storing audio recordings.
+        LISTENING_PATIENCE (int): The gap between when the Human stops speaking and when the Ears ingest the command.
+        SILENCE_THRESHOLD (int): The minimum threshold that determines if there is silence.
 
     Methods:
         get_model: Get or download the hotword detection model.
@@ -81,17 +85,21 @@ class Ears(Base):
         self.r = sr.Recognizer()
         config = Config()
 
+        self.LISTENING_PATIENCE = config.listening_patience
+        self.LISTENING_TIMEOUT = config.listening_timeout
+        self.SILENCE_THRESHOLD = config.silence_threshold
+        self.logs.info(f"SILENCE_THRESHOLD is {self.LISTENING_PATIENCE} seconds")
+        self.logs.info(f"LISTENING_PATIENCE is {self.LISTENING_PATIENCE}")
+        self.logs.info(f"SILENCE_THRESHOLD is {self.SILENCE_THRESHOLD}")
+
         self.model = self.get_model(
             config.oww_models_dir,
             config.hot_word,
             melspec_model_path=str(get_melspec_filepath(config.oww_models_dir)),
             embedding_model_path=str(get_embeddings_filepath(config.oww_models_dir))
         )
-        self.running = False
 
-        self.talk_gap = int(config.get("silence_threshold", SILENCE_THRESHOLD))
-        self.logs.info(f"talk_gap is {self.talk_gap}")
-        self.recordings_directory = config.recordings_dir
+        self.running = False
 
     def get_model(self, models_dir: Path, hotword: str, **kwargs) -> Model:
         """
@@ -196,15 +204,17 @@ class Ears(Base):
                     min_amplitude = np.min(positive_audio)
                     max_amplitude = np.max(positive_audio)
                     std_amplitude = np.std(positive_audio)
-                    silence_threshold = max(min_amplitude + 2 * std_amplitude, 5000)  # Ensure a minimum positive threshold
-                    self.logs.debug(f"Listening... min={min_amplitude} max={max_amplitude} std={std_amplitude}, threshold={silence_threshold}")
+                    calc_threshold = (min_amplitude*2)+std_amplitude
+                    silence_threshold = max(calc_threshold, self.SILENCE_THRESHOLD)
+                    silence_threshold = max((min_amplitude*2)+std_amplitude, 10_000)
+                    self.logs.debug(f"Listening... min={min_amplitude}, calc={calc_threshold}, std={std_amplitude}, threshold={silence_threshold}")
 
                     audio_buffer = [audio]
                     silence_counter = 0
                     speech_started = False
                     start_time = time.time()
 
-                    while silence_counter < self.talk_gap and self.running:
+                    while silence_counter < self.LISTENING_PATIENCE and self.running:
                         audio = np.frombuffer(mic_stream.read(self.CHUNK), dtype=np.int16)
                         audio_buffer.append(audio)
 
@@ -212,6 +222,9 @@ class Ears(Base):
                             if np.max(np.abs(audio)) > silence_threshold:
                                 speech_started = True
                                 start_time = time.time()
+                            else:
+                                if self.logs.level in [ 'DEBUG', 'INFO' ]:
+                                    print(f"\rTimeout Counter: {time.time() - start_time:.1f}/{self.LISTENING_TIMEOUT} | threshold={np.max(np.abs(audio))}", end="", flush=True)
 
                         if speech_started:
                             if self.logs.level in [ 'DEBUG', 'INFO' ]:
@@ -222,6 +235,9 @@ class Ears(Base):
                                 start_time = time.time()
                                 silence_counter = 0
 
+                        if time.time() - start_time > self.LISTENING_TIMEOUT:
+                            raise ListeningTimeout("Listening timeout occurred")
+
                     audio_data = np.concatenate(audio_buffer)
                     with io.BytesIO() as f:
                         sf.write(f, audio_data, 16000, format='wav')
@@ -231,8 +247,20 @@ class Ears(Base):
                     self.logs.info(f"Transcribed text: {text}. Listening finished.")
                     break
 
+        except ListeningTimeout:
+            self.logs.warn("Listening Timeout occurred. Ending interaction.")
+            self.temp_comms.publish("ears.timeout")
+
         except Exception as e:
-            self.logs.error(f"Error in listen method: {str(e)}")
+            tb = traceback.extract_tb(e.__traceback__)
+            self.logs.error(f"An error occurred: {type(e).__name__} - {str(e)}")
+
+            for frame in tb:
+                filename, lineno, func, text = frame
+                log_message = f"File {filename}, line {lineno}, in {func}"
+                if text:
+                    log_message += f"\n    {text}"
+                self.logs.error(log_message)
 
         finally:
             self.running = False

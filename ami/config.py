@@ -4,7 +4,7 @@ This `config` module manages all interactions with the `config.yaml` file
 
 import os
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List
 import yaml
 
 from ami.logger import Logger, LoggerConfig
@@ -36,6 +36,9 @@ class Config:
 
     def __getitem__(self, key):
         return self._config.get(key, None)
+
+    def __contains__(self, key):
+        return key in self._config
 
     def get(self, value, default=None) -> Any:
         """ Outward facing get method to use config like a dict for config.yaml """
@@ -97,15 +100,6 @@ class Config:
         return self["hot_word"]
 
     @property
-    def recordings_dir(self):
-        """ Get the Path for where to put the audio recording """
-        if self.get("recording_dir") is None:
-            return None
-        recordings_dir = self.ai_dir / self["recording_dir"]
-        recordings_dir.mkdir(parents=True, exist_ok=True)
-        return recordings_dir
-
-    @property
     def headspaces_dir(self):
         """ Get the Path for the headspaces sub filesystem """
         headspaces_dir = self.ai_dir / "headspaces"
@@ -123,11 +117,23 @@ class Config:
         return self.get('host')
 
     @property
-    def enabled_headspaces(self) -> list:
+    def enabled_headspaces(self) -> List[str]:
         """ Get the enabled headspaces per the config as a tuple """
         return tuple(self.get('enabled_headspaces', default=[]))
 
-#---------------- GUI SPECIFIC
+    @property
+    def listening_patience(self):
+        return self["listening_patience"]
+
+    @property
+    def listening_timeout(self):
+        return self["listening_timeout"]
+
+    @property
+    def silence_threshold(self):
+        return self["min_silence_threshold"]
+
+#---------------- HEADSPACE SPECIFIC
 
     @property
     def modules_dir(self):
@@ -136,7 +142,24 @@ class Config:
             return self.root / "modules"
         return self.root / self["modules_dir"]
 
+    def get_headspace_dir(self, headspace_name):
+        core_headspaces_dir = Path(__file__).parent / "headspace" / "core"
+        modular_headspace_dir = self.modules_dir
+
+        core_path = core_headspaces_dir / headspace_name
+        modular_path = modular_headspace_dir / headspace_name
+
+        if core_path.is_dir():
+            return core_path
+        elif modular_path.is_dir():
+            return modular_path
+        else:
+            return None
+
+#---------------- GUI SPECIFIC
+
     def enable_langsmith(self):
         """ Developer shortcut to enable LangSmith """
-        os.environ['LANGCHAIN_API_KEY'] = self["langsmith_apikey"]
-        os.environ['LANGCHAIN_TRACING_V2'] = "true"
+        if "langsmith_apikey" in self:
+            os.environ['LANGCHAIN_API_KEY'] = self["langsmith_apikey"]
+            os.environ['LANGCHAIN_TRACING_V2'] = "true"

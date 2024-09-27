@@ -77,7 +77,6 @@ class Ears(Base):
         """
         super().__init__()
         self.CHUNK = 1280
-        self.DETECTION_THRESHOLD = 0.5
 
         self.temp_comms = temp_comms
         self.thread = None
@@ -85,9 +84,11 @@ class Ears(Base):
         self.r = sr.Recognizer()
         config = Config()
 
+        self.DETECTION_THRESHOLD = config.detection_threshold
         self.LISTENING_PATIENCE = config.listening_patience
         self.LISTENING_TIMEOUT = config.listening_timeout
         self.SILENCE_THRESHOLD = config.silence_threshold
+        self.logs.info(f"DETECTION_THRESHOLD is {self.DETECTION_THRESHOLD}")
         self.logs.info(f"SILENCE_THRESHOLD is {self.LISTENING_PATIENCE} seconds")
         self.logs.info(f"LISTENING_PATIENCE is {self.LISTENING_PATIENCE}")
         self.logs.info(f"SILENCE_THRESHOLD is {self.SILENCE_THRESHOLD}")

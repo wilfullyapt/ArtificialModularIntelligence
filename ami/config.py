@@ -133,6 +133,10 @@ class Config:
     def silence_threshold(self):
         return self["min_silence_threshold"]
 
+    @property
+    def detection_threshold(self):
+        return self.get("detection_threshold", default=0.5)
+
 #---------------- HEADSPACE SPECIFIC
 
     @property

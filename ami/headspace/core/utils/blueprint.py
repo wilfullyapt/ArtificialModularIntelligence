@@ -14,12 +14,12 @@ class Utils(Blueprint):
 
     @route('/config_edit/<headspace_name>', methods=['GET', 'POST'])
     def edit_yaml(self, headspace_name: str):
-        headspace_dir = Config().get_headspace_dir(headspace_name)
+        config = Config()
+        if headspace_name not in config.enabled_headspaces:
+            return f"Invalid Headspace: {headspace_name}"
 
-        if headspace_name:
-            yaml = PerfectYAML(headspace_dir / "config.yaml")
-        else:
-            return f"Headspace '{headspace_dir}' not found."
+        config_file = config.headspaces_dir / headspace_name / "config.yaml"
+        yaml = PerfectYAML(config_file)
 
         if request.method == 'POST':
             for key, value in request.form.items():

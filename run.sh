@@ -22,6 +22,16 @@ fi
 if [ "$1" == "-d" ]; then
     echo "Running in dev mode (ami.dev)"
     python -i -m ami.dev
+elif [ "$1" == "-l" ]; then
+    echo "Running pylint"
+    shift  # Remove the -l argument
+    if [ $# -gt 0 ]; then
+        echo "Running pylint on specified directories/files: $@"
+        pylint "$@"
+    else
+        echo "Running pylint on ami directory (excluding headspace/core)"
+        pylint ami --ignore=core
+    fi
 else
     echo "Running in normal mode (ami.ami)"
     python -m ami.ami

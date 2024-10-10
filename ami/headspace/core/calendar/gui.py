@@ -10,7 +10,7 @@ class Calendar(GuiFrame):
     def __init__(self, parent, *args, **kwargs):
         super().__init__(parent, *args, **kwargs)
 
-        calendar_filepath = self.filesystem / self.lc.get("calendar_filename", "calendar.json")
+        calendar_filepath = self.filesystem / self.yaml.get("calendar_filename", "calendar.json")
         self.cal = CalendarTool(calendar_filepath)
 
         self.lowlight_color = '#C3C3C3'

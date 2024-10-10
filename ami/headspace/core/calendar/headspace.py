@@ -23,7 +23,7 @@ class Calendar(Headspace):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        calendar_filepath = self.filesystem / self.lc.get("calendar_filename", "calendar.json")
+        calendar_filepath = self.filesystem / self.yaml.get("calendar_filename", "calendar.json")
         self.cal = CalendarTool(calendar_filepath)
 
     def verbose_date(self, date_str):

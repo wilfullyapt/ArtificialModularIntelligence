@@ -5,7 +5,6 @@ import signal
 from pathlib import Path
 
 from ami.flask.manager import create_flask_app
-from private.tribe_private import restart_server
 
 import_ai_time = time.time()
 from ami import AI
@@ -73,10 +72,3 @@ if __name__ == '__main__':
 #   sim("remove all appointments for next tuesday")
 
 #   ai.run()
-
-    from pprint import pprint as pp
-
-    config_filepath = Path(__file__).parent / "headspace" / "core" / "markdown" / "config.yaml"
-    z = ai.brain['utils'].tool.pyaml
-    x = z.__class__
-    c = x(config_filepath)

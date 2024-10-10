@@ -256,7 +256,6 @@ class AI(Base):
         """ Accept a Payload object, do it's bidding """
         if payload.module.lower() in [ cm.__name__.split('.')[-1] for cm in self.core_modules ]:
             if payload.reload:
-                print(f"Time to reload the gui for the `{payload.module}` module!")
                 self.gui.reload_child(payload.module)
 
         else:

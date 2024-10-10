@@ -163,6 +163,7 @@ class Brain(Base):
         if cache_name not in self._headspace_cache:
             self.logs.error(f"Agent({cache_name}) cannot be found in Brain")
             raise AgentNotFound(f"Agent({cache_name}) cannot be found in Brain")
+            #TODO Add retry loop for finding the right headspace routing. See line 250
         return self._headspace_cache[cache_name].get_instance(spawner=self.llm_spawner)
 
     @cached_property

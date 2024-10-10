@@ -15,6 +15,9 @@ files:
   - effective_accelerationism.md
   - techno_optimist.md
 
+width: 200
+padding: 10
+
 font-settings:
   # fonts can inclue "Arial", "Times New Roman", "Courier", "Helvetica", "Geogia", "Verdana"
   font: Verdana

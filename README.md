@@ -68,3 +68,7 @@ Obsidian paradigm: File > App
 
 ### 🧩 Build your own Headspace
 See ami.ai.headspace directory to understand how the GUI, Blueprint, and Headspace tie into the Headspace Module
+
+## Changelog
+1. Implemented OpenWakeWord for hotword detection
+2. Utils Headspace added for config editing through Flask server

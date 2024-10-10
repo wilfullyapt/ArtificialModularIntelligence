@@ -57,3 +57,4 @@ enabled_headspaces:
   - time
   - markdown
   - calendar
+  - utils

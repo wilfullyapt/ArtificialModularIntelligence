@@ -57,9 +57,9 @@ class TemplateSettings(BaseModel):
 
 def render_template(template_name, tempsets: TemplateSettings, *args, **kwargs):
     """ AMI Blueprint implementation for Flask.render_template """
-    base_temp_settings = tempsets.asdict()
-    base_temp_settings['content'] = flask_render_template(template_name, *args, **kwargs)
-    return flask_render_template('base.html', **base_temp_settings)
+    template_settings = tempsets.asdict()
+    template_settings['content'] = flask_render_template(template_name, *args, **kwargs)
+    return flask_render_template('base.html', **template_settings)
 
 class BlueprintMeta(type):
     """ Blueprint metaclass for routing purposes """
@@ -118,9 +118,11 @@ class Blueprint(FlaskBlueprint, Primitive, metaclass=BlueprintMeta):
     def __repr__(self) -> str:
         return f"<AMI.headspace.Blueprint('{self.name}') package='{self.__module__}'>"
 
-    def reload_gui(self):
+    def reload_gui(self, module_name=None):
         """ Given reload GUI call for subclasses """
-        reloader = Payload.reload(module_name=self.name.lower())
+        if not module_name:
+            module_name = self.name.lower()
+        reloader = Payload.reload(module_name=module_name)
         pickled_payload = pickle.dumps(reloader)
         self.pipe.send(pickled_payload)
 

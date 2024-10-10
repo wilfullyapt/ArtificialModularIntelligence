@@ -10,15 +10,15 @@ class Calendar(GuiFrame):
     def __init__(self, parent, *args, **kwargs):
         super().__init__(parent, *args, **kwargs)
 
-        calendar_filepath = self.filesystem / self.yaml.get("calendar_filename", "calendar.json")
-        self.cal = CalendarTool(calendar_filepath)
-
         self.lowlight_color = '#C3C3C3'
         self.highlight_color = '#666666'
 
         self.config(bg='black')
 
     def define_render(self) -> None:
+        calendar_filepath = self.filesystem / self.yaml.get("calendar_filename", "calendar.json")
+        self.cal = CalendarTool(calendar_filepath)
+
         today = datetime.now().date()
         prev_sunday = today - timedelta(days=today.weekday() + 1)
         days = 21

@@ -445,11 +445,9 @@ class GUI(Tk, Base):
     def reload_child(self, child_name: str):
         """ Reload a child headspace given only the headspace name for the child Frame """
         for child in self.winfo_children():
-            if hasattr(child, 'headspace') and child.headspace == child_name:
-                self.after(0, child.redraw)
-                self.logs.info(f"GUI.realod_child({child_name})")
-            else:
-                self.logs.warn(f"Failed to realod_child({child_name})")
+            if hasattr(child, 'headspace'):
+                if child.headspace == child_name:
+                    self.after(0, child.redraw)
 
     def instance_children(self, children: List[Any]):
         """ Create and render a list of children on the GUI

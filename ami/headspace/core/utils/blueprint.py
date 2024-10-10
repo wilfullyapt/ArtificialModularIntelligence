@@ -26,12 +26,16 @@ class Utils(Blueprint):
                 yaml.update(key, value)
             yaml.save()
 
+            self.reload_gui(module_name=headspace_name)
             self.logs.info(f"Config saved for {headspace_name}.")
             return redirect(url_for('Utils.edit_yaml', headspace_name=headspace_name))
 
         template_settings = self.tempsets.augment(
-            heading=f"Config Editor for {headspace_name}",
-            buttons=[HeaderButton(form='yaml-editor', value='Save')]
+            header=f"Config Editor for {headspace_name}",
+            buttons=[
+#               HeaderButton(form='yaml-editor', value='Save'),
+                HeaderButton(form='yaml-editor', value='Save')
+            ]
         )
 
         debug_mode = False

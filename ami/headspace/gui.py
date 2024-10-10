@@ -62,7 +62,6 @@ class GuiFrame(Frame, ABC, Primitive):
         Primitive.__init__(self)
 
         self.headspace = self.__module__.split('.')[-2]
-        self.placement: dict = self.yaml.get("placement", {})
 
     @abstractmethod
     def define_render(self) -> None:
@@ -80,12 +79,17 @@ class GuiFrame(Frame, ABC, Primitive):
         Raises:
             InvalidPlacementError: If the placement dictionary is invalid.
         """
+        self.filesystem.load_config()
+        self.placement: dict = self.yaml.get("placement", {})
         self.define_render()
+
         try:
             placement = self._validate_placement(self.placement)
             self.place(**placement)
         except InvalidPlacementError as e:
             raise InvalidPlacementError(f"Invalid placement: {e}") from e
+
+        self.logs.debug(f"GUI({self.headspace}).render() finished")
 
     def redraw(self):
         """

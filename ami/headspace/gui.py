@@ -86,6 +86,8 @@ class GuiFrame(Frame, ABC, Primitive):
         try:
             placement = self._validate_placement(self.placement)
             self.place(**placement)
+            self.update_idletasks()
+            self.logs.debug(f"Frame Information: [ Name: {self.winfo_name()} , Height: {self.winfo_height()} , Width: {self.winfo_width()} ]")
         except InvalidPlacementError as e:
             raise InvalidPlacementError(f"Invalid placement: {e}") from e
 

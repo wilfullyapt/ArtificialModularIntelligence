@@ -33,47 +33,52 @@ class Markdown(GuiFrame):
         config_markdown_files: List[str] = self.yaml.get("files")
         self.markdown_files = [ self.filesystem / filename for filename in config_markdown_files ]
 
-        column_width = self.screen_width // len(self.markdown_files)
-        self.column_width = min(column_width, self.yaml.get("width", 300))
+        font_settings_dict = {k.replace('-', '_'): v for k, v in self.yaml.get("font-settings", {}).items()}
+        self.font_settings = FontSettings(**font_settings_dict)
+
         self.side_padding = self.yaml.get("padding", 20)
 
-        self.logs.debug(f"Markdown settings: max_width={column_width} | set_width={self.column_width} , padding: {self.side_padding}")
+        column_width = self.screen_width // len(self.markdown_files)
+        self.column_width = min(column_width, self.yaml.get('width', 300))
+        self.md_height = self.yaml.get('height', 300)
+        self.text_width = self.column_width // (self.font_settings.font_size // 2)
+        self.logs.debug(f"Markdown settings: max_width={column_width}, set_width={self.column_width}, text_width={self.text_width}, height={self.md_height}, padding: {self.side_padding}")
 
         if not all(file.exists() for file in self.markdown_files):
             default_markdowns(self.filesystem.path)
 
-        font_settings_dict = {k.replace('-', '_'): v for k, v in self.yaml.get("font-settings", {}).items()}
-        self.font_settings = FontSettings(**font_settings_dict)
 
     def define_render(self) -> None:
         self.load_settings()
         self.render_markdown_files(self.markdown_files)
 
     def render_markdown_files(self, markdown_files):
+        self.configure(width=self.column_width*len(markdown_files), height=self.md_height)
+        self.pack_propagate(False)
+        self.grid_propagate(False)
+
         for i, markdown_file in enumerate(markdown_files):
-            md_name = Label(self,
-                            text=markdown_file.name,
-                            font=(self.font_settings.font, 20, "bold"),
-                            relief="solid",
-                            borderwidth=2,
-                            highlightthickness=2,
-                            highlightbackground="white",
-                            highlightcolor="white",
-                            anchor='center')
+            md_name = Label(
+                self,
+                text=markdown_file.name,
+                font=(self.font_settings.font, 20, "bold"),
+                relief="solid",
+                borderwidth=2,
+                highlightthickness=2,
+                highlightbackground="white",
+                highlightcolor="white",
+                anchor='center'
+            )
             md_widget = self.render_markdown_file(markdown_file)
 
-            self.logs.debug(f"Markdown info: [ Name: {md_name.winfo_name()} , Height: {md_name.winfo_reqheight()} , Width: {md_name.winfo_reqwidth()} ]")
-            self.logs.debug(f"Markdown info: [ Name: {md_widget.winfo_name()} , Height: {md_widget.winfo_reqheight()} , Width: {md_widget.winfo_reqwidth()} ]")
-
             self.grid_columnconfigure(i, weight=1, minsize=self.column_width)
-
             md_name.grid(row=0, column=i, sticky='nsew', padx=self.side_padding, pady=4)
             md_widget.grid(row=1, column=i, sticky='nsew', padx=self.side_padding)
-
-            self.logs.debug(f"Markdown info: [ Name: {md_name.winfo_name()} , Height: {md_name.winfo_reqheight()} , Width: {md_name.winfo_reqwidth()} ]")
-            self.logs.debug(f"Markdown info: [ Name: {md_widget.winfo_name()} , Height: {md_widget.winfo_reqheight()} , Width: {md_widget.winfo_reqwidth()} ]")
+            md_widget.config(width=self.text_width, height=self.md_height)
 
         self.grid_rowconfigure(1, weight=1)
+
+        self.logs.debug(f"Markdown info(Frame): [ Name: {self.winfo_name()} , Height: {self.winfo_height()} , Width: {self.winfo_width()} ]")
 
     def get_markdown_from_path(self, markdown_filepath: Path):
         with markdown_filepath.open('r') as f:
@@ -83,8 +88,18 @@ class Markdown(GuiFrame):
         return md.markdown(self.get_markdown_from_path(markdown_filepath))
 
     def render_markdown_file(self, markdown_file: Path):
-        md_text_widget = Text(self, wrap='word', bg='black', fg='white',
-                                 padx=0, pady=0, relief='flat', borderwidth=0, highlightthickness=0)
+        md_text_widget = Text(
+            self,
+            wrap='word',
+            bg='black',
+            fg='white',
+            padx=0,
+            pady=0,
+            relief='flat',
+            borderwidth=0,
+            highlightthickness=0,
+            width=self.text_width
+        )
 
         md_text_widget.tag_configure("h1", font=(self.font_settings.font, self.font_settings.h1_size), foreground="red")
         md_text_widget.tag_configure("h2", font=(self.font_settings.font, self.font_settings.h2_size), foreground="orange")

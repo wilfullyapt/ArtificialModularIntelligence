@@ -37,24 +37,31 @@
 This is the directory structure AMI has controlled access to via the AI and Headspace modules:
 
 ```
-ami/
+ArtificiakModularIntelligence/
  ├── filespace/ (name define in config.yaml)
  │    ├── headspaces/
  │    │    ├── calendar
- │    │    │    ├── calendar.json
+ │    │    │    ├── config.yaml (local config copied from Hedaspace default_config.yaml)
+ │    │    │    └── calendar.json
  │    │    ├── markdown/
- │    │    │    ├── alpha.md
- │    │    │    ├── omega.md
- │    │    ├── rag
- │    │    │    ├── documents/
- │    │    │    ├── vectorstores/
+ │    │    │    ├── config.yaml (local config copied from Hedaspace default_config.yaml)
+ │    │    │    ├── techno_optimist.md
+ │    │    │    └── effective_accelerationism.md
+ │    │    └── rag (work in progress)
+ │    │         ├── documents/
+ │    │         └── vectorstores/
  │    ├── logs/
- │    ├── recordings/
- │    ├── computer.umdl (from snowboy library)
+ │    ├── resources/
+ │    │    ├── img_dump/ (used to store qr codes currently)
+ │    │    └── models/ (contains model files for OpenWakeWord and futrue STT models)
+ │    └── config.yaml (copied from root default_config.yaml)
+ └── /ami
 ```
 
 ### 🧭 Roadmap
-- Tools Headspace (Calibrate Audio / Train new Hot Word, Config editor (core, headspaces, add-ons), self update, notifications)
+- [x] Config editor
+- Self updating functionality
+- Sync calendar with user google/apple calendar
 - Finacial Assisstant Headspace
 - Conversational Headspace. Allow for a Headspace to get to know the user through conversation. Answer question about the device.
 - Researcher Headspace (Perplexity style search, Perplexity level subject matter research document, RAG agent)

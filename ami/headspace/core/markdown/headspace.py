@@ -2,6 +2,7 @@ from urllib.parse import quote_plus
 
 from ami.headspace import Headspace, ami_tool, agent_observation
 from ami.flask.manager import get_network_url
+from ami.headspace.headspace import generate_qr_image
 
 from .tool import Markdown as MarkdownTool
 
@@ -62,7 +63,8 @@ class Markdown(Headspace):
             raise FileNotFoundError(f"HAI_TOOL@Markdown.edit_file(file='{file}'); file is not a file!")
 
         qr_code_url = f"http://{get_network_url()}/editor/{markdown_file.headspace_location}"
-        qr_path = self.markdown.generate_qr_image(qr_code_url)
+        qr_path = generate_qr_image(qr_code_url)
+
         self.dialog.visual = qr_path
 
 #       return f"Finished! Here is a QR code to use to edit the file. The URL is {qr_code_url}"
@@ -76,7 +78,7 @@ class Markdown(Headspace):
             return "List not found! Try using the `list_lists` tool!"
 
         qr_code_url = f"http://{get_network_url()}/download_list/{quote_plus(list_name)}"
-        qr_path = self.markdown.generate_qr_image(qr_code_url)
+        qr_path = generate_qr_image(qr_code_url)
         self.dialog.visual = qr_path
 
         return agent_observation(f"Finished! Here is a QR code to download that list. {qr_code_url}")

@@ -208,22 +208,6 @@ class Markdown(SharedTool):
             except:
                 return
 
-    def generate_qr_image(self, url) -> Path:
-        qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=10, border=4)
-        qr.add_data(url)
-        qr.make(fit=True)
-
-        img = qr.make_image(fill_color="black", back_color="white")
-
-        qr_img_path = self.filesystem / "img_dump" / "qr_code.png"
-        qr_img_path.parent.mkdir(parents=True, exist_ok=True)
-
-        img.save(qr_img_path)
-        return qr_img_path 
-
-    def qr_img_savepath(self, filename):
-        return str(self.qr_dir / filename)
-
 class MarkdownFileDataModel(BaseModel):
     name: str
     html: str

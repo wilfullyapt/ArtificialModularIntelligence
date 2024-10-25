@@ -61,7 +61,7 @@ ArtificiakModularIntelligence/
 ### 🧭 Roadmap
 - [x] Config editor
 - Self updating functionality
-- Sync calendar with user google/apple calendar
+- [x] Sync calendar with user google/apple calendar
 - Finacial Assisstant Headspace
 - Conversational Headspace. Allow for a Headspace to get to know the user through conversation. Answer question about the device.
 - Researcher Headspace (Perplexity style search, Perplexity level subject matter research document, RAG agent)
@@ -69,9 +69,9 @@ ArtificiakModularIntelligence/
 - Discord or Telegram Headspace
 
 ### ✨ Inspired by
-The entire e/acc community
-MagicMirror2
-Obsidian paradigm: File > App
+- The entire e/acc community
+- MagicMirror2
+- Obsidian paradigm: File > App
 
 ### 🧩 Build your own Headspace
 See ami.ai.headspace directory to understand how the GUI, Blueprint, and Headspace tie into the Headspace Module

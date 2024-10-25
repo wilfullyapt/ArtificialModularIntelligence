@@ -3,6 +3,7 @@ from functools import partial
 import time
 import signal
 from pathlib import Path
+from pprint import pprint as pp
 
 from ami.flask.manager import create_flask_app
 
@@ -73,3 +74,5 @@ if __name__ == '__main__':
 #   sim("remove all appointments for next tuesday")
 
 #   ai.run()
+
+#   help(ai.brain["calendar"].__class__)

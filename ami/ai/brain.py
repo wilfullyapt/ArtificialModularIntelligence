@@ -273,6 +273,7 @@ class Brain(Base):
         if isinstance(load_msg_callback, Callable):
             load_msg_callback("Thinking ...")
 
+        dialog = None
         try:
             dialog = headspace.query(prompt, stream=True)
         except Exception as e:

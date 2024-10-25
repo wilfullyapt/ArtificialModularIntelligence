@@ -53,5 +53,5 @@ AGENT = get_agent_string()
 #AGENT = property(get_agent_string).fget
 
 
-ROUTING = [ "Please delete an event.", "Modify an event.", "Please add a new event to the calendar." ]
+ROUTING = [ "Please delete an event.", "Modify an event.", "Please add a new event to the calendar.", "I want to sync my google calendar." ]
 

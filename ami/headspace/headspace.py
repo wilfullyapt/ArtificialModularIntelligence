@@ -147,6 +147,11 @@ class Headspace(Primitive):
                 handle_parsing_errors=self.HANDLE_PARSING_ERRORS
             )
 
+#       model = self.spawn_llm()
+#       planner = load_chat_planner(model)
+#       executor = load_agent_executor(model, tools, verbose=True)
+#       agent = PlanAndExecute(planner=planner, executor=executor)
+
 
     def __repr__(self):
         """ Custom __repr__ function for the Headspace instanced """
@@ -221,7 +226,7 @@ class Headspace(Primitive):
 
         self.agent_response = self.agent_executor.invoke({"input": prompt})
 
-        pp(self.agent_response)
+#       pp(self.agent_response)
 
         if self.agent_response['output'] == "Agent stopped due to iteration limit or time limit.":
             self.logs.warn("Agent stopped due to impossed limitation. Check logs and/or LangSmith")

@@ -3,17 +3,20 @@ from datetime import datetime, timedelta
 
 from langchain_core.prompts import PromptTemplate
 
-from ami.headspace import Headspace, ami_tool, agent_observation
-from ami.headspace import ami_tool, agent_observation
+from ami.flask.manager import get_network_url
+from ami.headspace import Headspace, ami_tool
+#from ami.headspace import Headspace, ami_tool, agent_observation
+from ami.headspace.core.calendar.credentials_google import GoogleAuth
+from ami.headspace.headspace import generate_qr_image
 
 from .calendar import Calendar as CalendarTool, Event
 
 INFER_DATE_PROMPT = """Your goal is to infer what the user meant when they said '{user_input}'. You should only respond with only YYYY-MM-DD and nothing else.
-The user is only thinking about future dates, unless otherwise specifically stated. Only think about future dates.
+The user is only thinking about future dates, unless otherwise specifically stated.
 For example, if the user says 'the first' or 'the 1st' and its the 15th, the user means the first of next month. Only consider future dates in context to what the user says.
 Known: {dates}.
 You should only respond with a 'YYYY-MM-DD format' and nothing else. Reminder that today is {date_string}
-What do you think the user meant by '{user_input}?
+What do you think the user meant by '{user_input}' from the perspective of {date_string}?
 """
 
 class Calendar(Headspace):
@@ -25,6 +28,7 @@ class Calendar(Headspace):
         super().__init__(*args, **kwargs)
         calendar_filepath = self.filesystem / self.yaml.get("calendar_filename", "calendar.json")
         self.cal = CalendarTool(calendar_filepath)
+        self.auth = GoogleAuth(self.filesystem.path)
 
     def verbose_date(self, date_str):
         date_obj = datetime.strptime(date_str, "%Y-%m-%d")
@@ -56,16 +60,19 @@ class Calendar(Headspace):
         try:
             datetime.strptime(date, '%Y-%m-%d')
         except ValueError:
-            return agent_observation("Incorrect format! Date must be a 'YYYY-MM-DD' pattern.")
+            return "Incorrect format! Date must be a 'YYYY-MM-DD' pattern."
+#           return agent_observation("Incorrect format! Date must be a 'YYYY-MM-DD' pattern.")
 
         event = Event(date=date, name=name.capitalize())#, **kwargs)
 
         try:
             self.cal.save(events=[event])
         except ValueError as e:
-            return agent_observation(f"Add Event({event.to_json()}) Completed Successfully!!")
+            return f"Add Event({event.to_json()}) Completed Successfully!!"
+#           return agent_observation(f"Add Event({event.to_json()}) Completed Successfully!!")
 
-        return agent_observation(f"Add Event({event.to_json()}) Completed Successfully!!")
+        return f"Add Event({event.to_json()}) Completed Successfully!!"
+#       return agent_observation(f"Add Event({event.to_json()}) Completed Successfully!!")
 
     @ami_tool
     def remove_event(self, date: str, name: str):
@@ -74,7 +81,8 @@ class Calendar(Headspace):
         try:
             datetime.strptime(date, '%Y-%m-%d')
         except ValueError:
-            return agent_observation("Incorrect format! Date must be a 'YYYY-MM-DD' pattern.")
+            return "Incorrect format! Date must be a 'YYYY-MM-DD' pattern."
+#           return agent_observation("Incorrect format! Date must be a 'YYYY-MM-DD' pattern.")
 
         if name == "*":
             names = [ event.name for event in self.cal.get_date(date) ]
@@ -84,12 +92,15 @@ class Calendar(Headspace):
         try:
             result = [ self.cal.remove_event(self.cal[date, n], agent_return=True) for n in names ]
         except Exception as e:
-            return agent_observation(f"Event '{names}' not found for Date({date}) | {e}")
+            return f"Event '{names}' not found for Date({date}) | {e}"
+#           return agent_observation(f"Event '{names}' not found for Date({date}) | {e}")
 
         if result:
-            return agent_observation(f"Remove Event Completed Successfully! result: {result}")
+            return f"Remove Event Completed Successfully! result: {result}"
+#           return agent_observation(f"Remove Event Completed Successfully! result: {result}")
         else:
-            return agent_observation("Remove Event Failed!")
+            return "Remove Event Failed!"
+#           return agent_observation("Remove Event Failed!")
 
     @ami_tool
     def update_event(self, date: str, event_name: str, details: dict = {}):
@@ -114,7 +125,10 @@ class Calendar(Headspace):
 
     @ami_tool
     def comprehend_date(self, user_input: str):
-        """ Always use this tool because you don't know what day it is. user_input is the relitive context for the target date (e.g. 'the first' or 'friday' or 'next tuesday')."""
+        """
+        Always use this tool to translate natural language into a usable date string since you don't know what day it is.
+        user_input is the relitive context for the target date (e.g. 'the first' or 'friday' or 'next tuesday').
+        """
         def date_lookahead(weeks, start_date):
             dates = []
 
@@ -145,16 +159,30 @@ class Calendar(Headspace):
 
         match = re.search(r'\b\d{4}-\d{2}-\d{2}\b', result)
         if match:
-            return agent_observation(f"The user means: {match.group()}")
+            return f"The user means: {match.group()}"
+#           return agent_observation(f"The user means: {match.group()}")
 
         return result
 
     @ami_tool
+    def sync_with_google(self):
+        """ Use this tool to sync the calendar with the Human's Google calendar """
+
+        qr_code_url = f"http://{get_network_url()}/sync_google"
+        qr_path = generate_qr_image(qr_code_url)
+
+        self.dialog.visual = qr_path
+        return f"Finished! Here is a QR code to sync a google calendar. {qr_code_url}"
+#       return agent_observation(f"Finished! Here is a QR code to sync a google calendar. {qr_code_url}")
+
+    @ami_tool
     def add_reoccurring_event(self, name: str, details: dict={}):
         """ Add an event to the calendar with reoccurring conditionals """
-        raise agent_observation("Calendar.add_reoccurring_event has not been implemented! Bad tool!")
+        return "Calendar.add_reoccurring_event has not been implemented! Bad tool!"
+#       return agent_observation("Calendar.add_reoccurring_event has not been implemented! Bad tool!")
 
     @ami_tool
     def add_celebration(self, name: str, inception: str):
         """ Add an annual event to the calendar that happends once a year from a starting point """
-        raise agent_observation("Calendar.add_celebration has not been implemented! Bad tool!")
+        return "Calendar.add_celebration has not been implemented! Bad tool!"
+        return agent_observation("Calendar.add_celebration has not been implemented! Bad tool!")

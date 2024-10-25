@@ -3,12 +3,15 @@ from typing import List, Dict
 
 from tkinter import Frame, Label, ttk
 
+from ami.headspace.core.calendar.credentials_google import GoogleAuth
+
 from .calendar import Calendar as CalendarTool
 from ami.headspace.gui import GuiFrame
 
 class Calendar(GuiFrame):
     def __init__(self, parent, *args, **kwargs):
         super().__init__(parent, *args, **kwargs)
+        self.g_sync = GoogleAuth(self.filesystem.path)
 
         self.lowlight_color = '#C3C3C3'
         self.highlight_color = '#666666'

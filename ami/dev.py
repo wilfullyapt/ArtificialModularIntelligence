@@ -35,6 +35,19 @@ def run_gui():
     ai.gui.run(ai.get_modules_part("gui"))      # The GUI must run in the main thread
     ai.stop()
 
+def run_server(ai):
+    ai.attn.start()
+    ai.attn.schedule(ai.process_whisperer())
+    app = create_flask_app(ai.get_modules_part("blueprint"), ai.flask_pipe)
+    ai.flask_manager.start(app)
+
+def restart_server(ai):
+    ai.flask_manager.stop()
+    print(" -- SLEEPER, YOU ARE -- ")
+    time.sleep(1)
+    print(" -- SLEEPER, YOU ARE NOT -- ")
+    run_server(ai)
+
 if __name__ == '__main__':
     f = __file__
 
@@ -50,20 +63,8 @@ if __name__ == '__main__':
     print(f"\033[91m  -:- Import time: {time_to_import:.2f} seconds.\033[0m")
     print(f"\033[91m  -:- Instance time: {time_to_instance:.2f} seconds.\033[0m", end="\n\n")
 
-    def _run_server(ai):
-        ai.attn.start()
-        ai.attn.schedule(ai.process_whisperer())
-        app = create_flask_app(ai.get_modules_part("blueprint"), ai.flask_pipe)
-        ai.flask_manager.start(app)
-    run_server = partial(_run_server, ai)
-
-    def _restart_server(ai):
-        ai.flask_manager.stop()
-        print(" -- SLEEPER, YOU ARE -- ")
-        time.sleep(1)
-        print(" -- SLEEPER, YOU ARE NOT -- ")
-        run_server()
-    restart_server = partial(_restart_server, ai)
+    runserver = partial(run_server, ai)
+    restartserver = partial(restart_server, ai)
 
 #---------------- Manual Testing
     config = Config()

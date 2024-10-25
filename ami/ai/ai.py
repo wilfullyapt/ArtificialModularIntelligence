@@ -114,7 +114,7 @@ class AI(Base):
 
         self.gui = GUI(temp_comms=self.temp_comms)
         self.flask_manager = FlaskManager(self.stop_event)
-        self.brain = Brain(headspaces=self.get_modules_part("headspace"))
+        self.brain = Brain(temp_comms=self.temp_comms, headspaces=self.get_modules_part("headspace"))
 
         self.establish_temporal_communications()
 

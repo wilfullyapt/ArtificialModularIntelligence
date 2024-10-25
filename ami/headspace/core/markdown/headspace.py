@@ -1,3 +1,5 @@
+from urllib.parse import quote_plus
+
 from ami.headspace import Headspace, ami_tool, agent_observation
 from ami.flask.manager import get_network_url
 
@@ -61,13 +63,21 @@ class Markdown(Headspace):
 
         qr_code_url = f"http://{get_network_url()}/editor/{markdown_file.headspace_location}"
         qr_path = self.markdown.generate_qr_image(qr_code_url)
-
         self.dialog.visual = qr_path
 
+#       return f"Finished! Here is a QR code to use to edit the file. The URL is {qr_code_url}"
         return agent_observation(f"Finished! Here is a QR code to use to edit the file. The URL is {qr_code_url}")
 
     @ami_tool
-    def provide_list(self, list_name:str):
+    def dowload_list(self, list_name:str):
         """ Use this tool to provide a downloadable list to the human for their arbitrary purposes"""
-        return "download tool has not implemented! do not use!"
+
+        if list_name not in self.markdown.lists:
+            return "List not found! Try using the `list_lists` tool!"
+
+        qr_code_url = f"http://{get_network_url()}/download_list/{quote_plus(list_name)}"
+        qr_path = self.markdown.generate_qr_image(qr_code_url)
+        self.dialog.visual = qr_path
+
+        return agent_observation(f"Finished! Here is a QR code to download that list. {qr_code_url}")
 

@@ -20,7 +20,7 @@ fi
 
 # Check if the -d flag is provided
 if [ "$1" == "-d" ]; then
-    echo "Running in dev mode (ami.dev)"
+    echo "Running in dev mode [ami.dev]"
     python -i -m ami.dev
 elif [ "$1" == "-l" ]; then
     echo "Running pylint"
@@ -29,9 +29,12 @@ elif [ "$1" == "-l" ]; then
         echo "Running pylint on specified directories/files: $@"
         pylint "$@"
     else
-        echo "Running pylint on ami directory (excluding headspace/core)"
+        echo "Running pylint on ami directory [excluding headspace/core]"
         pylint ami --ignore=core
     fi
+elif [ "$1" == "-s" ]; then
+    echo "Running AMI Flask server only [ ami.dev:run_server(AI()) ]"
+    python -c "from ami.dev import run_server, AI; run_server(AI())"
 else
     echo "Running in normal mode (ami.ami)"
     python -m ami.ami

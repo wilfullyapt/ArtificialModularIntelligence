@@ -117,7 +117,7 @@ class Brain(Base):
     facilitates the interaction between the user and the selected Headspace.
     """
 
-    def __init__(self, headspaces: List=[]):
+    def __init__(self, temp_comms, headspaces: List=[]):
         """ 
         Initialize the Brain instance.
 
@@ -131,6 +131,7 @@ class Brain(Base):
         """
         super().__init__()
 
+        self.temp_comms = temp_comms
         self._headspace_cache = { hs.name.upper() : hs
                             for hs in [ HeadspaceCache.from_definition(hs) for hs in headspaces ]
                       }
@@ -271,7 +272,13 @@ class Brain(Base):
 
         if isinstance(load_msg_callback, Callable):
             load_msg_callback("Thinking ...")
-        dialog = headspace.query(prompt, stream=True)
+
+        try:
+            dialog = headspace.query(prompt, stream=True)
+        except Exception as e:
+            self.logs.error(f"Something failed in the Headspace.query: {e}")
+            print("BRAIN TRY FAILED")
+
         if isinstance(load_msg_callback, Callable):
             load_msg_callback("Formulating Response ...")
 

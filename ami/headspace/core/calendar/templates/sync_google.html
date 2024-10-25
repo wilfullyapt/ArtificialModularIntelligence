@@ -1,0 +1,131 @@
+<h1>Local Calendar Access</h1>
+<!-- Initial Setup Section -->
+<div id="setup_section">
+    <h2>One-Time Setup Required</h2>
+    <button onclick="getSetupInstructions()">Show Setup Instructions</button>
+    <p>Instructional video <a href="https://www.youtube.com/watch?v=B2E82UPUnOY">here</a></p>
+    <div id="setup_steps" class="hidden"></div>
+</div>
+
+<!-- Authorization Section -->
+<div id="auth_section" class="hidden">
+    <button onclick="initiateAuth()">Start Calendar Authorization</button>
+</div>
+
+<!-- Credentials Upload Section -->
+<div id="upload_section">
+    <h2>Upload Google Credentials</h2>
+    <label for="credentials_file" class="custom-file-upload">
+        Upload Credentials
+    </label>
+    <input type="file" id="credentials_file" accept=".json" required>
+</div>
+
+<!-- Status Messages -->
+<div id="status_message" class="hidden"></div>
+
+<!-- Events Display -->
+<div id="events_section" class="hidden">
+    <h2>Your Calendar Events</h2>
+    <button onclick="fetchEvents()">Refresh Events</button>
+    <div id="events_list"></div>
+</div>
+
+<script>
+    function showMessage(message, isError = false) {
+        const statusDiv = document.getElementById('status_message');
+        statusDiv.className = isError ? 'error' : 'success';
+        statusDiv.textContent = message;
+        statusDiv.style.display = 'block';
+    }
+
+    function getSetupInstructions() {
+        fetch('/setup_instructions')
+            .then(response => response.json())
+            .then(data => {
+                const stepsDiv = document.getElementById('setup_steps');
+                stepsDiv.innerHTML = '<ol>' + 
+                    data.steps.map(step => `<li>${step}</li>`).join('') +
+                    '</ol>';
+                stepsDiv.classList.remove('hidden');
+                document.getElementById('auth_section').classList.remove('hidden');
+            })
+            .catch(error => showMessage('Failed to load setup instructions: ' + error, true));
+    }
+
+    function initiateAuth() {
+        showMessage('Starting authorization process...');
+        fetch('/initiate_auth')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showMessage(data.message);
+                    document.getElementById('setup_section').classList.add('hidden');
+                    document.getElementById('events_section').classList.remove('hidden');
+                } else {
+                    showMessage(data.message || data.error, true);
+                }
+            })
+            .catch(error => showMessage('Authorization failed: ' + error, true));
+    }
+
+    function fetchEvents() {
+        fetch('/list_events')
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    showMessage(data.message || data.error, true);
+                    return;
+                }
+                displayEvents(data.events);
+            })
+            .catch(error => showMessage('Failed to fetch events: ' + error, true));
+    }
+
+    function displayEvents(events) {
+        const eventsList = document.getElementById('events_list');
+        if (events.length === 0) {
+            eventsList.innerHTML = '<p>No upcoming events found</p>';
+            return;
+        }
+
+        eventsList.innerHTML = events.map(event => {
+            const start = event.start.dateTime || event.start.date;
+            const formattedDate = new Date(start).toLocaleString();
+            return `<div>
+                <strong>${event.summary || 'Untitled Event'}</strong>
+                <br>
+                ${formattedDate}
+            </div>`;
+        }).join('<hr>');
+    }
+    function uploadCredentials(file) {
+        const formData = new FormData();
+        formData.append('credentials', file);
+
+        showMessage('Uploading credentials...');
+
+        fetch('/upload_google_credentials', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showMessage('Credentials uploaded successfully');
+                // Trigger the authorization process
+                initiateAuth();
+            } else {
+                showMessage(data.message || 'Failed to upload credentials', true);
+            }
+        })
+        .catch(error => showMessage('Error uploading credentials: ' + error, true));
+    }
+
+    document.getElementById('credentials_file').addEventListener('change', function(e) {
+        if (this.files.length > 0) {
+            uploadCredentials(this.files[0]);
+        }
+    });
+
+</script>

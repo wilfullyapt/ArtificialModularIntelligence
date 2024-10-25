@@ -1,8 +1,9 @@
 """ AMI Core Headspace Blueprint for Markdown """
 
-from flask import redirect, url_for, request
+from flask import make_response, redirect, url_for, request, render_template as jinja_template
 
 from ami.headspace.blueprint import Blueprint, HeaderButton, route, render_template
+from .tool import Markdown as MarkdownTool
 
 class Markdown(Blueprint):
     def __init__(self, *args, **kwargs):
@@ -29,3 +30,16 @@ class Markdown(Blueprint):
         )
 
         return render_template('editor.html', tempsets=tempate_settings, content=content)
+
+    @route('/download_list/<path:list_name>', methods=['GET'])
+    def download_list(self, list_name):
+
+        mdf = MarkdownTool().get_list(list_name.replace("+", " "))
+
+        if not mdf:
+            return f"Cannot locate {list_name}!"
+
+        raw_html = jinja_template('downloadable_list.html', list_title=list_name, list_items=mdf.list_contents)
+        response = make_response(raw_html)
+        response.headers["Content-Disposition"] = "attachment; filename=ami_list.html"
+        return response

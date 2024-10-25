@@ -1,0 +1,14 @@
+a { color: #FF0000; text-decoration: none; }
+.hidden { display: none; }
+.error { color: red; }
+.success { color: green; }
+.custom-file-upload {
+    border: 1px solid #ccc;
+    display: inline-block;
+    padding: 6px 12px;
+    cursor: pointer;
+    background-color: #387c9b;
+}
+#credentials_file { display: none; }
+#setup_steps { margin: 20px 0; }
+#setup_steps li { margin: 10px 0; }

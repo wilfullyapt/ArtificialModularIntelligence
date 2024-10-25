@@ -22,13 +22,6 @@ def get_network_url(remote_host="www.x.com" ):
         print(f"An error occurred: {e}")
         return None
 
-def get_network_url_depricated():
-    """ get the ip address and port for the hosted flask server """
-    hostname = socket.gethostname()
-    ip_address = socket.gethostbyname(hostname)
-    port = Config().server_port
-    return f"{ip_address}:{port}"
-
 def is_valid_ip(ip_str: str):
     """ Validate the IP """
     ip_parts = ip_str.split('.')
@@ -79,6 +72,7 @@ class GunicornServer(BaseApplication):
     def load(self):
         """ return the app """
         return self.application
+
 class FlaskManager(Base):
     """
     FlaskManager is a class that manages the lifecycle of a Flask application.
@@ -105,7 +99,7 @@ class FlaskManager(Base):
     @property
     def url(self):
         """ Return the network url """
-        return get_network_url_rpi()
+        return get_network_url()
 
     def start(self, flask_app):
         """ Start the server """
@@ -131,7 +125,7 @@ class FlaskManager(Base):
 
         self.process = multiprocessing.Process(target=self.server.run)
         self.process.start()
-        self.logs.info("GUincorn Server started in seperate process.")
+        self.logs.info(f"GUincorn Server started in seperate process: {self.url}")
 
     def stop(self):
         """ Stop the server """

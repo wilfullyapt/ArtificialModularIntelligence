@@ -46,4 +46,4 @@ Begin!
 
 """
 
-ROUTING = [ "Let me edit a markdown file", "Add an item to my list", "Remove an item from my list" ]
+ROUTING = [ "Let me edit a markdown file", "Add an item to my list", "Remove an item from my list", "I need to download a list", "I need the qr code for a list" ]

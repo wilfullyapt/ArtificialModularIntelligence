@@ -102,7 +102,6 @@ class Blueprint(FlaskBlueprint, Primitive, metaclass=BlueprintMeta):
                                )
         Primitive.__init__(self)
 
-
         self.pipe: Connection = pipe
 
         for _, method in self._routes:

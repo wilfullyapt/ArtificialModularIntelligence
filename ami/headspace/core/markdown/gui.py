@@ -35,7 +35,6 @@ class Markdown(GuiFrame):
 
         font_settings_dict = {k.replace('-', '_'): v for k, v in self.yaml.get("font-settings", {}).items()}
         self.font_settings = FontSettings(**font_settings_dict)
-
         self.side_padding = self.yaml.get("padding", 20)
 
         column_width = self.screen_width // len(self.markdown_files)
@@ -46,7 +45,6 @@ class Markdown(GuiFrame):
 
         if not all(file.exists() for file in self.markdown_files):
             default_markdowns(self.filesystem.path)
-
 
     def define_render(self) -> None:
         self.load_settings()

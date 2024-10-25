@@ -5,6 +5,8 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any, List
 
+from pprint import pprint as pp
+
 from langchain.agents import AgentExecutor, create_structured_chat_agent
 from langchain.tools import StructuredTool
 from langchain.prompts import ChatPromptTemplate, PromptTemplate
@@ -17,7 +19,8 @@ from .dialog import Dialog
 
 def agent_observation(observation:str):
     """ This function converts a result to an observation for the agent """
-    return f"Observation: {observation}"
+#   return f"Observation: {observation}"
+    return f"{observation}\n"
 
 def ami_tool(func):
     """ Decorator for creating tools within AI-controlled classes.
@@ -217,6 +220,8 @@ class Headspace(Primitive):
         self.dialog.visual = None
 
         self.agent_response = self.agent_executor.invoke({"input": prompt})
+
+        pp(self.agent_response)
 
         if self.agent_response['output'] == "Agent stopped due to iteration limit or time limit.":
             self.logs.warn("Agent stopped due to impossed limitation. Check logs and/or LangSmith")

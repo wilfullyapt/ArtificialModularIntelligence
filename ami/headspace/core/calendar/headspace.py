@@ -6,10 +6,10 @@ from langchain_core.prompts import PromptTemplate
 from ami.flask.manager import get_network_url
 from ami.headspace import Headspace, ami_tool
 #from ami.headspace import Headspace, ami_tool, agent_observation
-from ami.headspace.core.calendar.credentials_google import GoogleAuth
+from ami.headspace.core.calendar.google_sync import GoogleAuth
 from ami.headspace.headspace import generate_qr_image
 
-from .calendar import Calendar as CalendarTool, Event
+from .json_calendar import JsonCalendar, Event
 
 INFER_DATE_PROMPT = """Your goal is to infer what the user meant when they said '{user_input}'. You should only respond with only YYYY-MM-DD and nothing else.
 The user is only thinking about future dates, unless otherwise specifically stated.
@@ -27,7 +27,7 @@ class Calendar(Headspace):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         calendar_filepath = self.filesystem / self.yaml.get("calendar_filename", "calendar.json")
-        self.cal = CalendarTool(calendar_filepath)
+        self.cal = JsonCalendar(calendar_filepath)
         self.auth = GoogleAuth(self.filesystem.path)
 
     def verbose_date(self, date_str):

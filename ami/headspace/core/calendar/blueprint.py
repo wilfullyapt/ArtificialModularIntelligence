@@ -7,7 +7,7 @@ from google.auth.transport.requests import Request
 from flask import request, jsonify
 
 from ami.headspace.blueprint import Blueprint, HeaderButton, route, render_template
-from .credentials_google import GoogleAuth
+from .google_sync import GoogleAuth
 
 class Calendar(Blueprint):
     def __init__(self, *args, **kwargs):

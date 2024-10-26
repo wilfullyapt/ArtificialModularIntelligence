@@ -10,6 +10,40 @@ placement:
 # Does this headspace need a filesystem?
 filesystem: True
 
-## Calendar filename and calendar mode
+# Calendar filename and calendar mode
 calendar_filename: calendar.json
-calendar_mode: week
+
+# Should the calendar display events from Google?
+google_sync: True
+
+# Calendar Mode: '[1-4]-week' , '[1-3]-day'
+calendar_mode: 3-week
+
+# Set Dimensions for the calendar boxes
+dimensions:
+  week:
+    width: 120
+    height: 120
+  day:
+    width: 200
+    height: 500
+
+# fonts can inclue "Arial", "Times New Roman", "Courier", "Helvetica", "Geogia", "Verdana"
+font: "Helvetica"
+font-size: 9
+
+colors:
+  active: "#FF6B6B"     # A lively, energetic red for those in the thick of it
+  inactive: "#A9A9A9"   # A muted, not-quite-as-exciting gray for the less active
+  border: "#FFD700"     # Gold borders because everything looks better framed in gold
+  background: "#E6F3FF" # A soft, calming blue for the background, like a clear sky
+  default: "#E69A28"    # Default color for JSON based calendar events
+  one: "#98FB98"        # A fresh, green for the first owner, like they've got a green thumb for events
+  two: "#FFB6C1"        # A light pink for the second, because why not add some romance?
+  three: "#4169E1"      # A royal blue for the third, regal and commanding
+  four: "#FFA07A"       # A salmon color for the fourth, because they're swimming upstream
+  five: "#9ACD32"       # A vibrant yellow-green for the fifth, like they just stepped out of a sunny meadow
+  six: "#DAA520"        # A golden rod for the sixth, because they're the golden child of events
+  seven: "#8A2BE2"      # A deep violet for the seventh, mysterious and enchanting
+  eight: "#BC8F8F"      # A rosy brown for the eighth, earthy and grounded
+

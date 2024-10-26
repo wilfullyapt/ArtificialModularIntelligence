@@ -10,6 +10,7 @@ from typing import List, Dict, Optional
 from pydantic import BaseModel, Field, field_validator, field_serializer
 
 from ami.headspace.base import SharedTool
+from ami.headspace.core.calendar.common import Event as CommonEvent
 
 # ------------------------------------------------------------------------
 # homeai.flask.utils.py AND homeai.flask.flask_server.py use this script
@@ -309,7 +310,7 @@ class SaveUnnecessary(Exception):
 class InvalidCalendarKey(Exception):
     pass
 
-class Calendar(SharedTool):
+class JsonCalendar(SharedTool):
 
     def __init__(self, calendar_filepath: Path):
         super().__init__()
@@ -480,7 +481,7 @@ class Calendar(SharedTool):
     def log(self, msg, error=False):
         print(f" ::> {msg}")
 
-    def get_date(self, date, propagate_reoccurring=False):
+    def get_date(self, date, propagate_reoccurring=False) -> List[Event]:
         events = self[date]
 
         if propagate_reoccurring:
@@ -495,5 +496,11 @@ class Calendar(SharedTool):
     def inflate_calendar(self, dates_list: List[str]) -> Dict[str, list]:
         calendar = { date: self.get_date(date, propagate_reoccurring=True) for date in dates_list }
         calendar = { date : [ event.to_json() for event in calendar[date] ] for date in calendar.keys() }
-
         return calendar
+
+
+    def inflate_calendar_events(self, dates_list: List[str]) -> Dict[str, List[CommonEvent]]:
+        calendar = { date: self.get_date(date, propagate_reoccurring=True) for date in dates_list }
+        calendar = { date : [ CommonEvent.from_local_json(date, **event.to_json()) for event in calendar[date] ] for date in calendar.keys() }
+        return calendar
+

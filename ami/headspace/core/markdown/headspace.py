@@ -37,9 +37,8 @@ class Markdown(Headspace):
 
         return agent_observation(f"'{item}' successfully added to the '{list_name}' list!")
 
-
     @ami_tool
-    def remove_from_list(self, list_name:str, item:str):
+    def remove_from_list(self, list_name: str, item: str):
         """ Use this tool to remove an item to a list. Ensure to spell the list_name correctly. """
         md = self.markdown.remove_from_list(list_name, item)
         if md:
@@ -49,6 +48,16 @@ class Markdown(Headspace):
             return agent_observation(f"List '{list_name}' not found! Try the `list_lists` tool, then retry the remove_from_list tool.")
 
         return agent_observation(f"'{item}' successfully removed from the '{list_name}' list!")
+
+    @ami_tool
+    def spawn_list(self, list_name: str, filename: str):
+        """ Use this tool to create a new list(list_name) in a markdown file(filename) """
+        return "Do not use this tool! It has not been implemented!"
+
+    @ami_tool
+    def clear_list(self, list_name: str):
+        """ Use this tool to reset/clear/erase a list and delete all items in the list """
+        return "Do not use this tool! It has not been implemented!"
 
     @ami_tool
     def edit_file(self, file: str):

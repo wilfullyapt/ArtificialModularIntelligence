@@ -5,13 +5,8 @@
 **AMI** is an AI companion with plug-n-play Headspaces with Headspace specific directory access. **AMI** is intended to be a voice companion that deploys a Flask server to her local network for more detailed interfacing with a visual tkinter element. **AMI** is built with the intention to be put on a Raspberry Pi with a monitor as an in home AI.
 
 **Capabilities:**
-- Basic voice assistant calendar
-- Basic voice assistant markdown control
-- RAG (Retrieval Augmented Generation) over your stored documents for Question Answering
-*Coming soon*
-- Financial Advisor: Upload your financial documents and gain insight and personalized financial guidance
-- Integration and syncing with calendar apps like Google and Apple
-- Sharable Picture Frame/Albums
+- Basic voice assistant calendar + Google Calendar sycing
+- Basic voice assistant for Markdown notes + downloading lists
 
 ### 🚀 Getting Started
 
@@ -79,3 +74,13 @@ See ami.ai.headspace directory to understand how the GUI, Blueprint, and Headspa
 ## Changelog
 1. Implemented OpenWakeWord for hotword detection
 2. Utils Headspace added for config editing through Flask server
+3. Calendar syncing with Google Calendar + Ledgend
+
+
+### Developer Notes
+- Possible switch from Tkinter to PyQt6
+- Better JSON infrastructure for calendar
+- Utils and Time need to be rolled into `builtin`
+- Local inference for STT needed
+- Build Finacial Headspace
+- Build Media Headspace

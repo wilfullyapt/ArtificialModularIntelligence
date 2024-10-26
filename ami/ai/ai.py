@@ -209,12 +209,14 @@ class AI(Base):
         self.attn.start()
         self.attn.schedule(self.process_whisperer())
 
+#       self.gui.run(builtins=self.get_builtin_guis(), modules=self.get_modules_part("gui"))
         self.gui.run(self.get_modules_part("gui"))  # The GUI must run in the main thread
 
         self.stop()                                 # If the GUI closes, everything else should
 
     def stop(self, event=None, frame=None):
         """ Stop all composed object """
+        self.logs.debug("AI.stop() called!!!")
         self.flask_manager.stop()
         self.ears.stop()
         self.gui.stop()

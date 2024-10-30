@@ -79,23 +79,3 @@ if __name__ == '__main__':
 #   ai.run()
 
 #   help(ai.brain["calendar"].__class__)
-
-
-#---------------- #TODO Self Testing. DELETE ME.
-
-    today = datetime.now().date()
-    prev_sunday = today - timedelta(days=today.weekday() + 1)
-    prev_sunday_dt = datetime.combine(prev_sunday, datetime.min.time())
-
-    cal_config = CalendarConfig()
-    days = cal_config.days
-    dr = DateRange.from_start(prev_sunday_dt, days=days, timezone=cal_config.tz)
-
-    auth = ai.brain['calendar'].auth
-
-    gevents = auth.get_events(date_range=dr)
-
-    cal = ai.get_modules_part('gui')[-1](ai.gui)
-    dates = cal.cal[str(prev_sunday) : str(prev_sunday+timedelta(days=days-1))]
-    events = cal.cal.inflate_calendar_events(dates)
-

@@ -25,21 +25,15 @@
 <!-- Credentials Upload Section -->
 <div id="upload_section">
     <h2>Upload Google Credentials</h2>
-    <label for="credentials_file" class="custom-file-upload">
-        Upload Credentials
-    </label>
-    <input type="file" id="credentials_file" accept="application/json,.json" capture="filesystem" required>
+    <div id="drop_zone">
+        <p>Drag & drop your credentials file here or click to select</p>
+        <input type="file" id="credentials_file" accept="application/json,.json" required>
+    </div>
+    <div id="file_name"></div>
 </div>
 
 <!-- Status Messages -->
 <div id="status_message" class="hidden"></div>
-
-<!-- Events Display -->
-<div id="events_section" class="hidden">
-    <h2>Your Calendar Events</h2>
-    <button onclick="fetchEvents()">Refresh Events</button>
-    <div id="events_list"></div>
-</div>
 
 <script>
     function showMessage(message, isError = false) {
@@ -65,36 +59,6 @@
             .catch(error => showMessage('Authorization failed: ' + error, true));
     }
 
-    function fetchEvents() {
-        fetch('/list_events')
-            .then(response => response.json())
-            .then(data => {
-                if (data.error) {
-                    showMessage(data.message || data.error, true);
-                    return;
-                }
-                displayEvents(data.events);
-            })
-            .catch(error => showMessage('Failed to fetch events: ' + error, true));
-    }
-
-    function displayEvents(events) {
-        const eventsList = document.getElementById('events_list');
-        if (events.length === 0) {
-            eventsList.innerHTML = '<p>No upcoming events found</p>';
-            return;
-        }
-
-        eventsList.innerHTML = events.map(event => {
-            const start = event.start.dateTime || event.start.date;
-            const formattedDate = new Date(start).toLocaleString();
-            return `<div>
-                <strong>${event.summary || 'Untitled Event'}</strong>
-                <br>
-                ${formattedDate}
-            </div>`;
-        }).join('<hr>');
-    }
     function uploadCredentials(file) {
         const formData = new FormData();
         formData.append('credentials', file);
@@ -118,10 +82,55 @@
         .catch(error => showMessage('Error uploading credentials: ' + error, true));
     }
 
-    document.getElementById('credentials_file').addEventListener('change', function(e) {
-        if (this.files.length > 0) {
-            uploadCredentials(this.files[0]);
+    function handleFileSelect(file) {
+        if (file) {
+            document.getElementById('file_name').textContent = `Selected file: ${file.name}`;
+            uploadCredentials(file);
         }
+    }
+
+    const dropZone = document.getElementById('drop_zone');
+    const fileInput = document.getElementById('credentials_file');
+
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
     });
 
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('dragover');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        handleFileSelect(e.dataTransfer.files[0]);
+    });
+
+    fileInput.addEventListener('change', (e) => {
+        handleFileSelect(e.target.files[0]);
+    });
 </script>
+
+<style>
+    #drop_zone {
+        border: 2px dashed #ccc;
+        border-radius: 20px;
+        width: 300px;
+        padding: 20px;
+        text-align: center;
+        cursor: pointer;
+    }
+    #drop_zone.dragover {
+        background-color: #e1e1e1;
+    }
+    #credentials_file {
+        display: none;
+    }
+    #file_name {
+        margin-top: 10px;
+        font-style: italic;
+    }
+</style>

@@ -26,24 +26,6 @@ class Calendar(Blueprint):
             )
         )
 
-    @route('/setup_instructions')
-    def setup_instructions(self):
-        """Provides instructions for users to set up their own credentials"""
-        instructions = {
-            'steps': [
-                "Go to <a href='https://console.cloud.google.com/'>Google Cloud Console</a>",
-                "Create a new project (or select an existing one)",
-                "Enable the Google Calendar API for your project",
-                "Go to Credentials → Create Credentials → OAuth Client ID",
-                "Choose 'Desktop Application' as the application type",
-                "Download the credentials JSON file",
-                "Save it as 'desktop_client_secret.json' in this application's config directory",
-                "Click 'Start Authorization' below once complete"
-            ],
-            'next_step': '/initiate_auth'
-        }
-        return jsonify(instructions)
-
     @route('/auth_status')
     def auth_status(self):
         """Check if user is currently authorized"""

@@ -2,9 +2,19 @@
 <!-- Initial Setup Section -->
 <div id="setup_section">
     <h2>One-Time Setup Required</h2>
-    <button onclick="getSetupInstructions()">Show Setup Instructions</button>
     <p>Instructional video <a href="https://www.youtube.com/watch?v=B2E82UPUnOY">here</a></p>
-    <div id="setup_steps" class="hidden"></div>
+    <div id="setup_steps">
+        <ol>
+            <li>Go to <a href='https://console.cloud.google.com/'>Google Cloud Console</a></li>
+            <li>Create a new project (or select an existing one)</li>
+            <li>Enable the Google Calendar API for your project</li>
+            <li>Go to Credentials → Create Credentials → OAuth Client ID</li>
+            <li>Choose 'Desktop Application' as the application type</li>
+            <li>Download the credentials JSON file</li>
+            <li>Save it as 'desktop_client_secret.json' in this application's config directory</li>
+            <li>Click 'Start Authorization' below once complete</li>
+        </ol>
+    </div>
 </div>
 
 <!-- Authorization Section -->
@@ -37,20 +47,6 @@
         statusDiv.className = isError ? 'error' : 'success';
         statusDiv.textContent = message;
         statusDiv.style.display = 'block';
-    }
-
-    function getSetupInstructions() {
-        fetch('/setup_instructions')
-            .then(response => response.json())
-            .then(data => {
-                const stepsDiv = document.getElementById('setup_steps');
-                stepsDiv.innerHTML = '<ol>' + 
-                    data.steps.map(step => `<li>${step}</li>`).join('') +
-                    '</ol>';
-                stepsDiv.classList.remove('hidden');
-                document.getElementById('auth_section').classList.remove('hidden');
-            })
-            .catch(error => showMessage('Failed to load setup instructions: ' + error, true));
     }
 
     function initiateAuth() {

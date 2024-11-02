@@ -80,5 +80,3 @@ if __name__ == '__main__':
 
 #   help(ai.brain["calendar"].__class__)
 
-
-    ai.new_gui()

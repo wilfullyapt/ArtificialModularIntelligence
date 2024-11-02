@@ -1,3 +1,4 @@
+""" THIS FILE IS BEING DEPRICATED AND MOVED TO ami/core/listening.py """
 """ eary.py """
 import io
 import time

@@ -35,6 +35,9 @@ elif [ "$1" == "-l" ]; then
 elif [ "$1" == "-s" ]; then
     echo "Running AMI Flask server only [ ami.dev:run_server(AI()) ]"
     python -c "from ami.dev import run_server, AI; run_server(AI())"
+elif [ "$1" == "-n" ]; then
+    echo "---- NEW AMI ---"
+    python -i -m ami.main
 else
     echo "Running in normal mode (ami.ami)"
     python -m ami.ami

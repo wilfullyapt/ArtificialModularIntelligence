@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout
 
 from ami.base import Base
 from ami.core.brain import Brain
-from ami.core.listening import AudioProcessor, VoiceEvent
+from ami.core.listening import AudioProcessor, ProcessState, VoiceEvent
 
 from ami.interfaces.gui.clock import TimeDateWidget
 
@@ -67,14 +67,20 @@ class MainWindow(QMainWindow, Base):
             self.handle_voice_query(data)
 
         elif event_type == VoiceEvent.HOTWORD_DETECTED:
-            self.logs.info("Hotword detected!")
+            self.logs.info(f"VoiceEvent.HOTWORD_DETECTED: {data}")
+            self.listening_state_queue.put(ProcessState.HOTWORD_DETECTION)
 
         elif event_type == VoiceEvent.TIMEOUT:
-            # Handle timeout UI updates
-            pass
+            self.logs.info(f"VoiceEvent.TIMEOUT: {data}")
 
         elif event_type == VoiceEvent.ERROR:
-            print(f"Error in audio process: {data}")
+            self.logs.info(f"VoiceEvent.ERROR: {data}")
+
+        elif event_type == VoiceEvent.STATE_CHANGED:
+            self.logs.info(f"VoiceEvent.STATE_CHANGED: {data}")
+
+        else:
+            self.logs.warn(f"VoiceEvent cannot be confirmed: {event_type}, {data}")
 
     def start(self):
         """ Start up the audio process and the web server """

@@ -57,10 +57,11 @@ class AudioProcessor(mp.Process, Base):
         self.event_queue = event_queue
         self.state_queue = state_queue
         self.control_event = control_event
+        self.current_state = ProcessState.PAUSED
 
         config = Config()
-        self.models_dir = config.oww_models_dir
         self.hot_word = config.hot_word
+        self.models_dir = config.oww_models_dir
 
         self.CHUNK = 1280
         self.DETECTION_THRESHOLD = config.detection_threshold
@@ -71,6 +72,13 @@ class AudioProcessor(mp.Process, Base):
         self.logs.info(f"LISTENING_PATIENCE is {self.LISTENING_PATIENCE}")
         self.logs.info(f"SILENCE_THRESHOLD is {self.LISTENING_PATIENCE} seconds")
         self.logs.info(f"SILENCE_THRESHOLD is {self.SILENCE_THRESHOLD}")
+
+    def set_state(self, new_state: ProcessState):
+        """Update the current state and notify via event queue"""
+        if self.current_state != new_state:
+            self.current_state = new_state
+            self.event_queue.put((VoiceEvent.STATE_CHANGED, new_state.value))
+            self.logs.info(f"State changed to: {new_state.value}")
 
     def get_model(self, models_dir: Path, hotword: str, **kwargs) -> Model:
         """
@@ -106,6 +114,7 @@ class AudioProcessor(mp.Process, Base):
                 return self.get_model(models_dir, hotword, **kwargs)
 
     def record_speech(self, stream):
+        """ Captures the audio in an audio buffer that contains the user speech input """
         audio_buffer = []
         silence_counter = 0
         start_time = time.time()
@@ -131,6 +140,7 @@ class AudioProcessor(mp.Process, Base):
         return np.concatenate(audio_buffer) if audio_buffer else None
 
     def string_from_audio(self, audio_data) -> str:
+        """ Speech to Text member method """
         try:
             recognizer = sr.Recognizer()
             audio = sr.AudioData(audio_data.getvalue(), sample_rate=16000, sample_width=2)
@@ -140,6 +150,18 @@ class AudioProcessor(mp.Process, Base):
         except Exception as e:
             print(f"STT Error: {e}")
             return ""
+
+    def handle_listening(self, stream):
+        """ Records audio -> Speech to Text -> VoiceEvent to parent process -> ProcessState=PAUSED """
+        try:
+            audio_data = self.record_speech(stream)
+            if audio_data is not None:
+                with io.BytesIO() as f:
+                    sf.write(f, audio_data, 16000, format='wav')
+                    text = self.string_from_audio(f)
+                    return text
+        except Exception as e:
+            self.logs.error(f"Error in handle_listening() {e}")
 
     def run(self):
         """
@@ -167,65 +189,59 @@ class AudioProcessor(mp.Process, Base):
                 frames_per_buffer=self.CHUNK
             )
 
-            self.model = self.get_model(
+            model = self.get_model(
                 self.models_dir,
                 self.hot_word,
                 melspec_model_path=str(get_melspec_filepath(self.models_dir)),
                 embedding_model_path=str(get_embeddings_filepath(self.models_dir))
             )
 
+            self.set_state(ProcessState.HOTWORD_DETECTION)
+
             try:
-
-                last_minute_buffer = []
-
                 while not self.control_event.is_set():
-                    # Read audio chunk
-                    audio = np.frombuffer(stream.read(self.CHUNK), dtype=np.int16)
-                    last_minute_buffer.append(audio)
 
-                    # Maintain buffer size
-                    if len(last_minute_buffer) > 60 * 16000 // self.CHUNK:
-                        last_minute_buffer.pop(0)
+                    if self.current_state == ProcessState.PAUSED:
+                        try:
+                            new_state = self.state_queue.get_nowait()
+                            self.set_state(new_state)
+                        except mp.queues.Empty:
+                            time.sleep(0.1)
+                        continue
 
-                    # Hot word detection
-                    prediction = self.model.predict(audio)
-                    detection = any(
-                        self.model.prediction_buffer[mdl][-1] > self.DETECTION_THRESHOLD
-                        for mdl in self.model.prediction_buffer.keys()
-                    )
+                    if self.current_state == ProcessState.HOTWORD_DETECTION:
+                        audio = np.frombuffer(stream.read(self.CHUNK), dtype=np.int16)
+                        prediction = model.predict(audio)
+                        detection = any(
+                            model.prediction_buffer[mdl][-1] > self.DETECTION_THRESHOLD
+                            for mdl in model.prediction_buffer.keys()
+                        )
 
-                    print("\rDetection readings:", end="")
-                    for mdl in self.model.prediction_buffer.keys():
-                        print(f" {mdl}: {self.model.prediction_buffer[mdl][-1]:.4f}", end="")
-                    print(f" | Threshold: {self.DETECTION_THRESHOLD:.4f}", end="\r", flush=True)
+                        print("\rDetection readings:", end="")
+                        for mdl in model.prediction_buffer.keys():
+                            print(f" {mdl}: {model.prediction_buffer[mdl][-1]:.4f}", end="")
+                        print(f" | Threshold: {self.DETECTION_THRESHOLD:.4f}", end="\r", flush=True)
 
-                    if detection:
-                        # Signal hotword detection
-                        self.event_queue.put((VoiceEvent.HOTWORD_DETECTED, None))
-                        self.logs.info("Hotword detected.")
+                        if detection:
+                            self.event_queue.put((VoiceEvent.HOTWORD_DETECTED, None))
+                            self.logs.info("Hotword detected.")
+                            self.set_state(ProcessState.LISTENING)
+                            model.reset()
 
-                        # Record and process speech
-                        audio_data = self.record_speech(stream)
-
-                        if audio_data is not None:
-                            with io.BytesIO() as f:
-                                sf.write(f, audio_data, 16000, format='wav')
-                                text = self.string_from_audio(f)
-                                if text:
-                                    self.event_queue.put((VoiceEvent.TRANSCRIPTION, text))
-
-                        break
+                    elif self.current_state == ProcessState.LISTENING:
+                        text_from_audio = self.handle_listening(stream)
+                        if text_from_audio:
+                            self.event_queue.put((VoiceEvent.TRANSCRIPTION, text_from_audio))
+                        self.set_state(ProcessState.PAUSED)
 
             except Exception as e:
-                self.logs.error(f"Error while listening ... {str(e)}")
+                self.logs.error(f"Error while processing audio: {str(e)}")
                 self.event_queue.put((VoiceEvent.ERROR, str(e)))
             finally:
-                # Clean up audio resources
                 stream.stop_stream()
                 stream.close()
                 p.terminate()
-                self.model.reset()
-                self.logs.info("Listening Finished")
+                self.logs.info("Audio processing finished")
 
         except Exception as e:
             self.logs.error(f"Failed to initialize audio: {str(e)}")
@@ -233,6 +249,6 @@ class AudioProcessor(mp.Process, Base):
         finally:
             try:
                 self.event_queue.close()
+                self.state_queue.close()
             except Exception as e:
-                self.logs.warn(f"Error is closing the event queue: {e}")
-
+                self.logs.warn(f"Error in closing queues: {e}")

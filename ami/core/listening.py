@@ -217,11 +217,6 @@ class AudioProcessor(mp.Process, Base):
                             for mdl in model.prediction_buffer.keys()
                         )
 
-                        print("\rDetection readings:", end="")
-                        for mdl in model.prediction_buffer.keys():
-                            print(f" {mdl}: {model.prediction_buffer[mdl][-1]:.4f}", end="")
-                        print(f" | Threshold: {self.DETECTION_THRESHOLD:.4f}", end="\r", flush=True)
-
                         if detection:
                             self.event_queue.put((VoiceEvent.HOTWORD_DETECTED, None))
                             self.logs.info("Hotword detected.")

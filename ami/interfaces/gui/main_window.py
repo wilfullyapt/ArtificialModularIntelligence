@@ -1,16 +1,14 @@
 """ Main full screen UI for the AMI system """
 
 import multiprocessing as mp
-from time import time
 
 from PyQt6.QtCore import QTimer, Qt
 from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout
 
 from ami.base import Base
-from ami.core.brain import Brain
-from ami.core.listening import AudioProcessor, ProcessState, VoiceEvent
 
-from ami.interfaces.gui.clock import TimeDateWidget
+from ami.core import Brain, AudioProcessor, ProcessState, VoiceEvent
+from ami.interfaces.gui import builtin_widgets
 
 
 class MainWindow(QMainWindow, Base):
@@ -30,15 +28,16 @@ class MainWindow(QMainWindow, Base):
         self.showFullScreen()
 
         # Set up event checking timer
-        self.check_timer = QTimer()
-        self.check_timer.timeout.connect(self.check_events)
-        self.check_timer.start(100)
+        self.check_listen_timer = QTimer()
+        self.check_listen_timer.timeout.connect(self.check_listening_events)
+        self.check_listen_timer.start(100)
 
     def setup_ui(self):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         layout = QVBoxLayout(central_widget)
 
+        """ Add the loop here from the Claude conversation """
         # Create and add the TimeDateWidget
         time_date_widget = TimeDateWidget()
         layout.addWidget(time_date_widget, alignment=Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
@@ -52,7 +51,7 @@ class MainWindow(QMainWindow, Base):
         # Update UI with response
 #       self.update_response_display(response)
 
-    def check_events(self):
+    def check_listening_events(self):
         """ Ran on the interval for self.check_timer """
         try:
             event_type, data = self.listening_event_queue.get_nowait()
@@ -64,11 +63,12 @@ class MainWindow(QMainWindow, Base):
         """ This is the signal reciever from the listening to handle events and data payloads """
 
         if event_type == VoiceEvent.TRANSCRIPTION:
+            self.logs.info(f"VoiceEvent.TRANSCRIPTION: {data}")
             self.handle_voice_query(data)
+            self.listening_state_queue.put(ProcessState.HOTWORD_DETECTION)
 
         elif event_type == VoiceEvent.HOTWORD_DETECTED:
-            self.logs.info(f"VoiceEvent.HOTWORD_DETECTED: {data}")
-            self.listening_state_queue.put(ProcessState.HOTWORD_DETECTION)
+            self.logs.info(f"VoiceEvent.HOTWORD_DETECTED")
 
         elif event_type == VoiceEvent.TIMEOUT:
             self.logs.info(f"VoiceEvent.TIMEOUT: {data}")
@@ -94,7 +94,7 @@ class MainWindow(QMainWindow, Base):
 
     def cleanup(self):
         """Clean up resources and ensure process termination"""
-        self.check_timer.stop()
+        self.check_listen_timer.stop()
 
         if self.audio_process is not None:
             self.listening_control_event.set()              # Signal the process to stop

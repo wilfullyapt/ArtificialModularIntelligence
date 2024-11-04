@@ -1,23 +1,33 @@
 import sys
 import signal
+import multiprocessing as mp
+
 from PyQt6.QtWidgets import QApplication
+
 from ami.interfaces.gui.main_window import MainWindow
 
 def signal_handler(signum, frame):
+    """Handle termination signals by closing the Qt application"""
     QApplication.quit()
 
-def main():
+if __name__ == "__main__":
+    # Use spawn method for better cross-platform compatibility
+    mp.set_start_method('spawn')
+
+    # Set up signal handling
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
     app = QApplication(sys.argv)
     window = MainWindow()
     window.show()
+
+    # Start the audio process after window is shown
     window.start()
 
-    # Set up signal handler
-    signal.signal(signal.SIGINT, signal_handler)
+    # Execute the application
+    exit_code = app.exec()
 
-    # Use timer to allow Python interpreter to catch SIGINT
-    timer = app.startTimer(500)
-    app.exec()
-
-if __name__ == "__main__":
-    sys.exit(main())
+    # Ensure cleanup happens before exit
+    window.cleanup()
+    sys.exit(exit_code)

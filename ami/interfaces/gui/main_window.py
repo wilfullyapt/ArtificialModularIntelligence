@@ -1,88 +1,38 @@
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel
-from PyQt6.QtCore import QTimer, QTime, QDate, Qt
-from PyQt6.QtGui import QFont
+""" Main full screen UI for the AMI system """
 
+import multiprocessing as mp
+from time import time
 
-from PyQt6.QtWidgets import QMainWindow, QApplication, QVBoxLayout, QWidget
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import QTimer, Qt
+from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout
+
+from ami.base import Base
 from ami.core.brain import Brain
-from ami.core.listening import ListeningThread
+from ami.core.listening import AudioProcessor, VoiceEvent
 
-class TimeDateWidget(QWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.initUI()
+from ami.interfaces.gui.clock import TimeDateWidget
 
-    def initUI(self):
-        layout = QVBoxLayout()
-        self.setLayout(layout)
 
-        # Time layout
-        time_layout = QHBoxLayout()
-        self.time_label = QLabel()
-        self.time_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.time_label.setFont(QFont('Arial', 24, QFont.Weight.Bold))
+class MainWindow(QMainWindow, Base):
 
-        self.seconds_label = QLabel()
-        self.seconds_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-        self.seconds_label.setFont(QFont('Arial', 12))
-
-        self.ampm_label = QLabel()
-        self.ampm_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-        self.ampm_label.setFont(QFont('Arial', 12))
-
-        time_layout.addWidget(self.time_label)
-        time_layout.addWidget(self.seconds_label)
-        time_layout.addWidget(self.ampm_label)
-
-        # Date layout
-        self.date_label = QLabel()
-        self.date_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.date_label.setFont(QFont('Arial', 14))
-
-        self.month_year_label = QLabel()
-        self.month_year_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.month_year_label.setFont(QFont('Arial', 12))
-
-        layout.addLayout(time_layout)
-        layout.addWidget(self.date_label)
-        layout.addWidget(self.month_year_label)
-
-        # Update time every second
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self.updateDateTime)
-        self.timer.start(1000)
-
-        self.updateDateTime()
-
-    def updateDateTime(self):
-        current_time = QTime.currentTime()
-        current_date = QDate.currentDate()
-
-        time_str = current_time.toString('hh:mm')
-        seconds_str = current_time.toString(':ss')
-        ampm_str = current_time.toString('AP')
-        date_str = current_date.toString('dddd d')
-        month_year_str = current_date.toString('MMMM yyyy')
-
-        self.time_label.setText(time_str)
-        self.seconds_label.setText(seconds_str)
-        self.ampm_label.setText(ampm_str)
-        self.date_label.setText(date_str)
-        self.month_year_label.setText(month_year_str)
-
-class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-
         self.brain = Brain()
-        self.voice_thread = None
 
+        # Set up multiprocessing communication
+        self.listening_event_queue = mp.Queue()
+        self.listening_control_event = mp.Event()
+        self.listening_state_queue = mp.Queue()
+        self.audio_process = None
+
+        # Initialize UI
         self.setup_ui()
         self.showFullScreen()
 
-#       self.ears = Ears()
-#       self.voice_thread = VoiceThread(self.ears)
+        # Set up event checking timer
+        self.check_timer = QTimer()
+        self.check_timer.timeout.connect(self.check_events)
+        self.check_timer.start(100)
 
     def setup_ui(self):
         central_widget = QWidget()
@@ -97,25 +47,73 @@ class MainWindow(QMainWindow):
 
     def handle_voice_query(self, query: str):
         """ Connection point between voice input and Brain query processing """
-        print(query)
+        print(query, flush=True)
 #       response = self.brain.process_query(query)
         # Update UI with response
 #       self.update_response_display(response)
 
+    def check_events(self):
+        """ Ran on the interval for self.check_timer """
+        try:
+            event_type, data = self.listening_event_queue.get_nowait()
+            self.handle_voice_event(event_type, data)
+        except:
+            pass
+
+    def handle_voice_event(self, event_type, data):
+        """ This is the signal reciever from the listening to handle events and data payloads """
+
+        if event_type == VoiceEvent.TRANSCRIPTION:
+            self.handle_voice_query(data)
+
+        elif event_type == VoiceEvent.HOTWORD_DETECTED:
+            self.logs.info("Hotword detected!")
+
+        elif event_type == VoiceEvent.TIMEOUT:
+            # Handle timeout UI updates
+            pass
+
+        elif event_type == VoiceEvent.ERROR:
+            print(f"Error in audio process: {data}")
+
     def start(self):
-        # Only create and start the thread if it doesn't exist
-        if self.voice_thread is None:
-            print("Creating listening thread...")
-            self.voice_thread = ListeningThread()
-            self.voice_thread.query_detected.connect(self.handle_voice_query)
-            self.voice_thread.running = True  # Set running flag before starting
-            print("Starting listening thread...")
-            self.voice_thread.start()
+        """ Start up the audio process and the web server """
+        if self.audio_process is None:
+            self.audio_process = AudioProcessor(
+                self.listening_event_queue,
+                self.listening_state_queue,
+                self.listening_control_event
+            )
+            self.audio_process.start()
+
+    def cleanup(self):
+        """Clean up resources and ensure process termination"""
+        self.check_timer.stop()
+
+        if self.audio_process is not None:
+            self.listening_control_event.set()              # Signal the process to stop
+
+            self.audio_process.join(timeout=1.0)            # Give the process a chance to clean up
+
+            if self.audio_process.is_alive():               # If still alive, terminate forcefully
+                self.audio_process.terminate()
+                self.audio_process.join(timeout=1.0)
+
+                if self.audio_process.is_alive():           # Last resort: kill
+                    self.audio_process.kill()
+
+            while not self.listening_event_queue.empty():   # Clean up the queue
+                try:
+                    self.listening_event_queue.get_nowait()
+                except:
+                    break
+
+            self.listening_event_queue.close()              # Close and unlink the queue
+            self.listening_event_queue.join_thread()
+
+            self.audio_process = None                       # Clear references
 
     def closeEvent(self, event):
-        # Clean shutdown
-        if self.voice_thread is not None:
-            self.voice_thread.stop()
-            self.voice_thread.wait()
-            event.accept()
-
+        """Handle window close event"""
+        self.cleanup()
+        event.accept()

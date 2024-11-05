@@ -30,4 +30,7 @@ if __name__ == "__main__":
 
     # Ensure cleanup happens before exit
     window.cleanup()
+
+    q = window.children()[1].children()
+
     sys.exit(exit_code)

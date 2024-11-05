@@ -1,49 +1,62 @@
 
+from datetime import date
 from PyQt6.QtGui import QFont
 from PyQt6.QtCore import QTimer, QTime, QDate, Qt
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel
+from PyQt6.QtWidgets import QVBoxLayout, QHBoxLayout, QLabel
 
-class TimeDateWidget(QWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
+from ami.interfaces.gui.widgets import BaseWidget
+
+class ClockWidget(BaseWidget):
+    def __init__(self, config: dict):
+        super().__init__(config)
         self.initUI()
 
     def initUI(self):
         layout = QVBoxLayout()
+        layout.setSpacing(0)
+        layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(layout)
 
-        # Time layout
+        time_label_font = QFont(self.config.font, self.config.font_size, QFont.Weight.Bold)
+        seconds_label_font = QFont(self.config.font, int(self.config.font_size//1.5))
+        date_label_font = QFont(self.config.font, int(self.config.font_size//1.3))
+        print(time_label_font.toString())
+        print(seconds_label_font.toString())
+        print(date_label_font.toString())
+
         time_layout = QHBoxLayout()
+        time_layout.setSpacing(2)  # Remove spacing between horizontal elements
+        time_layout.setContentsMargins(0, 0, 0, 0)  # Remove margins
+
         self.time_label = QLabel()
-        self.time_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.time_label.setFont(QFont('Arial', 24, QFont.Weight.Bold))
+        self.time_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignBottom)
+        self.time_label.setFont(time_label_font)
 
         self.seconds_label = QLabel()
-        self.seconds_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-        self.seconds_label.setFont(QFont('Arial', 12))
+        self.seconds_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        self.seconds_label.setFont(seconds_label_font)
+#       self.seconds_label.setStyleSheet("padding: 3px 6px;")
 
         self.ampm_label = QLabel()
-        self.ampm_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-        self.ampm_label.setFont(QFont('Arial', 12))
+        self.ampm_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom)
+        self.ampm_label.setFont(time_label_font)
 
         time_layout.addWidget(self.time_label)
         time_layout.addWidget(self.seconds_label)
         time_layout.addWidget(self.ampm_label)
 
-        # Date layout
         self.date_label = QLabel()
-        self.date_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.date_label.setFont(QFont('Arial', 14))
+        self.date_label.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        self.date_label.setFont(date_label_font)
 
         self.month_year_label = QLabel()
-        self.month_year_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.month_year_label.setFont(QFont('Arial', 12))
+        self.month_year_label.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        self.month_year_label.setFont(date_label_font)
 
         layout.addLayout(time_layout)
         layout.addWidget(self.date_label)
         layout.addWidget(self.month_year_label)
 
-        # Update time every second
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.updateDateTime)
         self.timer.start(1000)
@@ -54,14 +67,20 @@ class TimeDateWidget(QWidget):
         current_time = QTime.currentTime()
         current_date = QDate.currentDate()
 
-        time_str = current_time.toString('hh:mm')
-        seconds_str = current_time.toString(':ss')
-        ampm_str = current_time.toString('AP')
-        date_str = current_date.toString('dddd d')
+        if self.config.extra.get('hour_format', 12):
+            time_str = current_time.toString('h:mm')
+            ampm_str = current_time.toString('AP')
+            self.ampm_label.setText(ampm_str)
+            self.ampm_label.show()
+        else:
+            time_str = current_time.toString('hh:mm')
+            self.ampm_label.hide()
+
+        seconds_str = current_time.toString('ss')
+        date_str = current_date.toString('d dddd')
         month_year_str = current_date.toString('MMMM yyyy')
 
         self.time_label.setText(time_str)
         self.seconds_label.setText(seconds_str)
-        self.ampm_label.setText(ampm_str)
         self.date_label.setText(date_str)
         self.month_year_label.setText(month_year_str)

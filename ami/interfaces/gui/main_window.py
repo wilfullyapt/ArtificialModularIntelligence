@@ -2,13 +2,14 @@
 
 import multiprocessing as mp
 
-from PyQt6.QtCore import QTimer, Qt
+from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout
 
 from ami.base import Base
 
+from ami.config import Config
 from ami.core import Brain, AudioProcessor, ProcessState, VoiceEvent
-from ami.interfaces.gui import builtin_widgets
+from ami.interfaces.gui.registry import builtin_widgets
 
 
 class MainWindow(QMainWindow, Base):
@@ -17,32 +18,33 @@ class MainWindow(QMainWindow, Base):
         super().__init__()
         self.brain = Brain()
 
-        # Set up multiprocessing communication
         self.listening_event_queue = mp.Queue()
         self.listening_control_event = mp.Event()
         self.listening_state_queue = mp.Queue()
         self.audio_process = None
 
-        # Initialize UI
-        self.setup_ui()
+        self.setup_ui(Config().get('builtin_config', {}))
         self.showFullScreen()
 
-        # Set up event checking timer
         self.check_listen_timer = QTimer()
         self.check_listen_timer.timeout.connect(self.check_listening_events)
         self.check_listen_timer.start(100)
 
-    def setup_ui(self):
+    def setup_ui(self, config: dict):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
+        central_widget.setStyleSheet("background-color: black;")
         layout = QVBoxLayout(central_widget)
 
-        """ Add the loop here from the Claude conversation """
-        # Create and add the TimeDateWidget
-        time_date_widget = TimeDateWidget()
-        layout.addWidget(time_date_widget, alignment=Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
+        for widget_name, WidgetClass in builtin_widgets.items():
+            widget = WidgetClass(config.get(widget_name, {}))
+            layout.addWidget(
+                    widget,
+                    alignment=widget.alignment
+            )
 
-        self.setWindowTitle('AMI')  # Set window title
+
+        self.setWindowTitle('AMI')
 
     def handle_voice_query(self, query: str):
         """ Connection point between voice input and Brain query processing """

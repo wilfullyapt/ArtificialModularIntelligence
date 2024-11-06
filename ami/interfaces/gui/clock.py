@@ -18,7 +18,7 @@ class ClockWidget(BaseWidget):
         self.setLayout(layout)
 
         time_label_font = QFont(self.config.font, self.config.font_size, QFont.Weight.Bold)
-        seconds_label_font = QFont(self.config.font, int(self.config.font_size//1.5))
+        seconds_label_font = QFont(self.config.font, int(self.config.font_size//1.6))
         date_label_font = QFont(self.config.font, int(self.config.font_size//1.3))
         print(time_label_font.toString())
         print(seconds_label_font.toString())
@@ -33,9 +33,9 @@ class ClockWidget(BaseWidget):
         self.time_label.setFont(time_label_font)
 
         self.seconds_label = QLabel()
-        self.seconds_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        self.seconds_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom)
         self.seconds_label.setFont(seconds_label_font)
-#       self.seconds_label.setStyleSheet("padding: 3px 6px;")
+        self.seconds_label.setStyleSheet("padding-bottom: 2px;")
 
         self.ampm_label = QLabel()
         self.ampm_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom)
@@ -68,7 +68,7 @@ class ClockWidget(BaseWidget):
         current_date = QDate.currentDate()
 
         if self.config.extra.get('hour_format', 12):
-            time_str = current_time.toString('h:mm')
+            time_str = current_time.toString('h:mm AP').split()[0]
             ampm_str = current_time.toString('AP')
             self.ampm_label.setText(ampm_str)
             self.ampm_label.show()

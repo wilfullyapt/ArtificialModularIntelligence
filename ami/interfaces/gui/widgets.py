@@ -45,8 +45,7 @@ class WidgetConfig:
     @classmethod
     def from_dict(cls, config_dict: Dict[str, Any]) -> 'WidgetConfig':
         """Create a WidgetConfig instance from a dictionary."""
-        
-        # Convert any kebab-case keys to snake_case
+
         converted_dict = {
             cls._convert_kebab_to_snake(k): v 
             for k, v in config_dict.items()
@@ -122,5 +121,3 @@ class BaseWidget(QWidget, Base):
         if hasattr(self.config, key):
             return getattr(self.config, key)
         return self.config.extra.get(key, default)
-
-

@@ -38,11 +38,7 @@ class MainWindow(QMainWindow, Base):
 
         for widget_name, WidgetClass in builtin_widgets.items():
             widget = WidgetClass(config.get(widget_name, {}))
-            layout.addWidget(
-                    widget,
-                    alignment=widget.alignment
-            )
-
+            layout.addWidget(widget, alignment=widget.alignment)
 
         self.setWindowTitle('AMI')
 

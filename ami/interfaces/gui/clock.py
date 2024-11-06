@@ -12,17 +12,23 @@ class ClockWidget(BaseWidget):
         self.initUI()
 
     def initUI(self):
+        self.setMinimumSize(200, 100)
+
         layout = QVBoxLayout()
         layout.setSpacing(0)
         layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(layout)
 
+        # Force visibility
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.setStyleSheet(f"""
+            ClockWidget {{ background-color: {self.config.background_color}; color: {self.config.color}; }}
+            QLabel {{ color: {self.config.color}; }}
+        """)
+
         time_label_font = QFont(self.config.font, self.config.font_size, QFont.Weight.Bold)
         seconds_label_font = QFont(self.config.font, int(self.config.font_size//1.6))
         date_label_font = QFont(self.config.font, int(self.config.font_size//1.3))
-        print(time_label_font.toString())
-        print(seconds_label_font.toString())
-        print(date_label_font.toString())
 
         time_layout = QHBoxLayout()
         time_layout.setSpacing(2)  # Remove spacing between horizontal elements
@@ -63,7 +69,12 @@ class ClockWidget(BaseWidget):
 
         self.updateDateTime()
 
+
+        self.show()  # Force show the widget
+        self.setMinimumSize(200, 100)  # Set minimum size
+
     def updateDateTime(self):
+
         current_time = QTime.currentTime()
         current_date = QDate.currentDate()
 

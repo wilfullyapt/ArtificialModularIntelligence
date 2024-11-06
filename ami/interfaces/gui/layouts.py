@@ -1,15 +1,13 @@
-from PyQt6.QtWidgets import QWidget
-from typing import Optional, Dict, Any
-import logging
+from PyQt6.QtWidgets import QLayout, QWidgetItem
+from PyQt6.QtCore import QRect, QSize, Qt
+from typing import Optional, Dict, Any, List
 
-class FlexiblePositioningLayout(QWidget):
+from ami.base import Base
+
+class FlexiblePositioningLayout(QLayout, Base):
     """
     A flexible layout manager that supports both absolute (x,y) and relative (relx,rely) positioning
-    with anchor points. Absolute positioning takes precedence over relative positioning.
-
-    Key differences from QStackedLayout:
-    - QStackedLayout is for stacking widgets on top of each other, showing one at a time (like a deck of cards)
-    - This layout is for precise positioning of multiple visible widgets
+    with anchor points.
     """
 
     ANCHOR_OFFSETS = {
@@ -24,81 +22,85 @@ class FlexiblePositioningLayout(QWidget):
         'se': (1, 1),           # Bottom-right
     }
 
-    def __init__(self, parent: Optional[QWidget] = None):
+    def __init__(self, parent=None):
         super().__init__(parent)
-        self._widgets: Dict[QWidget, Dict[str, Any]] = {}
+        self._items: List[QWidgetItem] = []
+        self._positions: Dict[QWidgetItem, Dict[str, Any]] = {}
 
-    def add_widget(self, 
-                  widget: QWidget,
-                  x: Optional[int] = None,
-                  y: Optional[int] = None,
-                  relx: Optional[float] = None,
-                  rely: Optional[float] = None,
-                  anchor: str = 'nw',
-                  width: Optional[int] = None,
-                  height: Optional[int] = None) -> None:
-        """
-        Add a widget to the layout with flexible positioning options.
+    def addWidget(self, widget, x=None, y=None, relx=None, rely=None, anchor='nw', 
+                 width=None, height=None):
+        """Add a widget to the layout with flexible positioning options."""
+        item = QWidgetItem(widget)
+        self._items.append(item)
 
-        Args:
-            widget: The widget to position
-            x: Absolute x coordinate (takes precedence over relx)
-            y: Absolute y coordinate (takes precedence over rely)
-            relx: Relative x position (0-1)
-            rely: Relative y position (0-1)
-            anchor: Anchor point ('nw', 'n', 'ne', 'w', 'center', 'e', 'sw', 's', 'se')
-            width: Fixed width for the widget
-            height: Fixed height for the widget
-        """
-        if anchor not in self.ANCHOR_OFFSETS:
-            logging.warning(f"Invalid anchor '{anchor}', defaulting to 'nw'")
-            anchor = 'nw'
-
-        self._widgets[widget] = {
-            'x': x,
-            'y': y,
-            'relx': relx,
-            'rely': rely,
-            'anchor': anchor,
-            'width': width,
-            'height': height
-        }
-
-        widget.setParent(self)
         if width is not None or height is not None:
             widget.setFixedSize(
                 width if width is not None else widget.sizeHint().width(),
                 height if height is not None else widget.sizeHint().height()
             )
 
-        self.update_widget_geometry(widget)
+        self._positions[item] = {
+            'x': x,
+            'y': y,
+            'relx': relx,
+            'rely': rely,
+            'anchor': anchor if anchor in self.ANCHOR_OFFSETS else 'nw'
+        }
 
-    def update_widget_geometry(self, widget: QWidget) -> None:
-        """Update a widget's position and size based on its configuration."""
-        if widget not in self._widgets:
-            return
+        self.addChildWidget(widget)
 
-        cfg = self._widgets[widget]
+    def count(self):
+        return len(self._items)
 
-        w = cfg['width'] if cfg['width'] is not None else widget.sizeHint().width()
-        h = cfg['height'] if cfg['height'] is not None else widget.sizeHint().height()
+    def itemAt(self, index):
+        if 0 <= index < len(self._items):
+            return self._items[index]
+        return None
 
-        if cfg['x'] is not None and cfg['y'] is not None:
-            # Use absolute positioning
-            x = cfg['x']
-            y = cfg['y']
-        else:
-            # Use relative positioning
-            x = int(self.width() * (cfg['relx'] or 0))
-            y = int(self.height() * (cfg['rely'] or 0))
+    def takeAt(self, index):
+        if 0 <= index < len(self._items):
+            item = self._items.pop(index)
+            cfg = self._positions.pop(item, None)
+            return item
+        return None
 
-        anchor_x, anchor_y = self.ANCHOR_OFFSETS[cfg['anchor']]
-        x -= int(w * anchor_x)
-        y -= int(h * anchor_y)
+    def expandingDirections(self):
+        return Qt.Orientation.Horizontal | Qt.Orientation.Vertical
 
-        widget.setGeometry(x, y, w, h)
+    def hasHeightForWidth(self):
+        return False
 
-    def resizeEvent(self, event):
-        """Handle resize events by updating all widget positions."""
-        for widget in self._widgets:
-            self.update_widget_geometry(widget)
+    def setGeometry(self, rect):
+        super().setGeometry(rect)
+
+        for item in self._items:
+            widget = item.widget()
+            if not widget or not widget.isVisible():
+                continue
+
+            cfg = self._positions.get(item, {})
+            w = widget.sizeHint().width()
+            h = widget.sizeHint().height()
+
+            if cfg.get('x') is not None and cfg.get('y') is not None:
+                x = cfg['x']
+                y = cfg['y']
+            else:
+                x = int(rect.width() * (cfg.get('relx', 0)))
+                y = int(rect.height() * (cfg.get('rely', 0)))
+
+            anchor_x, anchor_y = self.ANCHOR_OFFSETS[cfg.get('anchor', 'nw')]
+            x -= int(w * anchor_x)
+            y -= int(h * anchor_y)
+
+            # Keep widgets within bounds
+            x = max(0, min(x, rect.width() - w))
+            y = max(0, min(y, rect.height() - h))
+
+            widget.setGeometry(QRect(x, y, w, h))
+
+    def sizeHint(self):
+        return QSize(800, 600)  # Default size hint
+
+    def minimumSize(self):
+        return QSize(0, 0)

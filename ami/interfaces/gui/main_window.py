@@ -3,12 +3,13 @@
 import multiprocessing as mp
 
 from PyQt6.QtCore import QTimer
-from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout
+from PyQt6.QtWidgets import QMainWindow, QWidget
 
 from ami.base import Base
 
 from ami.config import Config
 from ami.core import Brain, AudioProcessor, ProcessState, VoiceEvent
+from ami.interfaces.gui.layouts import FlexiblePositioningLayout
 from ami.interfaces.gui.registry import builtin_widgets
 
 
@@ -16,6 +17,7 @@ class MainWindow(QMainWindow, Base):
 
     def __init__(self):
         super().__init__()
+        self.logs.info("Starting MainWindow initialization")
         self.brain = Brain()
 
         self.listening_event_queue = mp.Queue()
@@ -24,21 +26,52 @@ class MainWindow(QMainWindow, Base):
         self.audio_process = None
 
         self.setup_ui(Config().get('builtin_config', {}))
-        self.showFullScreen()
 
         self.check_listen_timer = QTimer()
         self.check_listen_timer.timeout.connect(self.check_listening_events)
         self.check_listen_timer.start(100)
 
+
     def setup_ui(self, config: dict):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
-        central_widget.setStyleSheet("background-color: black;")
-        layout = QVBoxLayout(central_widget)
+
+        layout = FlexiblePositioningLayout()
+        central_widget.setLayout(layout)
+
+        central_widget.setStyleSheet("QWidget {background-color: black;}")
+        self.showFullScreen()
 
         for widget_name, WidgetClass in builtin_widgets.items():
             widget = WidgetClass(config.get(widget_name, {}))
-            layout.addWidget(widget, alignment=widget.alignment)
+            widget.setStyleSheet(widget.styleSheet() + "border: 1px solid red;")
+            layout.addWidget(widget, **widget.placement)
+            self.logs.info(f"Added {widget_name} widget with placement {widget.placement}")
+
+        self.setWindowTitle('AMI')
+
+    def setup_ui(self, config: dict):
+        # Create and set up the central widget
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+
+        self._layout = FlexiblePositioningLayout()  # Keep a reference
+        central_widget.setLayout(self._layout)
+
+        central_widget.setStyleSheet("background-color: black;")
+        self.showFullScreen()
+
+        for widget_name, WidgetClass in builtin_widgets.items():
+            self.logs.info(f"Creating widget: {widget_name}")
+            config_data = config.get(widget_name, {})
+            widget = WidgetClass(config_data)
+
+            current_style = widget.styleSheet()
+            widget.setStyleSheet(f"{current_style}; border: 1px solid red;")
+
+            # Add to layout
+            self._layout.addWidget(widget, **widget.placement)
+            self.logs.info(f"Added {widget_name} with placement: {widget.placement}")
 
         self.setWindowTitle('AMI')
 
@@ -94,28 +127,35 @@ class MainWindow(QMainWindow, Base):
         """Clean up resources and ensure process termination"""
         self.check_listen_timer.stop()
 
+        # Clean up audio process
         if self.audio_process is not None:
-            self.listening_control_event.set()              # Signal the process to stop
-
-            self.audio_process.join(timeout=1.0)            # Give the process a chance to clean up
-
-            if self.audio_process.is_alive():               # If still alive, terminate forcefully
+            self.listening_control_event.set()
+            self.audio_process.join(timeout=1.0)
+            if self.audio_process.is_alive():
                 self.audio_process.terminate()
                 self.audio_process.join(timeout=1.0)
-
-                if self.audio_process.is_alive():           # Last resort: kill
+                if self.audio_process.is_alive():
                     self.audio_process.kill()
 
-            while not self.listening_event_queue.empty():   # Clean up the queue
+            while not self.listening_event_queue.empty():
                 try:
                     self.listening_event_queue.get_nowait()
                 except:
                     break
 
-            self.listening_event_queue.close()              # Close and unlink the queue
+            self.listening_event_queue.close()
             self.listening_event_queue.join_thread()
+            self.audio_process = None
 
-            self.audio_process = None                       # Clear references
+        # Clean up widgets
+        if hasattr(self, 'layout'):
+            while self._layout.count():
+                item = self._layout.takeAt(0)
+                if item:
+                    widget = item.widget()
+                    if widget:
+                        widget.setParent(None)
+                        widget.deleteLater()
 
     def closeEvent(self, event):
         """Handle window close event"""

@@ -31,49 +31,30 @@ class MainWindow(QMainWindow, Base):
         self.check_listen_timer.timeout.connect(self.check_listening_events)
         self.check_listen_timer.start(100)
 
-
     def setup_ui(self, config: dict):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
 
-        layout = FlexiblePositioningLayout()
-        central_widget.setLayout(layout)
-
-        central_widget.setStyleSheet("QWidget {background-color: black;}")
-        self.showFullScreen()
-
-        for widget_name, WidgetClass in builtin_widgets.items():
-            widget = WidgetClass(config.get(widget_name, {}))
-            widget.setStyleSheet(widget.styleSheet() + "border: 1px solid red;")
-            layout.addWidget(widget, **widget.placement)
-            self.logs.info(f"Added {widget_name} widget with placement {widget.placement}")
-
-        self.setWindowTitle('AMI')
-
-    def setup_ui(self, config: dict):
-        # Create and set up the central widget
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
-
-        self._layout = FlexiblePositioningLayout()  # Keep a reference
-        central_widget.setLayout(self._layout)
+        self.layout_ = FlexiblePositioningLayout()
+        central_widget.setLayout(self.layout_)
 
         central_widget.setStyleSheet("background-color: black;")
         self.showFullScreen()
 
         for widget_name, WidgetClass in builtin_widgets.items():
             self.logs.info(f"Creating widget: {widget_name}")
-            config_data = config.get(widget_name, {})
-            widget = WidgetClass(config_data)
+            widget = WidgetClass(config.get(widget_name, {}))
 
             current_style = widget.styleSheet()
-            widget.setStyleSheet(f"{current_style}; border: 1px solid red;")
+#           widget.setStyleSheet(f"{current_style}; border: 1px solid red;")
 
-            # Add to layout
-            self._layout.addWidget(widget, **widget.placement)
+            self.layout_.addWidget(widget, **widget.placement)
             self.logs.info(f"Added {widget_name} with placement: {widget.placement}")
 
-        self.setWindowTitle('AMI')
+        for widget_name in []:
+            print(f"Need to set up widget '{widget_name}'")
+
+        self.setWindowTitle('Artificial Modular Intelligence')
 
     def handle_voice_query(self, query: str):
         """ Connection point between voice input and Brain query processing """
@@ -149,8 +130,8 @@ class MainWindow(QMainWindow, Base):
 
         # Clean up widgets
         if hasattr(self, 'layout'):
-            while self._layout.count():
-                item = self._layout.takeAt(0)
+            while self.layout_.count():
+                item = self.layout_.takeAt(0)
                 if item:
                     widget = item.widget()
                     if widget:

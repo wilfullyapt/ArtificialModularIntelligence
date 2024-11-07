@@ -27,16 +27,16 @@ class FlexiblePositioningLayout(QLayout, Base):
         self._items: List[QWidgetItem] = []
         self._positions: Dict[QWidgetItem, Dict[str, Any]] = {}
 
-    def addWidget(self, widget, x=None, y=None, relx=None, rely=None, anchor='nw', 
+    def addWidget(self, w, x=None, y=None, relx=None, rely=None, anchor='nw', 
                  width=None, height=None):
         """Add a widget to the layout with flexible positioning options."""
-        item = QWidgetItem(widget)
+        item = QWidgetItem(w)
         self._items.append(item)
 
         if width is not None or height is not None:
-            widget.setFixedSize(
-                width if width is not None else widget.sizeHint().width(),
-                height if height is not None else widget.sizeHint().height()
+            w.setFixedSize(
+                width if width is not None else w.sizeHint().width(),
+                height if height is not None else w.sizeHint().height()
             )
 
         self._positions[item] = {
@@ -47,7 +47,7 @@ class FlexiblePositioningLayout(QLayout, Base):
             'anchor': anchor if anchor in self.ANCHOR_OFFSETS else 'nw'
         }
 
-        self.addChildWidget(widget)
+        self.addChildWidget(w)
 
     def count(self):
         return len(self._items)

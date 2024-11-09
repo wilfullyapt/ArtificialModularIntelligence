@@ -1,10 +1,9 @@
 
-from datetime import date
 from PyQt6.QtGui import QFont
 from PyQt6.QtCore import QTimer, QTime, QDate, Qt
 from PyQt6.QtWidgets import QVBoxLayout, QHBoxLayout, QLabel
 
-from ami.interfaces.gui.widgets import BaseWidget
+from ami.interfaces.gui.base_widget import BaseWidget
 
 class ClockWidget(BaseWidget):
     def __init__(self, config: dict):

@@ -9,9 +9,9 @@ from ami.base import Base
 
 from ami.config import Config
 from ami.core import Brain, AudioProcessor, ProcessState, VoiceEvent
+from ami.core.headspace_importer import import_headspace
 from ami.interfaces.gui.layouts import FlexiblePositioningLayout
-from ami.interfaces.gui.registry import builtin_widgets
-
+from ami.interfaces.gui.widgets import builtin_widgets
 
 class MainWindow(QMainWindow, Base):
 
@@ -25,7 +25,9 @@ class MainWindow(QMainWindow, Base):
         self.listening_state_queue = mp.Queue()
         self.audio_process = None
 
-        self.setup_ui(Config().get('builtin_config', {}))
+        config = Config()
+        self.enabled_headspaces = config.enabled_headspaces
+        self.setup_ui(config.get('builtin_config', {}))
 
         self.check_listen_timer = QTimer()
         self.check_listen_timer.timeout.connect(self.check_listening_events)
@@ -44,15 +46,20 @@ class MainWindow(QMainWindow, Base):
         for widget_name, WidgetClass in builtin_widgets.items():
             self.logs.info(f"Creating widget: {widget_name}")
             widget = WidgetClass(config.get(widget_name, {}))
-
-            current_style = widget.styleSheet()
-#           widget.setStyleSheet(f"{current_style}; border: 1px solid red;")
-
+#           widget.setStyleSheet(f"{widget.styleSheet()}; border: 1px solid red;")
             self.layout_.addWidget(widget, **widget.placement)
             self.logs.info(f"Added {widget_name} with placement: {widget.placement}")
 
-        for widget_name in []:
-            print(f"Need to set up widget '{widget_name}'")
+        for widget_name in self.enabled_headspaces:
+            module = import_headspace(widget_name)
+            if hasattr(module, 'widget'):
+                if hasattr(module.widget, widget_name.capitalize()):
+                    WidgetClass = getattr(module.widget, widget_name.capitalize())
+                    widget = WidgetClass()
+                    if widget.is_valid():
+                        widget.render_widget()
+                        self.layout_.addWidget(widget, **widget.placement)
+                        self.logs.info(f"Added {widget_name} with placement: {widget.placement}")
 
         self.setWindowTitle('Artificial Modular Intelligence')
 

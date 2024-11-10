@@ -109,6 +109,10 @@ class HeadspaceWidget(QWidget, ABC, Primitive, metaclass=HeadspaceMeta):
         """ Abstract method that defines the content of the widget """
         raise NotImplementedError("Subclasses must implement the render_widget method.")
 
+    @property
+    def placement(self):
+        return self.yaml.get('placement', {'relx': 0.5, 'rely': 0.1, 'anchor': 'n'})
+
     def is_valid(self):
         """ Run an internal check to validate the integrity of subclassed widget """
         return True

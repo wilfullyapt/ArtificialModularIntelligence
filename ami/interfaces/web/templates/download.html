@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload</title>
+    <style>
+      .container {
+        position: relative;
+        text-align: center;
+      }
+
+      .dropdown-btn .dir-up-btn {
+        background-color: #4CAF50;
+        color: #fff;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+      }
+
+      .dropdown-btn:hover {
+        background-color: #3e8e41;
+      }
+
+      .dropdown-menu {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background-color: #f9f9f9;
+        border: 1px solid #ccc;
+        padding: 10px;
+        display: none;
+        text-align: center;
+      }
+
+      .dropdown-menu li {
+        list-style: none;
+        padding: 10px;
+        border-bottom: 1px solid #ccc;
+      }
+
+      .dropdown-menu li:last-child {
+        border-bottom: none;
+      }
+
+      .dropdown-menu li a {
+        color: #337ab7;
+        text-decoration: none;
+      }
+
+      .dropdown-menu li a:hover {
+        color: #23527c;
+      }
+
+      .dropdown-menu.show {
+        display: block;
+      }
+
+      </style>
+  </head>
+  <body>
+    <div class="container">
+      <button id="dir-up-btn">..</button>
+      <button class="dropdown-btn">Desination: <span>{{ local_path }}</span></button>
+      <ul class="dropdown-menu" style="left: 0; right: 0; text-align: center;">
+        {% for directory in directories %}
+          <li><a onclick="selectDirectory('{{ local_path }}/{{ directory }}')"> {{ directory }} </a></li>
+        {% endfor %}
+      </ul>
+    </div>
+
+
+    <script>
+      const dropdownBtn = document.querySelector('.dropdown-btn');
+      const dropdownMenu = document.querySelector('.dropdown-menu');
+
+
+      document.getElementById('dir-up-btn').addEventListener('click', function() {
+        const url = window.location.href;
+        const lastSlashIndex = url.lastIndexOf('/');
+        const newUrl = url.substring(0, lastSlashIndex);
+        window.location.href = newUrl;
+      });
+
+      dropdownBtn.addEventListener('click', () => {
+        dropdownMenu.classList.toggle('show');
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!dropdownBtn.contains(e.target) &&!dropdownMenu.contains(e.target)) {
+          dropdownMenu.classList.remove('show');
+        }
+      });
+
+      function selectDirectory(directory) {
+        console.log(directory)
+        window.location.href = directory;
+        dropdownMenu.classList.remove('show');
+      }
+    </script>
+
+  </body>
+</html>

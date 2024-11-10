@@ -29,7 +29,6 @@ def load_module(name: str, path: Path) -> Optional[ModuleType]:
 
 def load_submodules(module: ModuleType, base_path: Path) -> None:
     """ Load all Python files in the module directory as submodules. """
-    print(f"load_submodule({module}, {base_path})")
     if not hasattr(module, '__path__'):
         return
 
@@ -37,16 +36,22 @@ def load_submodules(module: ModuleType, base_path: Path) -> None:
         if py_file.name == '__init__.py':
             continue
 
-        print(f"{py_file} found")
         submodule_name = f"{module.__name__}.{py_file.stem}"
         submodule = load_module(submodule_name, py_file)
         if submodule is not None:
             setattr(module, py_file.stem, submodule)
-            print(f"Submodule for {module.__name__}, {submodule.__name__}, has been added")
+            logs.info(f"Submodule for {module.__name__}, {submodule.__name__}, has been added")
 
-def import_headspace(headspace_name: str) -> Optional[ModuleType]:
+def import_headspace(headspace_name: str, extract: Optional[str]=None) -> Optional[ModuleType]:
 
     module_name = f"ami.imported_headspaces.{headspace_name}"
+
+    if module_name in sys.modules:
+        module = sys.modules[module_name]
+        if extract is not None:
+            return getattr(module, extract, None)
+        return module
+
     module_path = Config().modules_dir / headspace_name / "__init__.py"
     if module_path.exists() and module_path.is_file():
         module = load_module(module_name, module_path)
@@ -55,6 +60,10 @@ def import_headspace(headspace_name: str) -> Optional[ModuleType]:
 
         module.__path__ = [str(module_path.parent)]
         load_submodules(module, module_path.parent)
+
+        if extract is not None:
+            return getattr(module, extract, None)
+
         return module
 
     return None

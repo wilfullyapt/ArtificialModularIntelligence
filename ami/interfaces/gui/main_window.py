@@ -56,7 +56,6 @@ class MainWindow(QMainWindow, Base):
         self.showFullScreen()
 
         for widget_name, WidgetClass in builtin_widgets.items():
-            self.logs.info(f"Creating widget: {widget_name}")
             widget = WidgetClass(config.get(widget_name, {}))
 #           widget.setStyleSheet(f"{widget.styleSheet()}; border: 1px solid red;")
             self.layout_.addWidget(widget, **widget.placement)

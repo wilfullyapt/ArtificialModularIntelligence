@@ -43,6 +43,15 @@ def load_submodules(module: ModuleType, base_path: Path) -> None:
             logs.info(f"Submodule for {module.__name__}, {submodule.__name__}, has been added")
 
 def import_headspace(headspace_name: str, extract: Optional[str]=None) -> Optional[ModuleType]:
+    # First ensure the base package is imported
+    base_package = "ami.imported_headspaces"
+    if base_package not in sys.modules:
+        base_init = Config().modules_dir / "__init__.py"
+        if base_init.exists() and base_init.is_file():
+            base_module = load_module(base_package, base_init)
+            if base_module is not None:
+                base_module.__path__ = [str(Config().modules_dir)]
+                sys.modules[base_package] = base_module
 
     module_name = f"ami.imported_headspaces.{headspace_name}"
 

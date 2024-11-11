@@ -1,15 +1,12 @@
 """ Manager for the Flask Server """
 
 import multiprocessing
-from typing import List, Type
 import socket
 
 from gunicorn.app.base import BaseApplication
 
 from ami.base import Base
 from ami.config import Config
-from ami.core.headspace_importer import import_headspace
-from ami.interfaces.web.server import create_app
 
 def get_network_url(remote_host="www.x.com" ):
     try:
@@ -107,21 +104,44 @@ class FlaskManager(Base):
 
     def run_server(self, blueprints, pipe: multiprocessing.connection.Connection):
         """Function to run in the child process"""
-        app = create_app()
+        from ami.config import Config
+        from ami.interfaces.web.server import create_app
+        from ami.core.headspace_importer import import_headspace
+        import multiprocessing
 
-        for bp in blueprints:
-            app.register_blueprint(bp(pipe))
+        child_logs = Config().load_blank_logging()
+        child_logs('FlaskManager-Child')
 
-        options = {
-            'bind': f'{self.host}:{self.port}',
-            'workers': 4,
-            'worker_class': 'sync',
-            'threads': multiprocessing.cpu_count() * 2,
-            'stop_event': self.stop_event
-        }
+        try:
+            app = create_app()
+            for name in blueprints:
+                module = import_headspace(name, extract="blueprint")
+                if not module:
+                    child_logs.error(f"Failed to import blueprint module for {name}")
+                    continue
 
-        server = GunicornServer(app, options)
-        server.run()
+                blueprint_class = getattr(module, name.capitalize(), None)
+                if not blueprint_class:
+                    child_logs.error(f"Blueprint class {name.capitalize()} not found in module")
+                    continue
+
+                child_logs.info(f"Registering Blueprint: {name}")
+                app.register_blueprint(blueprint_class(pipe))
+
+            options = {
+                'bind': f'{self.host}:{self.port}',
+                'workers': 4,
+                'worker_class': 'sync',
+                'threads': multiprocessing.cpu_count() * 2,
+                'stop_event': self.stop_event
+            }
+
+            server = GunicornServer(app, options)
+            server.run()
+
+        except Exception as e:
+            child_logs.error(f"Server process error: {str(e)}")
+            raise
 
     def spawn_server_process(self, headspaces):
         """Start the server in a new process"""
@@ -131,9 +151,7 @@ class FlaskManager(Base):
 
         self.pipe, child_conn = multiprocessing.Pipe()
 
-        blueprints = { headspace_name: import_headspace(headspace_name, extract='blueprint') for headspace_name in headspaces }
-        blueprints = [ getattr(module, name.capitalize()) for name, module in blueprints.items() if hasattr(module, name.capitalize()) ]
-        self.process = multiprocessing.Process(target=self.run_server, args=(blueprints, child_conn))
+        self.process = multiprocessing.Process(target=self.run_server, args=(headspaces, child_conn))
         self.process.start()
         self.logs.info(f"Gunicorn Server started in separate process: {self.url}")
 
@@ -150,6 +168,7 @@ class FlaskManager(Base):
 
     def stop(self):
         """Stop the server"""
+        self.logs.warn("Stop server command issued")
         if self.process:
             self.stop_event.set()
             self.process.terminate()

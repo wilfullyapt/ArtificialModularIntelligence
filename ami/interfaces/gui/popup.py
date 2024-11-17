@@ -1,6 +1,7 @@
 from PyQt6.QtCore import Qt, QTimer, QPropertyAnimation, QRect, QEasingCurve
 from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QProgressBar, QWidget, QScrollArea
+from numpy import size
 
 class DotAnimation(QWidget):
     """Animated dot pattern for loading states"""
@@ -69,16 +70,35 @@ class MessageWidget(QWidget):
             font-weight: bold;
         """)
 
-        # Message label
+        # Message container for text and dots
+        self.message_container = QWidget()
+        message_layout = QHBoxLayout(self.message_container)
+        message_layout.setContentsMargins(0, 0, 0, 0)
+        message_layout.setSpacing(5)
+
         self.message_label = QLabel()
         self.message_label.setWordWrap(True)
         self.message_label.setStyleSheet("color: white;")
+        
+        # Add dot animation widget
+        self.dot_animation = DotAnimation()
+        self.dot_animation.hide()
+
+        message_layout.addWidget(self.message_label)
+        message_layout.addWidget(self.dot_animation)
+        message_layout.addStretch()
 
         layout.addWidget(self.role_label)
-        layout.addWidget(self.message_label, 1)
+        layout.addWidget(self.message_container, 1)
 
-    def setText(self, text: str):
+    def setText(self, text: str, show_dots: bool = False):
         self.message_label.setText(text)
+        if show_dots:
+            self.dot_animation.show()
+            self.dot_animation.start()
+        else:
+            self.dot_animation.stop()
+            self.dot_animation.hide()
 
 class AMIDialog(QDialog):
     """Main dialog for AMI interaction"""
@@ -86,16 +106,28 @@ class AMIDialog(QDialog):
         super().__init__(parent)
         self.init_ui()
         self.setup_animations()
+        self.is_active = False
 
     def init_ui(self):
-        # Set up the main dialog
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+
         self.setStyleSheet("""
             QDialog {
-                background: #1a1a1a;
-                border: 1px solid #666666;
+                background-color: black;
+                border: 2px solid white;
                 border-radius: 5px;
+            }
+            QScrollArea, QWidget#message_container {
+                background-color: black;
+            }
+            QProgressBar {
+                border: none;
+                background: #333333;
+                height: 4px;
+                margin: 2px;  /* Add margin to keep progress bar away from border */
+            }
+            QProgressBar::chunk {
+                background: #666666;
             }
         """)
 
@@ -104,9 +136,10 @@ class AMIDialog(QDialog):
         self.expanded_size = QRect(0, 0, 800, 1000)
         self.setGeometry(self.normal_size)
 
-        # Main layout
+        # Main layout - Add padding to account for the border
         self.main_layout = QVBoxLayout(self)
-        self.main_layout.setContentsMargins(0, 0, 0, 0)
+        self.main_layout.setContentsMargins(2, 2, 2, 2)
+        self.main_layout.setSpacing(0)
 
         # Progress bar
         self.progress_bar = ModernProgressBar()
@@ -121,6 +154,7 @@ class AMIDialog(QDialog):
 
         # Container for messages
         self.message_container = QWidget()
+        self.message_container.setObjectName("message_container")
         self.message_container.setStyleSheet("background: transparent;")
         self.message_layout = QVBoxLayout(self.message_container)
         self.message_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
@@ -128,13 +162,119 @@ class AMIDialog(QDialog):
 
         self.main_layout.addWidget(self.scroll_area)
 
-        # Loading animation
-        self.dot_animation = DotAnimation()
-        self.dot_animation.hide()
-
         # Timer for countdown
         self.countdown_timer = QTimer(self)
         self.countdown_timer.timeout.connect(self.update_countdown)
+
+    def cleanup_session(self):
+        """Clean up the current session state"""
+        self.countdown_timer.stop()
+        self.is_active = False
+
+        # Clean up all message widgets
+        while self.message_layout.count():
+            widget = self.message_layout.takeAt(0).widget()
+            if isinstance(widget, MessageWidget):
+                widget.cleanup()
+            widget.deleteLater()
+
+        # Reset progress bar
+        self.progress_bar.setValue(0)
+
+    def start_listening(self):
+        """Initialize listening state"""
+        # Clean up any existing session
+        self.cleanup_session()
+
+        # Set active state
+        self.is_active = True
+
+        # Create new message widget
+        message_widget = MessageWidget("HUMAN")
+        message_widget.setText("Listening...", show_dots=True)
+        self.message_layout.addWidget(message_widget)
+
+        # Show dialog with animation
+        self.show_with_animation()
+
+    def show_human_message(self, text: str):
+        """Display human message"""
+        if not self.is_active:
+            return
+
+        message_widget = self.message_layout.itemAt(self.message_layout.count() - 1).widget()
+        if isinstance(message_widget, MessageWidget) and message_widget.role_label.text() == "HUMAN":
+            message_widget.setText(text, show_dots=False)
+        else:
+            message_widget = MessageWidget("HUMAN")
+            message_widget.setText(text, show_dots=False)
+            self.message_layout.addWidget(message_widget)
+
+    def prepare_ai_response(self):
+        """Show thinking animation for AI"""
+        if not self.is_active:
+            return
+
+        message_widget = MessageWidget("AI")
+        message_widget.setText("Thinking...", show_dots=True)
+        self.message_layout.addWidget(message_widget)
+
+    def show_ai_message(self, text: str, expand: bool = False):
+        """Display AI message and optionally expand dialog"""
+        if not self.is_active:
+            return
+
+        if expand:
+            self.expand(True)
+
+        message_widget = self.message_layout.itemAt(self.message_layout.count() - 1).widget()
+        if isinstance(message_widget, MessageWidget) and message_widget.role_label.text() == "AI":
+            message_widget.setText(text, show_dots=False)
+        else:
+            message_widget = MessageWidget("AI")
+            message_widget.setText(text, show_dots=False)
+            self.message_layout.addWidget(message_widget)
+
+        # Start countdown
+        self.start_countdown()
+
+    def start_countdown(self, duration: int = 10):
+        """Start the countdown timer"""
+        if not self.is_active:
+            return
+
+        self.countdown_timer.stop()  # Stop any existing countdown
+        self.progress_bar.setMaximum(duration * 1000)
+        self.progress_bar.setValue(duration * 1000)
+        self.countdown_timer.start(50)
+
+    def update_countdown(self):
+        """Update the countdown progress"""
+        if not self.is_active:
+            self.countdown_timer.stop()
+            return
+
+        current = self.progress_bar.value()
+        if current > 0:
+            self.progress_bar.setValue(current - 50)
+        else:
+            self.countdown_timer.stop()
+            self.is_active = False
+            self.hide_with_animation()
+
+    def hide_with_animation(self):
+        """Hide dialog with fade-out animation"""
+        self.opacity_animation.setStartValue(1.0)
+        self.opacity_animation.setEndValue(0.0)
+        self.opacity_animation.finished.connect(self.cleanup_on_hide)
+        self.opacity_animation.start()
+
+    def cleanup_on_hide(self):
+        """Cleanup after hide animation completes"""
+        self.close()
+        self.cleanup_session()
+
+
 
     def setup_animations(self):
         # Size animation
@@ -153,13 +293,6 @@ class AMIDialog(QDialog):
         self.show()
         self.opacity_animation.setStartValue(0.0)
         self.opacity_animation.setEndValue(1.0)
-        self.opacity_animation.start()
-
-    def hide_with_animation(self):
-        """Hide dialog with fade-out animation"""
-        self.opacity_animation.setStartValue(1.0)
-        self.opacity_animation.setEndValue(0.0)
-        self.opacity_animation.finished.connect(self.close)
         self.opacity_animation.start()
 
     def center_on_parent(self):
@@ -183,72 +316,6 @@ class AMIDialog(QDialog):
         self.size_animation.setStartValue(self.geometry())
         self.size_animation.setEndValue(target_geometry)
         self.size_animation.start()
-
-    def start_listening(self):
-        """Initialize listening state"""
-        message_widget = MessageWidget("HUMAN")
-        message_widget.setText("Listening...")
-        self.message_layout.addWidget(message_widget)
-        self.dot_animation.show()
-        self.dot_animation.start()
-        self.show_with_animation()
-
-    def show_human_message(self, text: str):
-        """Display human message"""
-        self.dot_animation.stop()
-        self.dot_animation.hide()
-
-        # Update or add message widget
-        message_widget = self.message_layout.itemAt(self.message_layout.count() - 1).widget()
-        if isinstance(message_widget, MessageWidget) and message_widget.role_label.text() == "HUMAN":
-            message_widget.setText(text)
-        else:
-            message_widget = MessageWidget("HUMAN")
-            message_widget.setText(text)
-            self.message_layout.addWidget(message_widget)
-
-    def prepare_ai_response(self):
-        """Show thinking animation for AI"""
-        message_widget = MessageWidget("AI")
-        message_widget.setText("Thinking...")
-        self.message_layout.addWidget(message_widget)
-        self.dot_animation.show()
-        self.dot_animation.start()
-
-    def show_ai_message(self, text: str, expand: bool = False):
-        """Display AI message and optionally expand dialog"""
-        self.dot_animation.stop()
-        self.dot_animation.hide()
-
-        if expand:
-            self.expand(True)
-
-        # Update or add message widget
-        message_widget = self.message_layout.itemAt(self.message_layout.count() - 1).widget()
-        if isinstance(message_widget, MessageWidget) and message_widget.role_label.text() == "AI":
-            message_widget.setText(text)
-        else:
-            message_widget = MessageWidget("AI")
-            message_widget.setText(text)
-            self.message_layout.addWidget(message_widget)
-
-        # Start countdown
-        self.start_countdown()
-
-    def start_countdown(self, duration: int = 10):
-        """Start the countdown timer"""
-        self.progress_bar.setMaximum(duration * 1000)  # milliseconds
-        self.progress_bar.setValue(duration * 1000)
-        self.countdown_timer.start(50)  # Update every 50ms
-
-    def update_countdown(self):
-        """Update the countdown progress"""
-        current = self.progress_bar.value()
-        if current > 0:
-            self.progress_bar.setValue(current - 50)
-        else:
-            self.countdown_timer.stop()
-            self.hide_with_animation()
 
     def keyPressEvent(self, event):
         """Prevent dialog from closing on Escape key"""

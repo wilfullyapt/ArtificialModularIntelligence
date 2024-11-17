@@ -124,6 +124,7 @@ class MainWindow(QMainWindow, Base):
             if self.popup is None:
                 self.popup = AMIDialog(self)
             self.popup.start_listening()
+
         elif event_type == VoiceEvent.TRANSCRIPTION:
             self.logs.info(f"VoiceEvent.TRANSCRIPTION: {data}")
             if self.popup:
@@ -132,15 +133,6 @@ class MainWindow(QMainWindow, Base):
                 time.sleep(4)
                 self.popup.show_ai_message(data[::-1], expand=False)
             self.listening_state_queue.put(ProcessState.HOTWORD_DETECTION)
-
-#       if event_type == VoiceEvent.TRANSCRIPTION:
-#           self.logs.info(f"VoiceEvent.TRANSCRIPTION: {data}")
-#           self.handle_voice_query(data)
-#           self.listening_state_queue.put(ProcessState.HOTWORD_DETECTION)
-#       elif event_type == VoiceEvent.HOTWORD_DETECTED:
-#           self.popup = Popup(self)
-#           self.popup.show()
-#           self.logs.info(f"VoiceEvent.HOTWORD_DETECTED")
 
         elif event_type == VoiceEvent.TIMEOUT:
             self.logs.info(f"VoiceEvent.TIMEOUT: {data}")

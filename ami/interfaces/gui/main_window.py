@@ -1,17 +1,17 @@
 """ Main full screen UI for the AMI system """
 
-from logging import debug
+import time
 from multiprocessing import Event, Queue
 
 from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QMainWindow, QWidget
 
 from ami.base import Base
-
 from ami.config import Config
 from ami.core import Brain, AudioProcessor, ProcessState, VoiceEvent
 from ami.core.headspace_importer import import_headspace
 from ami.interfaces.gui.layouts import FlexiblePositioningLayout
+from ami.interfaces.gui.popup import AMIDialog
 from ami.interfaces.gui.widgets import builtin_widgets
 from ami.interfaces.web.manager import FlaskManager
 
@@ -21,13 +21,13 @@ class MainWindow(QMainWindow, Base):
         super().__init__()
         self.logs.info("Starting MainWindow initialization")
         self.brain = Brain()
+        self.flask_manager = FlaskManager()
+        self.popup = None
 
         self.listening_event_queue = Queue()
         self.listening_control_event = Event()
         self.listening_state_queue = Queue()
         self.audio_process = None
-
-        self.flask_manager = FlaskManager()
 
         config = Config()
         self.enabled_headspaces = config.enabled_headspaces
@@ -73,6 +73,17 @@ class MainWindow(QMainWindow, Base):
 
         self.setWindowTitle('Artificial Modular Intelligence')
 
+
+    def handle_voice_query(self, query: str):
+        """ Connection point between voice input and Brain query processing """
+#       if not self.popup or not self.popup.isVisible():
+#           self.popup = Popup(self)
+#           self.popup.show()
+        self.popup.update_content(role="Human", text=query)
+        time.sleep(4)
+        self.popup.update_content(role="AI", text=query[::-1], expand=False)
+        self.popup.start_timeout()
+
     def spawn_server(self):
         """Start the Flask server"""
         self.flask_manager.spawn_server_process(self.enabled_headspaces)
@@ -104,23 +115,32 @@ class MainWindow(QMainWindow, Base):
                 'data': data
             })
 
-    def handle_voice_query(self, query: str):
-        """ Connection point between voice input and Brain query processing """
-        print(query, flush=True)
-#       response = self.brain.process_query(query)
-        # Update UI with response
-#       self.update_response_display(response)
-
     def handle_voice_event(self, event_type, data):
         """ This is the signal reciever from the listening to handle events and data payloads """
 
-        if event_type == VoiceEvent.TRANSCRIPTION:
+
+        if event_type == VoiceEvent.HOTWORD_DETECTED:
+            self.logs.info(f"VoiceEvent.HOTWORD_DETECTED")
+            if self.popup is None:
+                self.popup = AMIDialog(self)
+            self.popup.start_listening()
+        elif event_type == VoiceEvent.TRANSCRIPTION:
             self.logs.info(f"VoiceEvent.TRANSCRIPTION: {data}")
-            self.handle_voice_query(data)
+            if self.popup:
+                self.popup.show_human_message(data)
+                self.popup.prepare_ai_response()
+                time.sleep(4)
+                self.popup.show_ai_message(data[::-1], expand=False)
             self.listening_state_queue.put(ProcessState.HOTWORD_DETECTION)
 
-        elif event_type == VoiceEvent.HOTWORD_DETECTED:
-            self.logs.info(f"VoiceEvent.HOTWORD_DETECTED")
+#       if event_type == VoiceEvent.TRANSCRIPTION:
+#           self.logs.info(f"VoiceEvent.TRANSCRIPTION: {data}")
+#           self.handle_voice_query(data)
+#           self.listening_state_queue.put(ProcessState.HOTWORD_DETECTION)
+#       elif event_type == VoiceEvent.HOTWORD_DETECTED:
+#           self.popup = Popup(self)
+#           self.popup.show()
+#           self.logs.info(f"VoiceEvent.HOTWORD_DETECTED")
 
         elif event_type == VoiceEvent.TIMEOUT:
             self.logs.info(f"VoiceEvent.TIMEOUT: {data}")

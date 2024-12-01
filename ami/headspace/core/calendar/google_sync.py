@@ -3,6 +3,7 @@ from datetime import datetime
 
 from typing import Union, List
 
+from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import Resource, build
 from googleapiclient.errors import HttpError
 from google.oauth2.credentials import Credentials

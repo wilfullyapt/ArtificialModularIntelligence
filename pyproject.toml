@@ -1,0 +1,26 @@
+[project]
+name = "ami"
+version = "0.1.0"
+description = "LLM powered daily AI companion"
+authors = [
+    {name = "William Mawhinney",email = "wilmawhinney@gmail.com"}
+]
+license = {text = "MIT"}
+readme = "README.md"
+requires-python = ">=3.9,<4.0"
+dependencies = [
+    "pyqt6 (>=6.8.1,<7.0.0)",
+    "gunicorn (>=23.0.0,<24.0.0)",
+    "pytz (>=2025.1,<2026.0)",
+    "pydantic (>=2.10.6,<3.0.0)",
+    "langchain (>=0.3.20,<0.4.0)",
+    "qrcode (>=8.0,<9.0)"
+]
+
+[project.scripts]
+ami = "ami.main:run"
+dev = "ami.main:run_dev"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"

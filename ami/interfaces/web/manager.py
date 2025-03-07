@@ -157,14 +157,20 @@ class FlaskManager(Base):
 
     def send_to_server(self, message):
         """Send message from GUI to server"""
-        if self.pipe:
-            self.pipe.send(message)
+        try:
+            if self.pipe:
+                self.pipe.send(message)
+        except EOFError:
+            self.stop()
 
     def receive_from_server(self):
         """Receive message from server (non-blocking)"""
-        if self.pipe and self.pipe.poll():  # Check if message available
-            return self.pipe.recv()
-        return None
+        try:
+            if self.pipe and self.pipe.poll():  # Check if message available
+                return self.pipe.recv()
+            return None
+        except EOFError:
+            self.stop()
 
     def stop(self):
         """Stop the server"""

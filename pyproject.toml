@@ -14,11 +14,12 @@ dependencies = [
     "pytz (>=2025.1,<2026.0)",
     "pydantic (>=2.10.6,<3.0.0)",
     "langchain (>=0.3.20,<0.4.0)",
-    "qrcode (>=8.0,<9.0)"
+    "qrcode (>=8.0,<9.0)",
+    "langchain-together (>=0.3.0,<0.4.0)"
 ]
 
-[project.scripts]
-ami = "ami.main:run"
+[tool.poetry.scripts]
+ami = "ami.main:run_prod"
 dev = "ami.main:run_dev"
 
 [build-system]

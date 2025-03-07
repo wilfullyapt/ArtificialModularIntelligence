@@ -13,13 +13,8 @@
 #### Clone the repo
 1. Clone the repo: `git clone https://github.com/wilfullyapt/ArtificialModularIntelligence.git`
 2. Change directory: `cd ArtificialModularIntelligence`
-3. Install: `./install.sh`
-    - `sudo apt update && upgrade`
-    - Creates a virtual enviornment
-    - Installs all related packages
-    - Copies a fresh `config.yaml` from template, unless one exists already
-. Update `config.yaml` with TogertherAI key
-5. Run the AI: `./run.sh`
+3. This is broken here
+4. Get to `make run`
 
 ### 🔮 ML Models at work
 - Hot Word / Wake word detection (local): [openWakeWord](https://github.com/dscripka/openWakeWord)
@@ -75,6 +70,7 @@ See ami.ai.headspace directory to understand how the GUI, Blueprint, and Headspa
 1. Implemented OpenWakeWord for hotword detection
 2. Utils Headspace added for config editing through Flask server
 3. Calendar syncing with Google Calendar + Ledgend
+4. Redesigned basically the entire app
 
 
 ### Developer Notes

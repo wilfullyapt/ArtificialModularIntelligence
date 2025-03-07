@@ -55,14 +55,14 @@ check-poetry:
 
 run:
 	@echo "$(GREEN)Running AMI$(RESET)"
-	@poetry run python ami/main.py
+	@poetry run ami
 
 dev:
 	@echo "$(GREEN)Starting AMI in dev mode! LFG!$(RESET)"
 	poetry run dev
 idev:
 	@echo "$(GREEN)Starting AMI in interactive dev mode! LET FUCKING GO! FULL DEV MODE!!$(RESET)"
-	poetry run python -i ami/main.py --dev
+	poetry run python -i -m ami.main --dev
 
 clean:
 	@echo "$(BLUE)Cleaning all temp files$(RESET)"
@@ -77,7 +77,4 @@ test:
 
 docs:
 	poetry run sphinx-build -b html docs docs/_build
-
-version:
-	poetry version patch
 

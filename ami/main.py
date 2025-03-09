@@ -25,7 +25,7 @@ def signal_handler(signum, frame):
     QApplication.quit()
 
 
-def startup_setting():
+def startup_settings():
     # Use spawn method for better cross-platform compatibility
     mp.set_start_method('spawn')
 
@@ -35,6 +35,7 @@ def startup_setting():
 
 def run_prod():
 
+    startup_settings()
     app = QApplication(sys.argv)
     window = MainWindow()
     window.show()

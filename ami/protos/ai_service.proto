@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package ami;
+
+service AIService {
+    rpc ProcessText (TextRequest) returns (TextResponse);
+    rpc ProcessAudio (AudioRequest) returns (TextResponse);
+}
+
+message TextRequest {
+    string text = 1;
+}
+
+message AudioRequest {
+    bytes audio_data = 1;
+    string format = 2;
+}
+
+message TextResponse {
+    string text = 1;
+    float confidence = 2;
+}

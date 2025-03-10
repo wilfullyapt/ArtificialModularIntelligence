@@ -1,82 +1,35 @@
-import asyncio
-from functools import partial
-import time
-import signal
-from pathlib import Path
-from pprint import pprint as pp
-from datetime import datetime, timedelta
 
-from ami.flask.manager import create_flask_app
-from ami.headspace.core.calendar.cal_config import CalendarConfig
-from ami.headspace.core.calendar.google_sync import DateRange
+from gunicorn.config import argparse
 
-import_ai_time = time.time()
-from ami import AI
-from ami.config import Config
+from ami.ai.ai import AI
 
-# ------------------------------------------------------------------------------
-#                       DEVELOPER INJECTIONS AND TESTING
-def sim(text_input: str):
-    async def internal():
-        await asyncio.sleep(1)
-        ai.temp_comms.publish("ears.hotword_detected")
-        await asyncio.sleep(2)
-        ai.temp_comms.publish("ears.recorder_callback", text_input)
+def get_args():
+    parser = argparse.ArgumentParser(description="Artificia lModular Intelligence")
 
-    signal.signal(signal.SIGINT, ai.stop)
-#   app = ami.ai.ai.create_flask_app(ai.get_modules_part("blueprint"), ai.flask_pipe)
-#   ai.flask_manager.start(app)
-#   ai.ears.listen()
-    ai.attn.start()
-#   ai.attn.schedule(ai.process_whisperer())
-    ai.attn.schedule(internal())
-    ai.gui.run(ai.get_modules_part("gui"))      # The GUI must run in the main thread
-    ai.stop()
+    parser.add_argument(
+        '--ai',
+        '-a',
+        action='store_true',
+        default=False,
+        help='Just instance the AI'
+    )
 
-def run_gui():
-    signal.signal(signal.SIGINT, ai.stop)
-    ai.attn.start()
-    ai.gui.run(ai.get_modules_part("gui"))      # The GUI must run in the main thread
-    ai.stop()
+    return parser.parse_args()
 
-def run_server(ai):
-    ai.attn.start()
-    ai.attn.schedule(ai.process_whisperer())
-    app = create_flask_app(ai.get_modules_part("blueprint"), ai.flask_pipe)
-    ai.flask_manager.start(app)
+def run_ai_no_process_loop():
+    global ai
+    ai = AI()
+    print(dir(ai))
 
-def restart_server(ai):
-    ai.flask_manager.stop()
-    print(" -- SLEEPER, YOU ARE -- ")
-    time.sleep(1)
-    print(" -- SLEEPER, YOU ARE NOT -- ")
-    run_server(ai)
+def run_backend():
+    print("No backend yet")
 
 if __name__ == '__main__':
-    f = __file__
 
-# ------------------------------------------------------------------------------
-#                       INITIALIZE AI
-    instance_ai_time = time.time()
-    ai = AI()
-    end_time = time.time()
+    args = get_args()
 
-    time_to_import = instance_ai_time - import_ai_time
-    time_to_instance = end_time - instance_ai_time
-    print("\n\033[91m -::->> Builder mode activated.\033[0m")
-    print(f"\033[91m  -:- Import time: {time_to_import:.2f} seconds.\033[0m")
-    print(f"\033[91m  -:- Instance time: {time_to_instance:.2f} seconds.\033[0m", end="\n\n")
+    if args.ai:
+        run_ai_no_process_loop()
 
-    runserver = partial(run_server, ai)
-    restartserver = partial(restart_server, ai)
-
-#---------------- Manual Testing
-    config = Config()
-    config.enable_langsmith()
-
-#   sim("remove all appointments for next tuesday")
-
-#   ai.run()
-
-#   help(ai.brain["calendar"].__class__)
+    print(" --- DEV SCRIPT ---")
 

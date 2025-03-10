@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package ami.gui;
+
+// GUI service for handling UI events
+service GUIService {
+    // Stream events from AI to GUI
+    rpc StreamEvents (stream GuiEvent) returns (stream GuiEventResponse) {}
+}
+
+// Event types that can be sent to the GUI
+enum EventType {
+    UNKNOWN = 0;
+    HOTWORD_DETECTED = 1;
+    TRANSCRIPTION_READY = 2;
+    AI_RESPONSE_READY = 3;
+    ERROR = 4;
+    STATE_CHANGE = 5;
+    TIMEOUT = 6;
+}
+
+enum GuiState {
+    IDLE = 0;
+    LISTENING = 1;
+    THINKING = 2;
+    SPEAKING = 3;
+}
+
+// Event message sent to GUI
+message GuiEvent {
+    EventType type = 1;
+    string data = 2;
+    int64 timestamp = 3;
+    GuiState state = 4;
+}
+
+// Response from GUI to acknowledge events
+message GuiEventResponse {
+    bool success = 1;
+    string message = 2;
+}

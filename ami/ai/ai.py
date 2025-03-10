@@ -9,12 +9,13 @@ from types import ModuleType
 from typing import Any, Callable, List, Literal, Optional, Type
 from multiprocessing import Pipe, Event as MultiprocessEvent
 
+import grpc
 from pydantic import ValidationError
 
 from ami.base import Base
 from ami.config import Config
 from ami.headspace.blueprint import Payload
-from ami.flask.manager import FlaskManager, create_flask_app
+from ami.protos.generated import ai_service_pb2, ai_service_pb2_grpc
 
 class TemporalCommunications:
     """
@@ -88,38 +89,67 @@ class AI(Base):
 
         This method sets up the necessary components and configurations for the AI system.
         It loads the core modules based on the enabled headspaces, initializes the attention
-        mechanism, temporal communications, ears, GUI, Flask manager, and brain components.
+        mechanism, temporal communications, and brain components.
         """
         super().__init__()
 
         self.async_thread = None
-        self.ai_pipe, self.flask_pipe = Pipe()
         self.stop_event = MultiprocessEvent()
 
         enabled_headspaces = Config().enabled_headspaces
         self.submodules = ('headspace', 'blueprint', 'gui', 'prompts')
         self._core_modules: List[ModuleType] = self._load_core_modules(enabled_headspaces)
-#         self._core_modules = ( "markdown",)
 
         from . import Attention, Brain
         from ami.ears import Ears
-        from ami.gui import GUI
+
+        # Initialize gRPC client for backend communication
+        self.channel = grpc.aio.insecure_channel('localhost:59195')  # Backend gRPC port
+        self.backend_stub = ai_service_pb2_grpc.AIServiceStub(self.channel)
 
         self.attn = Attention(ignore_coroname_logging=["process_whisperer"])
-
         self.temp_comms = TemporalCommunications()
         self.ears = Ears(temp_comms=self.temp_comms)
-
-        self.gui = GUI(temp_comms=self.temp_comms)
-        self.flask_manager = FlaskManager(self.stop_event)
         self.brain = Brain(temp_comms=self.temp_comms, headspaces=self.get_modules_part("headspace"))
 
         self.establish_temporal_communications()
 
-    @property
-    def server_url(self):
-        """ Return the URL of the flask app """
-        return self.flask_manager.url
+    async def query(self, message: str) -> str:
+        """Query the AI with a message and return the response"""
+        try:
+            # First try to process locally with brain
+            response = self.brain.query(message)
+            return response
+        except Exception as e:
+            self.logs.error(f"Local brain query failed: {e}")
+            try:
+                # Fallback to backend service
+                request = ai_service_pb2.QueryRequest(message=message)
+                response = await self.backend_stub.Query(request)
+                return response.response
+            except Exception as e:
+                self.logs.error(f"Backend query failed: {e}")
+                return "I apologize, but I'm having trouble processing your request."
+
+    async def process_audio(self, audio_data: bytes) -> str:
+        """Process audio data and return transcribed text"""
+        try:
+            request = ai_service_pb2.AudioData(audio_data=audio_data)
+            response = await self.backend_stub.ProcessAudio(request)
+            return response.text
+        except Exception as e:
+            self.logs.error(f"Audio processing failed: {e}")
+            return ""
+
+    async def generate_audio(self, text: str) -> bytes:
+        """Generate audio from text"""
+        try:
+            request = ai_service_pb2.TextRequest(text=text)
+            response = await self.backend_stub.GenerateAudio(request)
+            return response.audio_data
+        except Exception as e:
+            self.logs.error(f"Audio generation failed: {e}")
+            return bytes()
 
     def import_headspace_module(self, module_path: Path, mode: Literal["core", "import"]="import") -> ModuleType:
         """
@@ -200,57 +230,59 @@ class AI(Base):
         """ Run the AI """
         signal.signal(signal.SIGINT, self.stop)
 
-        app = create_flask_app(self.get_modules_part("blueprint"), self.flask_pipe)
-        self.flask_manager.start(app)
-
         self.ears.start_listening()
         self.attn.start()
         self.attn.schedule(self.process_whisperer())
 
-#       self.gui.run(builtins=self.get_builtin_guis(), modules=self.get_modules_part("gui"))
-        self.gui.run(self.get_modules_part("gui"))  # The GUI must run in the main thread
-
-        self.stop()                                 # If the GUI closes, everything else should
+        # Keep running until stop event is set
+        try:
+            while not self.stop_event.is_set():
+                signal.pause()
+        except (KeyboardInterrupt, SystemExit):
+            self.stop()
 
     def stop(self, event=None, frame=None):
         """ Stop all composed object """
         self.logs.debug("AI.stop() called!!!")
-        self.flask_manager.stop()
         self.ears.stop()
-        self.gui.stop()
         self.attn.stop()
+        self.stop_event.set()
+        if hasattr(self, 'channel'):
+            asyncio.run(self.channel.close())
 
     def establish_temporal_communications(self):
         """ Core temporal communication pipelines """
-        self.temp_comms.subscribe("ears.hotword_detected", self.start_chat)
-        self.temp_comms.subscribe("ears.recorder_callback", self.human_to_ai)
-        self.temp_comms.subscribe("ears.timeout", self.gui.popup.close)
-        self.temp_comms.subscribe("gui.popup.loading_message", self.gui.popup.set_loading_message)
-        self.temp_comms.subscribe("gui.interaction_finished", self.ears.start_listening)
+        self.temp_comms.subscribe("ears.recorder_callback", self.process_input)
         self.temp_comms.subscribe("attn.schedule", self.attn.schedule)
 
-    def start_chat(self):
-        """ Initiate the chat in the GUI """
-        async def _start_chat():
-
-            self.gui.create_popup()
-
-        self.attn.schedule(_start_chat())
-
-    def human_to_ai(self, message):
-        """ Handle the what the GUI should show, query the brain with the message """
+    async def process_input(self, message):
+        """ Process input from ears or other sources """
         if message is False:
-            self.logs.warn("AI recieved no input! Cancelling interaction!")
+            self.logs.warn("AI received no input! Cancelling interaction!")
             return
 
-        async def _human_to_ai(message):
-            """ async function that does all the work """
-            self.gui.popup.set_human_message(message)
-            dialog = self.brain.query(message, load_msg_callback=self.gui.popup.set_loading_message)
-#           self.q = dialog
-            self.gui.popup.set_ai_response(dialog)
+        try:
+            # Try to process audio if message is bytes
+            if isinstance(message, bytes):
+                text = await self.process_audio(message)
+                if not text:
+                    return
+                message = text
 
-        self.attn.schedule(_human_to_ai(message))
+            # Get AI response
+            response = await self.query(message)
+
+            # Generate audio response if needed
+            if self.ears.is_listening:
+                audio_data = await self.generate_audio(response)
+                if audio_data:
+                    self.ears.play_audio(audio_data)
+
+            return response
+
+        except Exception as e:
+            self.logs.error(f"Error in process_input: {e}")
+            return "I apologize, but I encountered an error processing your request."
 
     def handle_payload(self, payload: Payload):
         """ Accept a Payload object, do it's bidding """
@@ -262,30 +294,12 @@ class AI(Base):
             self.logs.error(f"Module `{payload.module}` invalid!")
 
     async def process_whisperer(self):
-        """ Scheduled in the Attention recursively. Watches the IPC and handles events """
+        """ Scheduled in the Attention recursively. Watches for events and handles them """
         if self.stop_event.is_set():
-            self.gui.stop()
+            return
 
-        if self.ai_pipe.poll():
-            try:
-                data = self.ai_pipe.recv()
-                payload = pickle.loads(data)
+        # Process any pending events or tasks here
+        await asyncio.sleep(1)
 
-                if isinstance(payload, Payload):
-                    self.handle_payload(payload)
-                else:
-                    raise ValueError("Received data is not a valid Payload object")
-
-            except pickle.UnpicklingError as e:
-                self.logs.error(f"Failed to unpickle payload: {e}")
-            except ValidationError as e:
-                self.logs.error(f"Invalid payload format: {e}")
-            except EOFError as e:
-                self.logs.error(f"EOF error while reading from pipe: {e}")
-            except Exception as e:
-                self.logs.error(f"Unexpected error processing payload: {e}")
-
-        else:
-            await asyncio.sleep(1)
-
+        # Reschedule this coroutine
         self.attn.schedule(self.process_whisperer())

@@ -18,12 +18,19 @@ dependencies = [
     "langchain-together (>=0.3.0,<0.4.0)",
     "numpy (>=1.26.4,<2.0.0)",
     "google-api-python-client (>=2.163.0,<3.0.0)",
-    "google-auth-oauthlib (>=1.2.1,<2.0.0)"
+    "google-auth-oauthlib (>=1.2.1,<2.0.0)",
+    "fastapi (>=0.110.0,<1.0.0)",
+    "uvicorn (>=0.27.1,<1.0.0)",
+    "python-multipart (>=0.0.9,<1.0.0)",
+    "grpcio (>=1.71.0,<2.0.0)",
+    "grpcio-tools (>=1.71.0,<2.0.0)"
 ]
 
 [tool.poetry.scripts]
-ami = "ami.main:run_prod"
-dev = "ami.main:run_dev"
+run = "ami.main:run_prod"
+ami = "ami.main:run_dev"
+dev-ai = "ami.dev:run_ai_no_process_loop"
+dev-be = "ami.main:run_backend"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

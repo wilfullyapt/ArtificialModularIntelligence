@@ -104,7 +104,6 @@ class FlaskManager(Base):
 
     def run_server(self, blueprints, pipe: multiprocessing.connection.Connection):
         """Function to run in the child process"""
-        from ami.config import Config
         from ami.interfaces.web.server import create_app
         from ami.core.headspace_importer import import_headspace
         import multiprocessing

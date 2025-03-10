@@ -11,10 +11,15 @@
 ### 🚀 Getting Started
 
 #### Clone the repo
-1. Clone the repo: `git clone https://github.com/wilfullyapt/ArtificialModularIntelligence.git`
-2. Change directory: `cd ArtificialModularIntelligence`
-3. This is broken here
-4. Get to `make run`
+1. Make sure you have `build essentians` installed
+```bash
+sudo apt-get update
+sudo apt-get install build-essential
+```
+2. Clone the repo & `cd`: `git clone https://github.com/wilfullyapt/ArtificialModularIntelligence.git && cd ArtificialModularIntelligence`
+3. Install AMI via Make: `make full-install`
+4. (optional) Create the service autostart file & reboot
+5. run `make run`
 
 ### 🔮 ML Models at work
 - Hot Word / Wake word detection (local): [openWakeWord](https://github.com/dscripka/openWakeWord)

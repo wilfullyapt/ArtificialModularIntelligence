@@ -31,8 +31,7 @@ class MainWindow(QMainWindow, Base):
 
         config = Config()
         self.enabled_headspaces = config.enabled_headspaces
-        self.enabled_headspaces = [ 'calendar']
-
+        self.enabled_headspaces = [ 'calendar' ]
 
         self.spawn_server()
         self.setup_ui(config.get('builtin_config', {}))

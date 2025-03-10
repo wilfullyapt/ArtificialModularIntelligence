@@ -35,6 +35,8 @@ ArtificialModularIntelligence/
 │   │   └── base.py                 # Base components, for logging and config
 │   ├── frontend/                   # React frontend that makes http calls to the backend
 │   │   ├── src/                    # Source files for the react server
+│   │   ├── package-lock.json
+│   │   └── package.json
 │   │── __init__.py
 │   │── config.py                   # Config for the entire system
 │   │── logging.py                  # logging for the entire system
@@ -47,11 +49,17 @@ ArtificialModularIntelligence/
 
 ## Architecture
 
+**Multi-process client-server system with bidirectional gRPC communication and shared configuration management**
+- gRPC client-server for the AI and the GUI, the backend being a client to the AI
+- Headspace for petecular setup, this is where all the components get their parts
+- Watcher option with the config settings
+- Robust system of logging. Log file and kept tidey and seperated base on their source
 
+## The glue for all components
 
-## glue and connections
-
-the things that connect all the architectures together
+There are two main sources of glue for this entire app
+- gRPC server-client
+- The watcher Config
 
 ## NECESSARY
 

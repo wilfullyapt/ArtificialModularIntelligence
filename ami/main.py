@@ -5,14 +5,13 @@ import multiprocessing as mp
 from concurrent import futures
 import logging
 import uvicorn
-from typing import Optional
+from typing import Optional, List
+import argparse
 
 from PyQt6.QtWidgets import QApplication
-from gunicorn.config import argparse
-
 from ami.gui.main_window import MainWindow
 from ami.ai.ai import AI
-from ami.api.main import app as fastapi_app
+from ami.backend.main import app as fastapi_app
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -23,12 +22,12 @@ class ProcessManager:
         self.processes = {}
         self.stop_events = {}
         self._shutdown_initiated = False
-        
+
     def add_process(self, name: str, process: mp.Process, stop_event: Optional[mp.Event] = None):
         self.processes[name] = process
         if stop_event:
             self.stop_events[name] = stop_event
-            
+
     def start_ai(self):
         stop_event = mp.Event()
         process = mp.Process(
@@ -42,16 +41,16 @@ class ProcessManager:
 
     def start_fastapi(self):
         stop_event = mp.Event()
-        
+
         def run_fastapi():
             def handle_shutdown(signum, frame):
                 logger.info("FastAPI shutdown signal received")
                 stop_event.set()
                 sys.exit(0)
-                
+
             signal.signal(signal.SIGTERM, handle_shutdown)
             signal.signal(signal.SIGINT, handle_shutdown)
-            
+
             config = uvicorn.Config(
                 app=fastapi_app,
                 host="0.0.0.0",
@@ -61,7 +60,7 @@ class ProcessManager:
             )
             server = uvicorn.Server(config)
             server.run()
-            
+
         process = mp.Process(
             target=run_fastapi,
             name="fastapi_process"
@@ -71,10 +70,17 @@ class ProcessManager:
         self.add_process("fastapi", process, stop_event)
         return process, stop_event
 
+    def start_gui(self):
+        app = QApplication(sys.argv)
+        window = MainWindow()
+        window.show()
+        window.start()
+        return app, window
+
     def shutdown(self):
         if self._shutdown_initiated:
             return
-            
+
         self._shutdown_initiated = True
         logger.info("Initiating graceful shutdown...")
 
@@ -87,12 +93,12 @@ class ProcessManager:
         for name, process in self.processes.items():
             logger.info(f"Waiting for {name} to finish...")
             process.join(timeout=5)
-            
+
             if process.is_alive():
                 logger.warning(f"{name} didn't stop gracefully, terminating...")
                 process.terminate()
                 process.join(timeout=2)
-                
+
                 if process.is_alive():
                     logger.warning(f"{name} still alive after terminate, killing...")
                     process.kill()
@@ -109,6 +115,20 @@ def get_args():
         default=False,
         help='Enable development mode'
     )
+    parser.add_argument(
+        '--component',
+        '-c',
+        choices=['all', 'ai', 'backend', 'gui'],
+        default='all',
+        help='Specify which component to run (default: all)'
+    )
+    parser.add_argument(
+        '--wait-deps',
+        '-w',
+        action='store_true',
+        default=False,
+        help='Wait for dependencies to be available before starting'
+    )
     return parser.parse_args()
 
 def signal_handler(signum, frame, process_manager, app=None):
@@ -121,49 +141,68 @@ def signal_handler(signum, frame, process_manager, app=None):
 def startup_settings():
     mp.set_start_method('spawn')
 
-    # Set up signal handling
-#   signal.signal(signal.SIGINT, signal_handler)
-#   signal.signal(signal.SIGTERM, signal_handler)
-
-def run_app(dev_mode: bool = False):
+def run_app(dev_mode: bool = False, component: str = 'all', wait_deps: bool = False):
     """Run the application in either production or development mode"""
     startup_settings()
     process_manager = ProcessManager()
 
     try:
-        # Start AI and FastAPI processes
-        process_manager.start_ai()
-        process_manager.start_fastapi()
+        # Start components based on selection
+        if component in ['all', 'ai']:
+            process_manager.start_ai()
+            if wait_deps:
+                import time
+                time.sleep(2)  # Wait for AI service to be ready
 
-        # Wait for services to be ready
-        import time
-        time.sleep(2)
+        if component in ['all', 'backend']:
+            process_manager.start_fastapi()
+            if wait_deps:
+                import time
+                time.sleep(2)  # Wait for backend to be ready
 
-        # Set up signal handlers
-        signal.signal(signal.SIGINT, 
-                     lambda s, f: signal_handler(s, f, process_manager, QApplication))
-        signal.signal(signal.SIGTERM, 
-                     lambda s, f: signal_handler(s, f, process_manager, QApplication))
+        if component in ['all', 'gui']:
+            # Set up signal handlers for GUI
+            signal.signal(signal.SIGINT,
+                        lambda s, f: signal_handler(s, f, process_manager, QApplication))
+            signal.signal(signal.SIGTERM,
+                        lambda s, f: signal_handler(s, f, process_manager, QApplication))
 
-        # Start GUI
-        app = QApplication(sys.argv)
-        window = MainWindow()
-        window.show()
-        window.start()
+            app, window = process_manager.start_gui()
 
-        if dev_mode:
-            logger.info("Running in development mode")
-            logger.info("AI server running on port 59195")
-            logger.info("FastAPI server running on port 58744")
-            logger.info("Press Ctrl+C to exit")
+            if dev_mode:
+                logger.info("Running in development mode")
+                if component == 'all':
+                    logger.info("AI server running on port 59195")
+                    logger.info("FastAPI server running on port 58744")
+                logger.info("Press Ctrl+C to exit")
 
-        # Execute the application
-        exit_code = app.exec()
+            # Execute the GUI application
+            exit_code = app.exec()
 
-        # Cleanup
-        window.cleanup()
-        process_manager.shutdown()
-        return exit_code
+            # Cleanup
+            window.cleanup()
+            process_manager.shutdown()
+            return exit_code
+
+        # If not running GUI, just wait for signal
+        else:
+            signal.signal(signal.SIGINT,
+                        lambda s, f: signal_handler(s, f, process_manager))
+            signal.signal(signal.SIGTERM,
+                        lambda s, f: signal_handler(s, f, process_manager))
+
+            if dev_mode:
+                logger.info("Running in development mode")
+                if component in ['all', 'ai']:
+                    logger.info("AI server running on port 59195")
+                if component in ['all', 'backend']:
+                    logger.info("FastAPI server running on port 58744")
+                logger.info("Press Ctrl+C to exit")
+
+            # Wait for signal
+            signal.pause()
+
+        return 0
 
     except Exception as e:
         logger.error(f"Error running application: {e}")
@@ -173,7 +212,11 @@ def run_app(dev_mode: bool = False):
 if __name__ == '__main__':
     args = get_args()
     try:
-        exit_code = run_app(dev_mode=args.dev)
+        exit_code = run_app(
+            dev_mode=args.dev,
+            component=args.component,
+            wait_deps=args.wait_deps
+        )
         sys.exit(exit_code)
     except Exception as e:
         print(f"Fatal error: {e}")

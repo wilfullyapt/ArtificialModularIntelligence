@@ -9,7 +9,6 @@ venv
 /setup.py
 
 /private
-/tests
 
 /ami/flask/static/images/
 

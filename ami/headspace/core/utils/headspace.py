@@ -1,7 +1,7 @@
 from ami import headspace
-from ami.config import Config
+from ami.core import Config
 from ami.headspace import Headspace, ami_tool, agent_observation, generate_qr_image
-from ami.flask.manager import get_network_url
+from ami.backend.utils import get_network_url
 
 from .tool import Utils as UtilsTool
 

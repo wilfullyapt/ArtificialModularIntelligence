@@ -1,7 +1,7 @@
 from urllib.parse import quote_plus
 
 from ami.headspace import Headspace, ami_tool, agent_observation
-from ami.flask.manager import get_network_url
+from ami.backend.utils import get_network_url
 from ami.headspace.headspace import generate_qr_image
 
 from .tool import Markdown as MarkdownTool

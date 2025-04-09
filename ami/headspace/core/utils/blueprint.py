@@ -2,7 +2,7 @@
 
 from flask import redirect, url_for, request
 
-from ami.config import Config
+from ami.core import Config
 from ami.headspace.blueprint import Blueprint, HeaderButton, route, render_template
 
 from .tool import PerfectYAML

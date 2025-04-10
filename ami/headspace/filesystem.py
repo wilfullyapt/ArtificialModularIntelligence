@@ -6,7 +6,7 @@ from shutil import copy2
 
 import yaml
 
-from ami.config import Config
+from ami.core import Config
 
 class Filesystem:
     """

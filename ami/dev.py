@@ -1,82 +1,82 @@
-import asyncio
-from functools import partial
-import time
+
+import os
+import sys
 import signal
-from pathlib import Path
-from pprint import pprint as pp
-from datetime import datetime, timedelta
+import traceback
+from typing import Optional
+import multiprocessing as mp
 
-from ami.flask.manager import create_flask_app
-from ami.headspace.core.calendar.cal_config import CalendarConfig
-from ami.headspace.core.calendar.google_sync import DateRange
 
-import_ai_time = time.time()
-from ami import AI
-from ami.config import Config
+from PyQt6.QtWidgets import QApplication
 
-# ------------------------------------------------------------------------------
-#                       DEVELOPER INJECTIONS AND TESTING
-def sim(text_input: str):
-    async def internal():
-        await asyncio.sleep(1)
-        ai.temp_comms.publish("ears.hotword_detected")
-        await asyncio.sleep(2)
-        ai.temp_comms.publish("ears.recorder_callback", text_input)
+from ami.ipc import IPCManager
+from ami.ai import AI
+from ami.gui import MainWindow as GUI
 
-    signal.signal(signal.SIGINT, ai.stop)
-#   app = ami.ai.ai.create_flask_app(ai.get_modules_part("blueprint"), ai.flask_pipe)
-#   ai.flask_manager.start(app)
-#   ai.ears.listen()
-    ai.attn.start()
-#   ai.attn.schedule(ai.process_whisperer())
-    ai.attn.schedule(internal())
-    ai.gui.run(ai.get_modules_part("gui"))      # The GUI must run in the main thread
-    ai.stop()
+# Global variables for process management
+ai: Optional[mp.Process] = None
+should_exit = mp.Event()
 
-def run_gui():
-    signal.signal(signal.SIGINT, ai.stop)
-    ai.attn.start()
-    ai.gui.run(ai.get_modules_part("gui"))      # The GUI must run in the main thread
-    ai.stop()
+def import_dev_env():
+    print(" -- ADD-ON IMPORT DEV ENVIORNMENT --")
 
-def run_server(ai):
-    ai.attn.start()
-    ai.attn.schedule(ai.process_whisperer())
-    app = create_flask_app(ai.get_modules_part("blueprint"), ai.flask_pipe)
-    ai.flask_manager.start(app)
+def signal_handler(signum, frame):
+    """Handle Ctrl+C and other signals with detailed info"""
+    process = mp.current_process()
+    process_name = process.name
+    process_pid = os.getpid()
+    print(f"\nShutdown signal received in process '{process_name}' (PID: {process_pid})...")
+    print(f"SIGNUM: {signum}")
+    print("Stack trace:")
+    traceback.print_stack(frame)
+    should_exit.set()
 
-def restart_server(ai):
-    ai.flask_manager.stop()
-    print(" -- SLEEPER, YOU ARE -- ")
-    time.sleep(1)
-    print(" -- SLEEPER, YOU ARE NOT -- ")
-    run_server(ai)
+def cleanup():
+    """Clean up all processes"""
+    should_exit.set()
+
+    if ai:
+        ai.join(timeout=5)
+        print("AI process classed to join, 5 sec timeout")
+        if ai.is_alive():
+            ai.terminate()
+            print("AI process terminated")
+        print("AI process closed")
+        print( " - - - - - - - - - - - - -")
 
 if __name__ == '__main__':
-    f = __file__
+    print(" --- DEV SCRIPT ---")
 
-# ------------------------------------------------------------------------------
-#                       INITIALIZE AI
-    instance_ai_time = time.time()
-    ai = AI()
-    end_time = time.time()
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
 
-    time_to_import = instance_ai_time - import_ai_time
-    time_to_instance = end_time - instance_ai_time
-    print("\n\033[91m -::->> Builder mode activated.\033[0m")
-    print(f"\033[91m  -:- Import time: {time_to_import:.2f} seconds.\033[0m")
-    print(f"\033[91m  -:- Instance time: {time_to_instance:.2f} seconds.\033[0m", end="\n\n")
+    # ---   Interpeocess Communication Manager
+    ipc_manager = IPCManager(stop_flag=should_exit)
 
-    runserver = partial(run_server, ai)
-    restartserver = partial(restart_server, ai)
+    run_ai = True
+    run_backend = False
+    run_gui = True
 
-#---------------- Manual Testing
-    config = Config()
-    config.enable_langsmith()
+    try:
+        # ---   ARTIFICIAL INTELLIGENCE
+        if run_ai:
+            ai = AI(ipc_manager)
+            if any([run_backend, run_gui]):
+                ai.start()
 
-#   sim("remove all appointments for next tuesday")
+        # ---   BACKEND FASTAPI
+#       if run_backend:
+#           backend = Backend(ipc_manager)
+#          backend.start()
 
-#   ai.run()
 
-#   help(ai.brain["calendar"].__class__)
+        # ---   MAIN PROCESS GUI
+        if run_gui:
+            app = QApplication(sys.argv)
+            window = GUI(ipc_manager)
+            window.show()
+            sys.exit(app.exec())
 
+    finally:
+#       cleanup()
+        pass

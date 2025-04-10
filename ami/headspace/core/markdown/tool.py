@@ -8,7 +8,7 @@ from typing import List
 from pydantic import BaseModel, Field
 
 from ami.headspace.filesystem import Filesystem
-from ami.config import Config
+from ami.core import Config
 from ami.headspace.base import SharedTool
 
 def convert_md_to_html(md_file):

@@ -1,80 +1,96 @@
-SHELL=/bin/bash
+.PHONY: help install dev prod clean test lint format typecheck grpc-gen docs all activate
 
-.PHONY: help install dev prod clean test
+# Variables
+PYTHON ?= python3
+VENV = venv
+PROTO_DIR ?= ami/protos
+GENERATED_DIR ?= ami/protos/generated
+PORT ?= 54996
 
-GREEN=$(shell tput -Txterm setaf 2)
-YELLOW=$(shell tput -Txterm setaf 3)
-RED=$(shell tput -Txterm setaf 1)
-BLUE=$(shell tput -Txterm setaf 6)
-RESET=$(shell tput -Txterm sgr0)
+# Check for Linux
+UNAME := $(shell uname -s)
+ifneq ($(UNAME),Linux)
+	$(error This Makefile only supports Linux. Windows and MacOS are not supported.)
+endif
 
-OS := $(shell uname -s)
-
+# Default target
 help:
-	@echo "Available commands:"
-	@echo "  make install    - Install dependencies using Poetry"
-	@echo "  make dev        - Run the project in development mode"
-	@echo "  make prod       - Run the project in production mode"
-	@echo "  make clean      - Remove virtual environment and cached files"
-	@echo "  make test       - Run tests (if applicable)"
+	@echo "Usage: make <target>"
+	@echo ""
+	@echo "Installation:"
+	@echo "  all          - Full installation and setup (recommended)"
+	@echo "  install      - Install project in development mode"
+	@echo ""
+	@echo "Virtual Environment:"
+	@echo "  activate     - Show instructions to activate the virtual environment"
+	@echo ""
+	@echo "Running the App:"
+	@echo "  dev          - Run the app in development mode (port: $(PORT))"
+	@echo "  prod         - Run the app in production mode (port: $(PORT))"
+	@echo ""
+	@echo "Development:"
+	@echo "  test         - Run tests with coverage"
+	@echo "  lint         - Run linting checks"
+	@echo "  format       - Format code with Black"
+	@echo "  typecheck    - Run static type checking with mypy"
+	@echo "  grpc-gen     - Generate gRPC Python files"
+	@echo "  docs         - Build Sphinx documentation"
+	@echo "  clean        - Remove temporary files and caches"
 
+# Full installation and setup
+all: install grpc-gen
 
-check_sysreq:
-	@echo "$(GREEN)Installing AMI ...$(RESET)"
+# Show activation instructions
+activate:
+	@echo "To activate the virtual environment, run:"
+	@echo "  source ./activate.sh"
+	@echo ""
+	@echo "Or manually with:"
+	@echo "  source venv/bin/activate"
+	@echo ""
+	@echo "You can deactivate it anytime by running 'deactivate'"
 
+# Install project in development mode
 install:
-	@echo "$(GREEN)Installing AMI ...$(RESET)"
-	@poetry install
+	@echo "Running install.sh script..."
+	@bash install.sh
 
-check-python:
-	@echo "Checking Python version..."
-	@PYTHON_VERSION=$$(python3 --version | cut -d" " -f2); \
-	MAJOR_MINOR=$$(echo $$PYTHON_VERSION | cut -d. -f1,2); \
-	if [ "$$(printf '%s\n' "$$MAJOR_MINOR" "$(PYTHON_REQUIRED)" | sort -V | head -n1)" != "$(PYTHON_REQUIRED)" ]; then \
-		echo "Error: Python $(PYTHON_REQUIRED) or higher is required. Found: $$PYTHON_VERSION"; \
-		exit 1; \
-	else \
-		echo "Python $$PYTHON_VERSION is compatible."; \
-	fi
 
-# Check Poetry version
-check-poetry:
-	@echo "Checking Poetry version..."
-	@if ! command -v poetry >/dev/null 2>&1; then \
-		echo "Poetry not found. Installing Poetry..."; \
-		pip install poetry; \
-	fi; \
-	POETRY_VERSION=$$(poetry --version | cut -d" " -f3 | tr -d ')'); \
-	if [ "$$(printf '%s\n' "$$POETRY_VERSION" "$(POETRY_REQUIRED)" | sort -V | head -n1)" != "$(POETRY_REQUIRED)" ]; then \
-		echo "Error: Poetry $(POETRY_REQUIRED) or higher is required. Found: $$POETRY_VERSION"; \
-		echo "Please update Poetry with: pip install --upgrade poetry"; \
-		exit 1; \
-	else \
-		echo "Poetry $$POETRY_VERSION is compatible."; \
-	fi
+# Production mode
+prod:
+	. $(VENV)/bin/activate && gunicorn -w 4 -b 0.0.0.0:$(PORT) ami.main:app
 
 run:
-	@echo "$(GREEN)Running AMI$(RESET)"
-	@poetry run ami
+	venv/bin/python -m ami.main --verbose
 
 dev:
-	@echo "$(GREEN)Starting AMI in dev mode! LFG!$(RESET)"
-	poetry run dev
+	venv/bin/python -m ami.dev
 idev:
-	@echo "$(GREEN)Starting AMI in interactive dev mode! LET FUCKING GO! FULL DEV MODE!!$(RESET)"
-	poetry run python -i -m ami.main --dev
+	venv/bin/python -i -m ami.dev
 
+# Clean up
 clean:
-	@echo "$(BLUE)Cleaning all temp files$(RESET)"
-	rm -rf .pytest_cache __pycache__ *.pyc
-	find . -type d -name '__pycache__' -exec rm -r {} +
-	find . -type f -name '*.pyc' -exec rm -f {} +
-	rm -rf dist build *.egg-info
+	find . -type d -name "__pycache__" -exec rm -r {} + || true
+	find . -type f -name "*.pyc" -delete || true
+	rm -rf .pytest_cache .coverage *.egg-info dist build $(VENV)
+	rm -rf docs/_build
 
+# Run tests
 test:
-	@echo "$(YELLOW) Running tests ...$(RESET)"
-	poetry run pytest
+	. $(VENV)/bin/activate && pytest --cov=ami --cov-report=term-missing -v
 
+# Lint code
+lint:
+	. $(VENV)/bin/activate && flake8 ami tests
+
+# Format code
+format:
+	. $(VENV)/bin/activate && black ami tests
+
+# Type checking
+typecheck:
+	. $(VENV)/bin/activate && mypy ami
+
+# Build documentation
 docs:
-	poetry run sphinx-build -b html docs docs/_build
-
+	. $(VENV)/bin/activate && sphinx-build -b html docs docs/_build

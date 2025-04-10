@@ -12,8 +12,9 @@ if __name__ == 'main':
 
 
 routes = {
-    "tool"
-    "conversation"
+    "tool": route.call_tool,                # APIs? Calendar, Markdown, Actions?
+    "conversation": route.init_convo,       # Think about this, respond
+    "lesson": route.join_investigation,     # Shallow research, Curiosity
 }
 ```
 

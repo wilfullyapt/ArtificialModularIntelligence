@@ -5,10 +5,9 @@ from pathlib import Path
 from types import ModuleType
 from typing import Optional
 
-from ami.config import Config
+from ami.core import Config, Logger
 
-logs = Config().load_blank_logging()
-logs(__file__)
+logs = Logger(Config().log_config)("ami.core.headspace_importer")
 
 def load_module(name: str, path: Path) -> Optional[ModuleType]:
     if not path.exists():
@@ -43,14 +42,16 @@ def load_submodules(module: ModuleType, base_path: Path) -> None:
             logs.info(f"Submodule for {module.__name__}, {submodule.__name__}, has been added")
 
 def import_headspace(headspace_name: str, extract: Optional[str]=None) -> Optional[ModuleType]:
-    # First ensure the base package is imported
+    modules_dir = Config().modules_dir
+    print(f"__name__: {__name__}")
+    print(f"__package__: {__package__}")
     base_package = "ami.imported_headspaces"
     if base_package not in sys.modules:
-        base_init = Config().modules_dir / "__init__.py"
+        base_init = modules_dir / "__init__.py"
         if base_init.exists() and base_init.is_file():
             base_module = load_module(base_package, base_init)
             if base_module is not None:
-                base_module.__path__ = [str(Config().modules_dir)]
+                base_module.__path__ = [str(modules_dir)]
                 sys.modules[base_package] = base_module
 
     module_name = f"ami.imported_headspaces.{headspace_name}"
@@ -61,7 +62,7 @@ def import_headspace(headspace_name: str, extract: Optional[str]=None) -> Option
             return getattr(module, extract, None)
         return module
 
-    module_path = Config().modules_dir / headspace_name / "__init__.py"
+    module_path = modules_dir / headspace_name / "__init__.py"
     if module_path.exists() and module_path.is_file():
         module = load_module(module_name, module_path)
         if module is None:

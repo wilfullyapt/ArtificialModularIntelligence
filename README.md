@@ -11,10 +11,10 @@
 ### 🚀 Getting Started
 
 #### Clone the repo
-1. Make sure you have `build essentians` installed
+1. Make sure you have `git` and `make` installed
 ```bash
 sudo apt-get update
-sudo apt-get install build-essential
+sudo apt install git make
 ```
 2. Clone the repo & `cd`: `git clone https://github.com/wilfullyapt/ArtificialModularIntelligence.git && cd ArtificialModularIntelligence`
 3. Install AMI via Make: `make full-install`

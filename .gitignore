@@ -9,7 +9,7 @@ venv
 /setup.py
 
 /private
-/tests
+/logs
 
 /ami/flask/static/images/
 
@@ -18,3 +18,7 @@ venv
 
 /modules/*
 !/modules/.gitkeep
+
+# Generated gRPC files
+/ami/protos/generated/*
+!/ami/protos/generated/__init__.py

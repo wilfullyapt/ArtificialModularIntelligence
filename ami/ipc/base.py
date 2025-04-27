@@ -6,7 +6,8 @@ from queue import Empty
 
 from ami.core import LogBase, Config, Logger
 from .constants import ProcessType, EventType
-from .manager import IPCManager, IPCEvent
+from .manager import IPCEvent, IPCManager
+
 
 def on_event(event: EventType):
     """Decorator to mark a method as an event handler.
@@ -19,10 +20,11 @@ def on_event(event: EventType):
         return func
     return decorator
 
+
 class BaseIPC(LogBase):
     def __init__(self, ipc_manager: IPCManager, process_type: ProcessType):
         super().__init__()
-        self.process_manager: IPCManager = ipc_manager
+        self.process_manager = ipc_manager
         self.process_type: ProcessType = process_type
         ipc_logs_name = f"{self.__module__}.{self.__class__.__name__}.process"
         self.ipc_logs: Logger = Logger(Config().log_config)(ipc_logs_name)
@@ -47,6 +49,8 @@ class BaseIPC(LogBase):
                 except:
                     pass
         return handlers
+
+
 
     def check_and_handle_incoming_ipc_event(self):
         """

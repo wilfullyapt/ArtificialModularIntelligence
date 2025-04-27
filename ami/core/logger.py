@@ -58,7 +58,6 @@ class Logger:
         """
         if name:
             self.name = Path(name)
-            print(f"Log name established: {self.name} | from {name}")
             self._setup_logger()
         return self
 

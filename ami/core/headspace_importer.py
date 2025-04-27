@@ -1,4 +1,4 @@
-""" The main attraction """
+"""Main importing script. Used for builtins and 3rd party plugins"""
 import sys
 from importlib.util import spec_from_file_location, module_from_spec
 from pathlib import Path
@@ -41,39 +41,27 @@ def load_submodules(module: ModuleType, base_path: Path) -> None:
             setattr(module, py_file.stem, submodule)
             logs.info(f"Submodule for {module.__name__}, {submodule.__name__}, has been added")
 
-def import_headspace(headspace_name: str, extract: Optional[str]=None) -> Optional[ModuleType]:
-    modules_dir = Config().modules_dir
-    print(f"__name__: {__name__}")
-    print(f"__package__: {__package__}")
-    base_package = "ami.imported_headspaces"
+def import_plugin(dirpath: Path) -> Optional[ModuleType]:
+    """Import a plugin from a directory path and return its package name."""
+    if not dirpath.is_dir() or not (dirpath / "__init__.py").exists():
+        return None
+        
+    package_name = dirpath.name
+    module_name = f"ami.__plugin__.{package_name}"
+    
+    # Create the base __plugin__ package if it doesn't exist
+    base_package = "ami.__plugin__"
     if base_package not in sys.modules:
-        base_init = modules_dir / "__init__.py"
-        if base_init.exists() and base_init.is_file():
-            base_module = load_module(base_package, base_init)
-            if base_module is not None:
-                base_module.__path__ = [str(modules_dir)]
-                sys.modules[base_package] = base_module
-
-    module_name = f"ami.imported_headspaces.{headspace_name}"
-
-    if module_name in sys.modules:
-        module = sys.modules[module_name]
-        if extract is not None:
-            return getattr(module, extract, None)
+        sys.modules[base_package] = ModuleType(base_package)
+        sys.modules[base_package].__path__ = []
+    
+    # Import the plugin module
+    init_path = dirpath / "__init__.py"
+    module = load_module(module_name, init_path)
+    
+    if module is not None:
+        module.__path__ = [str(dirpath)]
+        load_submodules(module, dirpath)
         return module
-
-    module_path = modules_dir / headspace_name / "__init__.py"
-    if module_path.exists() and module_path.is_file():
-        module = load_module(module_name, module_path)
-        if module is None:
-            return None
-
-        module.__path__ = [str(module_path.parent)]
-        load_submodules(module, module_path.parent)
-
-        if extract is not None:
-            return getattr(module, extract, None)
-
-        return module
-
+        
     return None

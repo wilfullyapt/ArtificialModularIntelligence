@@ -1,12 +1,15 @@
 """Central IPC Manager that coordinates communication between processes."""
 
+from functools import cached_property
+from pathlib import Path
 from typing import Dict, Optional, Any
 from dataclasses import dataclass
 from queue import Empty
 from multiprocessing import Event, Queue, Manager
 from multiprocessing.synchronize import Event as mpEventType
 
-from ami.core import LogBase
+from ami.core import LogBase, Config
+from ami.core import PluginRegistry
 
 from .constants import ProcessType, EventType, StateType
 
@@ -43,7 +46,7 @@ class IPCManager(LogBase):
         event_queues (multiprocessing.Queue): Pub/Sub style communications; State change stuff
         command_queues (multiprocessing.Queue): RPC; Request and Response style communication
         state_event (multiprocessing.Event): Manager state change flag
-        shared_dict (multiprocessing.dict): Shared JSON type info
+        _plugin_metadata (multiprocessing.dict): Shared JSON plugin metadata
 
     Methods:
         NO POINT. THIS WILL CHANGE
@@ -52,12 +55,10 @@ class IPCManager(LogBase):
 
     """
     def __init__(self, stop_flag: Optional[mpEventType]=None):
-        """
-
-        """
+        """Initialize the IPC Manager."""
         super().__init__()
 
-        if stop_flag and isinstance(stop_flag, mpEventType):
+        if stop_flag:
             self.stop_flag = stop_flag
         else:
             self.logs.error(f"__init__(stop_flasg: mulitprocessing.Event) is of the wrong type: {type(stop_flag)}")
@@ -71,12 +72,8 @@ class IPCManager(LogBase):
             proc_type: Queue() for proc_type in ProcessType
         }
         self.state_event = Event()
-        self.shared_dict = self.manager.dict()
-        self.shared_dict.update({
-            'config': {},
-            'calendar': [],
-            'markdown': "Initial markdown content"
-        })
+        self._plugin_metadata = self.manager.dict()
+        self._plugin_metadata.update(self.registry.to_dict())
 
     def get_state(self) -> StateType:
         """Get current system state."""
@@ -117,17 +114,14 @@ class IPCManager(LogBase):
         except Empty:
             return None
 
-    def set_shared_data(self, key: str, value: Any):
-        """Set value in shared dictionary."""
-        self.shared_dict[key] = value
-
-    def get_shared_data(self, key: str, default: Any = None) -> Any:
-        """Get value from shared dictionary."""
-        return self.shared_dict.get(key, default)
-
     def wait_for_state_change(self, timeout: Optional[float] = None) -> bool:
         """Wait for state change event."""
         result = self.state_event.wait(timeout)
         if result:
             self.state_event.clear()
         return result
+
+    @cached_property
+    def registry(self) -> PluginRegistry:
+        """Plugin registry instance."""
+        return PluginRegistry(self)

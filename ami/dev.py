@@ -1,24 +1,22 @@
-
 import os
 import sys
 import signal
 import traceback
-from typing import Optional
+from typing import Any, Optional
 import multiprocessing as mp
 
-
 from PyQt6.QtWidgets import QApplication
+from watchdog.observers import Observer
 
-from ami.ipc import IPCManager
+from ami.core import Config, ConfigMetadataPluginWatcher
+from ami.ipc import IPCManager, ProcessType
 from ami.ai import AI
 from ami.gui import MainWindow as GUI
+from ami.ipc import EventType, IPCEvent
 
 # Global variables for process management
 ai: Optional[mp.Process] = None
 should_exit = mp.Event()
-
-def import_dev_env():
-    print(" -- ADD-ON IMPORT DEV ENVIORNMENT --")
 
 def signal_handler(signum, frame):
     """Handle Ctrl+C and other signals with detailed info"""
@@ -32,8 +30,14 @@ def signal_handler(signum, frame):
     should_exit.set()
 
 def cleanup():
-    """Clean up all processes"""
+    """Clean up all processes and observers"""
     should_exit.set()
+
+    # Stop file system observer if it exists
+    if 'observer' in globals() and observer.is_alive():
+        observer.stop()
+        observer.join(timeout=2)
+        print("File system observer stopped")
 
     if ai:
         ai.join(timeout=5)
@@ -44,6 +48,38 @@ def cleanup():
         print("AI process closed")
         print( " - - - - - - - - - - - - -")
 
+def assign_file_watchers(ipc_manager: IPCManager):
+    """ Create the Watcher Handler and schedule callbacks with an Observer """
+
+    # Create the callback for the observer
+    def broadcast_ipc_message(payload: Any) -> None:
+        for process_type in ProcessType:
+            if process_type is not ProcessType.SYSTEM:
+                ipc_manager.send_event(
+                    IPCEvent(
+                        EventType.PLUGIN_METADATA_CHANGED, 
+                        ProcessType.SYSTEM,
+                        process_type,
+                        payload
+                    )
+                )
+
+        return              # Broadcast IPCEvent to all processes, return nothing
+
+    config = Config()       # Initialize Config and Registry
+
+    observer = Observer()
+    handler = ConfigMetadataPluginWatcher(
+        config_file=config.ami_config_filepath,
+        metadata_file=config.plugin_metadata_filepath,
+        plugins_dir=config.plugins_dir,
+        callback=broadcast_ipc_message
+    )
+    observer.schedule(handler, str(config.ami_config_filepath), recursive=False)
+    observer.schedule(handler, str(config.plugin_metadata_filepath), recursive=False)
+    observer.schedule(handler, str(config.plugins_dir), recursive=False)
+    observer.start()
+
 if __name__ == '__main__':
     print(" --- DEV SCRIPT ---")
 
@@ -53,30 +89,29 @@ if __name__ == '__main__':
     # ---   Interpeocess Communication Manager
     ipc_manager = IPCManager(stop_flag=should_exit)
 
+#   assign_file_watchers(ipc_manager)
+
+
     run_ai = True
     run_backend = False
-    run_gui = True
+    run_gui = False
 
-    try:
-        # ---   ARTIFICIAL INTELLIGENCE
-        if run_ai:
-            ai = AI(ipc_manager)
-            if any([run_backend, run_gui]):
-                ai.start()
-
-        # ---   BACKEND FASTAPI
-#       if run_backend:
-#           backend = Backend(ipc_manager)
-#          backend.start()
+    # ---   ARTIFICIAL INTELLIGENCE
+    if run_ai:
+        ai = AI(ipc_manager)
+        if any([run_backend, run_gui]):
+            ai.start()
 
 
-        # ---   MAIN PROCESS GUI
-        if run_gui:
-            app = QApplication(sys.argv)
-            window = GUI(ipc_manager)
-            window.show()
-            sys.exit(app.exec())
+    # ---   BACKEND FASTAPI
+        if run_backend:
+            backend = Backend(ipc_manager)
+            backend.start()
 
-    finally:
-#       cleanup()
-        pass
+
+    # ---   MAIN PROCESS GUI
+    if run_gui:
+        app = QApplication(sys.argv)
+        window = GUI(ipc_manager)
+        window.show()
+        sys.exit(app.exec())

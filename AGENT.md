@@ -1,4 +1,5 @@
 # Agent Installation and Testing Guide
+ami/gui/main_window.py
 
 ## Installation Instructions
 

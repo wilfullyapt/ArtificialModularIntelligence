@@ -9,6 +9,7 @@ pyyaml==6.0.2
 rich==13.9.4
 loguru==0.7.3
 watchdog==6.0.0
+GitPython==3.1.44
 
 # Audio processing
 pyaudio==0.2.14

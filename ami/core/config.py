@@ -1,10 +1,10 @@
-"""
-Enhanced config module that manages interactions with config.yaml file with real-time updates
-"""
+""" Enhanced config module that manages interactions with config.yaml file with real-time updates """
 
 import time
+import shutil
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Callable
+from functools import cached_property
+from typing import Any, Dict, List, Optional, Callable, Tuple
 
 import yaml
 from watchdog.observers import Observer
@@ -93,13 +93,13 @@ class Config:
         if callback in self._observers:
             self._observers.remove(callback)
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: Any) -> Any:
         return self._config.get(key, None)
 
-    def __contains__(self, key):
+    def __contains__(self, key: Any) -> bool:
         return key in self._config
 
-    def get(self, value, default=None) -> Any:
+    def get(self, value: Any, default: Optional[Any]=None) -> Any:
         """Get a config value with a default fallback"""
         value = self[value]
         if value is None:
@@ -115,19 +115,13 @@ class Config:
     def dict(self):
         """All the elements of the config as a dict"""
         return self._config.copy()  # Return a copy to prevent direct modification
-
-    @property
-    def root(self):
-        """Relative to this config.py file, the AMI root repo dir"""
-        return Path(__file__).parent.parent.parent
-
     def __del__(self):
         """Cleanup the file observer when the config instance is destroyed"""
         if self._file_observer is not None:
             self._file_observer.stop()
             self._file_observer.join()
 
-    #---------------- LOGGING SPECIFIC
+#---------------- LOGGING SPECIFIC
 
     @property
     def log_config(self):
@@ -142,33 +136,88 @@ class Config:
             "compression": log_config.get("compression", "gz")
         }
 
-    #---------------- AI SPECIFIC
+#---------------- REPO DIRECTORY PATHS
+
+    @cached_property 
+    def root(self) -> Path:
+        """Relative to this config.py file, the AMI root repo dir"""
+        return Path(__file__).parent.parent.parent
+
+    @cached_property
+    def builtin_plugins(self) -> Path:
+        """ Return the path where the built-in add-ons are """
+        return self.root / "ami" / "headspace" / "builtin"
+
+#---------------- DATA DIRECTORY PATHS (~/.ami)
+
+    @cached_property
+    def data_dir(self) -> Path:
+        """ This is the device specific directory for AMI files; Config, Plugins, Env Variables, Headspace Data, Logs """
+        p = Path.home() / ".ami"
+        p.mkdir(parents=True, exist_ok=True)
+        return p
+
+    @cached_property
+    def plugin_data_dir(self) -> Path:
+        """ This is where Headspace specific data is stored """
+        p = self.data_dir / "filespace"
+        p.mkdir(parents=True, exist_ok=True)
+        return p
+
+    @cached_property
+    def plugins_dir(self) -> Path:
+        """ This is where the 3rd party plugins are downloaded and stored """
+        p = self.data_dir / "plugins"
+        p.mkdir(parents=True, exist_ok=True)
+        return p
 
     @property
     def ai_dir(self):
-        """Get the Path of the AI file system"""
-        ai_dir_path = self.root / self["ai_filesystem"]
-        ai_dir_path.mkdir(parents=True, exist_ok=True)
-        return ai_dir_path
-
+        """ DEPRICATED FOR self.addon_data_dir """
+        return self.plugin_data_dir
     @property
+    def headspaces_dir(self):
+        """ pretty sure this should be DEPRICATED too """
+        return self.plugins_dir
+    @property
+    def modules_dir(self):
+        """ DEPRICATED for self.plugins_dir """
+        return self.plugins_dir
+
+    @cached_property
     def oww_models_dir(self) -> Path:
         """ Get the path for OWW models, create the directory if it doesn't exist """
         models_dir = self.ai_dir / "resources" / "models"
         models_dir.mkdir(parents=True, exist_ok=True)
         return models_dir
 
-    @property
-    def hot_word(self) -> str:
-        """ Get the Path for the hot word file """
-        return self["hot_word"]
+    @cached_property
+    def ami_config_filepath(self) -> Path:
+        """ This is the config file for the AMI system saved locally """
+        config_filepath = self.data_dir / "ami_config.yaml"
+        if config_filepath.exists() is False:
+            shutil.copy(self.root / "config_template.yaml", config_filepath)
+        return config_filepath
 
     @property
-    def headspaces_dir(self):
-        """ Get the Path for the headspaces sub filesystem """
-        headspaces_dir = self.ai_dir / "headspaces"
-        headspaces_dir.mkdir(parents=True, exist_ok=True)
-        return headspaces_dir
+    def plugin_metadata_filepath(self) -> Path:
+        """Get the path to the addon metadata JSON file"""
+        return self.data_dir / "plugin_config.json"
+
+    @cached_property
+    def enviornment_variables_filepath(self) -> Path:
+        return self.data_dir / "env_var_keys"
+
+#---------------- AI CONFIG
+
+    @property
+    def enabled_plugins(self) -> Tuple[str]:
+        """ Get the enabled headspaces per the config as a tuple """
+        return tuple(self.get('enabled_headspaces', default=[]))
+    @property
+    def enabled_headspaces(self) -> Tuple[str]:
+        """ DEPRICATED """
+        return self.enabled_plugins
 
     @property
     def server_port(self):
@@ -181,9 +230,9 @@ class Config:
         return self.get('host')
 
     @property
-    def enabled_headspaces(self) -> List[str]:
-        """ Get the enabled headspaces per the config as a tuple """
-        return tuple(self.get('enabled_headspaces', default=[]))
+    def hot_word(self) -> str:
+        """ Get the Path for the hot word file """
+        return self["hot_word"]
 
     @property
     def listening_patience(self):
@@ -200,26 +249,3 @@ class Config:
     @property
     def detection_threshold(self):
         return self.get("detection_threshold", default=0.5)
-
-#---------------- HEADSPACE SPECIFIC
-
-    @property
-    def modules_dir(self):
-        """ Get the path to the add on headspace modules per the config """
-        if self.get("modules_dir") is None:
-            return self.root / "modules"
-        return self.root / self["modules_dir"]
-
-    def get_headspace_dir(self, headspace_name):
-        core_headspaces_dir = Path(__file__).parent / "headspace" / "core"
-        modular_headspace_dir = self.modules_dir
-
-        core_path = core_headspaces_dir / headspace_name
-        modular_path = modular_headspace_dir / headspace_name
-
-        if core_path.is_dir():
-            return core_path
-        elif modular_path.is_dir():
-            return modular_path
-        else:
-            return None

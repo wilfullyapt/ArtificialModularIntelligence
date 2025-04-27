@@ -2,12 +2,14 @@
 
 from .config import Config
 from .logger import LoggerConfig, Logger, Base as LogBase
-from .headspace_importer import import_headspace
+from .registry import PluginRegistry
+from .watcher import ConfigMetadataPluginWatcher
 
 __all__ = [
     "Config",
     "LoggerConfig",
     "Logger",
     "LogBase",
-    "import_headspace",
+    "PluginRegistry",
+    "ConfigMetadataPluginWatcher",
 ]

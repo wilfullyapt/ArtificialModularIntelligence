@@ -27,3 +27,5 @@ def get_headspace():
 
 def get_prompts():
     return MarkdownPrompts if MarkdownPrompts is not None else None
+
+__version__ = "0.1.0"

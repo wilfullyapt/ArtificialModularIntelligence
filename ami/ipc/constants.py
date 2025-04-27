@@ -7,6 +7,7 @@ class ProcessType(Enum):
     AI = "AI"
     GUI = "GUI"
     BACKEND = "BACKEND"
+    SYSTEM = "SYSTEM"
 
 class EventType(Enum):
     """Types of events that can be sent between processes."""
@@ -19,6 +20,11 @@ class EventType(Enum):
     COMMAND = "COMMAND"
     STATE_CHANGE = "STATE_CHANGE"
     GLOBAL_STOP = "GLOBAL_STOP"
+    WATCHDOG_EVENT = "WATCHDOG_EVENT"
+
+    CONFIG_CHANGED = "CONFIG_CHANGED"
+    METADATA_CHANGED = "METADATA_CHANGED"
+    PLUGIN_CHANGED = "PLUGIN_CHANGED"
 
 class StateType(Enum):
     """States for the AI system."""

@@ -3,7 +3,7 @@
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import QApplication
 
-from ami.core import Config, import_headspace
+from ami.core import Config
 from ami.gui.layouts import FlexiblePositioningLayout
 from ami.ipc import IPCManager, ProcessType, EventType, IPCQWidget
 from ami.ipc.base import on_event
@@ -71,6 +71,7 @@ class MainWindow(IPCQWidget):
 
         # Add headspace widgets
         for widget_name in self.enabled_headspaces:
+            module = self.process_manager.registry[widget_name].gui()
             module = import_headspace(widget_name, extract='widget')
             if hasattr(module, widget_name.capitalize()):
                 WidgetClass = getattr(module, widget_name.capitalize())

@@ -1,20 +1,11 @@
 """ The Brain is the meat and potatoes of the AI. Access to LLMs should be managed here """
-import sys
-from importlib import import_module
-from importlib.util import spec_from_file_location, module_from_spec
-from pathlib import Path
-from types import ModuleType
-from typing import Any, Callable, List, Literal, Optional
+
+from typing import List
 from functools import cached_property
 
-from langchain_together import Together
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
-from pydantic import BaseModel
-
-from ami.core import LogBase, Config, PluginRegistry
-from ami.headspace import Dialog
-from ami.headspace.core.calendar import prompts
+from ami.core import LogBase, Config, PluginRegistry, Conversation, PluginVertical
+from ami.headspace import Headspace
+from ami.llm import LLMProvider
 
 HEADSPACE_ROUTER = """You are an AI router designed to responde with the approprate Headspace
 to use to fulfill a user request. The HUMAN query will be passed to the approprate Headspace,
@@ -64,54 +55,40 @@ class Brain(LogBase):
 
         Args:
             temp_comms: Temporal communications system
-            plugin_registry: Registry managing all plugins including headspaces
+            registry: Registry managing all plugins including headspaces
         """
         super().__init__()
-
+#       config = Config()
         self.registry = PluginRegistry(process_manager)
+        self._headspace_cache = {}
         
-        config = Config()
-        self.tk = config["together_apikey"]
-        self._routing_cache = {}
-
     def __contains__(self, value: str):
         """Check if a headspace exists."""
         return value.upper() in self.available_headspaces
 
+    def instance_headspace(self, headspace):
+        if not issubclass(headspace, Headspace):
+            raise ValueError(f"Headspace({headspace}) is not a subclass for headspacing")
+        return headspace()
+
+
     def __getitem__(self, headspace_name: str) -> 'HeadspacePlugin':
         """Get a headspace plugin by name."""
-        plugin = self.plugin_registry.get_plugin(headspace_name.lower())
-        if not plugin:
-            self.logs.error(f"Headspace({headspace_name}) cannot be found in Brain")
-            raise AgentNotFound(f"Headspace({headspace_name}) cannot be found in Brain")
-        return plugin
+        key = headspace_name.lower()
+        if key not in self._headspace_cache:
+            plugin = self.registry[key]
+            if not plugin:
+                self.logs.error(f"Headspace({headspace_name}) cannot be found in Brain's Plugin Registry.")
+                raise AgentNotFound(f"Headspace({headspace_name}) cannot be found in Brain's Plugin Registry. Check Brain.available_headspaces")
+
+            self._headspace_cache[key] = self.instance_headspace(plugin.get_vertical(PluginVertical.HEADSPACE))
+
+        return self._headspace_cache[key]
 
     @cached_property
     def available_headspaces(self) -> List[str]:
         """Get list of available headspace names."""
-        return [name.upper() for name in self.plugin_registry.get_plugins_by_type(PluginType.HEADSPACE)]
-
-    def llm_spawner(self,
-                    model_name="mistralai/Mistral-7B-Instruct-v0.2",
-                    temperature=0,
-                    top_k=1,
-                    max_tokens=200):
-        """Return an instance of Language Model from LangChain."""
-        model_name = "meta-llama/Llama-3-8b-chat-hf"
-        return Together(model=model_name,
-                      temperature=temperature,
-                      top_k=top_k,
-                      together_api_key=self.tk,
-                      max_tokens=max_tokens)
-
-    def mixtral_llm(self, max_tokens=256):
-        """Return an instance of Mixtral Language Model."""
-        model = "mistralai/Mistral-7B-Instruct-v0.2"
-        return Together(model=model,
-                      temperature=0,
-                      top_k=1,
-                      max_tokens=max_tokens,
-                      together_api_key=self.tk)
+        return [ plugin.name for plugin in self.registry.get_plugins_by_vertical(PluginVertical.HEADSPACE)]
 
     def get_human_prompt(self, prompt: str, history: str="") -> str:
         """Generate a prompt string with optional conversation history."""
@@ -122,74 +99,84 @@ class Brain(LogBase):
         human_prompt = PromptTemplate.from_template(HUMAN_WITHOUT_MEMORY)
         return human_prompt.format(prompt=prompt)
 
-    async def get_routing_examples(self) -> List[str]:
-        """Get routing examples from all headspaces."""
-        if not self._routing_cache:
-            routes = []
-            headspaces = await self.plugin_registry.get_plugins_by_type(PluginType.HEADSPACE)
-            for name, headspace in headspaces.items():
-                try:
-                    hs_opt = [f"HUMAN: {route}\nAI: {name.upper()}" 
-                             for route in headspace.prompts.ROUTING]
-                    routes.extend(hs_opt)
-                except AttributeError as e:
-                    self.logs.error(f"Cannot load routing for {name}: {e}")
-            self._routing_cache = routes
-        return self._routing_cache
+    @cached_property
+    def llm(self):
+        return LLMProvider.from_environment()
 
-    def clear_routing_cache(self):
-        """Clear the routing examples cache."""
-        self._routing_cache.clear()
+    def headspace_router(self, query: str):
+        """ Given a query, run the zeroshot propmt and return a cached instance of the corrosponding Headspace """
 
-    async def get_headspace_from_prompt(self, query: str) -> 'HeadspacePlugin':
-        """Determine the appropriate headspace for a query."""
-        prompt = ChatPromptTemplate.from_template(HEADSPACE_ROUTER)
-        chain = prompt | self.mixtral_llm() | StrOutputParser()
+        zero_shot = LLMProvider.from_environment().as_zero_shot()
+        result = zero_shot.invoke(
+            HEADSPACE_ROUTER,
+            {
+                "examples": "/n".join(self.registry.routing_examples),
+                "headspaces": str(self.registry.names),
+                "query": query
+            }
+        )
 
-        examples = "\n\n".join(await self.get_routing_examples())
-        options = str(self.available_headspaces)
-        result = chain.invoke({
-            "examples": examples,
-            "headspaces": options, 
-            "query": query
-        })
         headspace_name = result.strip().split()[0]
+        return self[headspace_name]
 
-        return await self[headspace_name]
-
-    async def query(self, prompt: str, history: str="", load_msg_callback=None) -> Dialog:
+    def query(self, convo: Conversation) -> str:
         """
-        Process a query using the appropriate headspace.
+        Process a conversation via routing to the Headspace of interest
 
         Args:
-            prompt: The user's input query
-            history: Optional conversation history
-            load_msg_callback: Optional callback for progress updates
+            convo: Conversation > The conversation context for the query
 
         Returns:
-            Dialog object containing the response
+            str: The AI's response
+            (note) The return type is a string but this method modifies the Conversation object
         """
+
+        if convo.is_empty():
+            self.logs.error("Brain.queue(Conversation) called with an empty Conversation")
+            raise ValueError("Brain.queue(Conversation) called with an empty Conversation")
+
+        # TODO: At some point in the future, you will have to pass a better context than "the last thing the human said"
+        # The context of the conversation changes the intention
+        headspace = self.headspace_router(convo[-1])
+        self.logs.debug(f"Headspace router picked '{headspace}'")
+
+        headspace.query(conversation)
+
+# BREAKPOINT BETWEEN NEW AND OLD ###############################
+
+        last_message = conversation.get_last_message(role="human")
+        if not last_message:
+            self.logs.error("No human message found in conversation")
+            return "I couldn't find your message in the conversation."
+
+        context = conversation.get_context(max_messages=5)  # Last 5 messages for context
+        history = "\n".join(f"{msg['role'].title()}: {msg['text']}" for msg in context[:-1])  # All but last message
+        prompt = last_message["text"]
+
+        # Create prompt with context
         human_prompt = self.get_human_prompt(prompt, history)
 
         if callable(load_msg_callback):
             load_msg_callback("Ingesting Command")
             
         try:
-            headspace = await self.get_headspace_from_prompt(human_prompt)
+            headspace = self.get_headspace_from_prompt(human_prompt)
             self.logs.debug(f"Using {headspace.name} Headspace")
 
             if callable(load_msg_callback):
                 load_msg_callback("Thinking...")
 
-            dialog = await headspace.query(prompt, stream=True)
+            # Pass conversation to headspace
+            dialog = headspace.query(conversation, stream=True)
 
             if callable(load_msg_callback):
                 load_msg_callback("Formulating Response...")
 
-            return dialog
+            # Extract response text from dialog
+            return dialog.get_last_message()["text"] if dialog else "I encountered an error processing your request."
 
         except Exception as e:
             self.logs.error(f"Query failed: {e}")
             if callable(load_msg_callback):
                 load_msg_callback("Error processing query")
-            return None
+            return "I encountered an error processing your request."

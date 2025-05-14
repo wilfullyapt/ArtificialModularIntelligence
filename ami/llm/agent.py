@@ -1,7 +1,9 @@
 """Think and Plan Agent implementation."""
 from typing import Dict, List, Optional, Any
 
-class ThinkAndPlanAgent:
+from ami.core import LogBase
+
+class ThinkAndPlanAgent(LogBase):
     """Agent that can think through problems and plan solutions."""
     
     def __init__(

@@ -75,6 +75,9 @@ class IPCManager(LogBase):
         self._plugin_metadata = self.manager.dict()
         self._plugin_metadata.update(self.registry.to_dict())
 
+        self._conversation = self.manager.dict()
+        self._conversation.update({})
+
     def get_state(self) -> StateType:
         """Get current system state."""
         return StateType(self.state.value)
@@ -125,3 +128,12 @@ class IPCManager(LogBase):
     def registry(self) -> PluginRegistry:
         """Plugin registry instance."""
         return PluginRegistry(self)
+
+    @property
+    def conversation(self) -> Optional[Dict]:
+        """Get the current conversation state."""
+        return dict(self._conversation)
+
+    def set_conversation(self, conversation_data: Dict) -> None:
+        """Set the current conversation state."""
+        self._conversation.update(conversation_data)

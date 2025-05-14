@@ -6,14 +6,21 @@ import json
 from enum import Enum
 from pathlib import Path
 from types import ModuleType
+<<<<<<< HEAD
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
+=======
+from typing import Dict, List, Optional, Set, Tuple, Union
+from dataclasses import dataclass
+from importlib import import_module
+>>>>>>> convostate
 
 import git
 
 from ami.core import LogBase, Config
 from .headspace_importer import import_plugin
 
+<<<<<<< HEAD
 def extract_prompt(file_path: Path):
     # Read the file content
     with open(file_path, 'r') as file:
@@ -31,12 +38,22 @@ def extract_prompt(file_path: Path):
                         return node.value.value
     return None
 
+=======
+>>>>>>> convostate
 def validate_plugin_directory(plugin_dirpath: Path) -> bool:
     # TODO: Check if `plugin_dirpath` is a git repo OR a builtin
     if plugin_dirpath.is_dir():
         return True
     return False
 
+<<<<<<< HEAD
+=======
+class PluginVertical(Enum):
+    GUI = "GUI"
+    HEADSPACE = "Headspace"
+    BLUEPRINT = "Blueprint"
+
+>>>>>>> convostate
 class ComponentStatus(Enum):
     """Status of a component or add-on."""
     ACTIVE = "active"
@@ -44,7 +61,11 @@ class ComponentStatus(Enum):
     ERROR = "error"
 
 @dataclass
+<<<<<<< HEAD
 class Plugin:
+=======
+class Plugin(LogBase):
+>>>>>>> convostate
     """Metadata for an entire add-on package."""
     name: str
     repo_url: str
@@ -54,6 +75,7 @@ class Plugin:
 
     @cached_property
     def module(self) -> Optional[ModuleType]:
+<<<<<<< HEAD
         return import_plugin(self.location)
 
     @cached_property
@@ -78,6 +100,56 @@ class Plugin:
         if 'get_gui' in dir(self.module):
             return self.module.get_gui()
         return None
+=======
+        """ Cached import for the plugin """
+        self.logs.info(f"Plugin({self.name}).module @cached_property triggered. Plugin loading.")
+        return import_plugin(self.location)
+
+    @property
+    def gui(self):
+        """Returns the GUI object from the plugin, or None if not available."""
+        return getattr(self.module, "GUI", None) if self.module else None
+
+    @property
+    def headspace(self):
+        """Returns the Headspace object from the plugin, or None if not available."""
+        return getattr(self.module, "Headspace", None) if self.module else None
+
+    @property
+    def blueprint(self):
+        """Returns the Headspace object from the plugin, or None if not available."""
+        return getattr(self.module, "Blueprint", None) if self.module else None
+
+    def get_vertical(self, vertical: PluginVertical) -> None:
+        """ Return a Class ready to be instanced or None """
+        return getattr(self.module, vertical.value, None)
+
+    @cached_property
+    def examples(self):
+        init_file = self.location / "__init__.py"
+
+        if not init_file.exists():
+            error_msg = f"Plugin {self.name} does not have an __init__.py"
+            self.logs.error(error_msg)
+            raise FileNotFoundError(error_msg)
+
+        with open(init_file, 'r') as file:
+            script_content = file.read()
+        
+        tree = ast.parse(script_content)
+        
+        for node in tree.body:
+            if isinstance(node, ast.Assign):
+                for target in node.targets:
+                    if isinstance(target, ast.Name) and target.id == 'EXAMPLES':
+                        value = node.value
+                        if isinstance(value, ast.List):
+                            return ast.literal_eval(value)
+                        else:
+                            raise ValueError(f"{self.name}.EXAMPLES needs to be of type list!")
+
+        raise ValueError(f"Variable 'EXAMPLES' not found for the '{self.name}' plugin")
+>>>>>>> convostate
 
     def enable(self):
         self.status = ComponentStatus.ACTIVE
@@ -107,7 +179,11 @@ class Plugin:
         )
 
 @dataclass
+<<<<<<< HEAD
 class PluginCache:
+=======
+class PluginCache(LogBase):
+>>>>>>> convostate
     """Cache for plugins."""
     plugins: Dict[str, Plugin]
 
@@ -118,11 +194,28 @@ class PluginCache:
         return
 
     @property
+<<<<<<< HEAD
+=======
+    def names(self) -> List[str]:
+        return list(self.plugins.keys())
+
+    @property
+    def examples(self) -> Dict[str, str]:
+        return { plugin.name: plugin.examples for plugin in self.plugins.values() }
+
+    @property
+>>>>>>> convostate
     def view(self):
         print("PluginCache")
         for name, plugin in self.plugins.items():
             print(f"    <Plugin[name:{name}, repo_url:{plugin.repo_url} version:{plugin.version}, status:{plugin.status}]>")
 
+<<<<<<< HEAD
+=======
+    def values(self):
+        return self.plugins.values()
+
+>>>>>>> convostate
     @classmethod
     def from_metadata(cls, metadata_filepath: Path) -> "PluginCache":
         """Create a PluginCache instance from a JSON metadata file."""
@@ -231,6 +324,7 @@ class PluginRegistry(LogBase):
     def __init__(self, ipc_manager: "IPCManager"):
         super().__init__()
         self.ipc_manager = ipc_manager
+<<<<<<< HEAD
         config = Config()
 
         # Load in the metadata file or create it if non-existent
@@ -244,10 +338,43 @@ class PluginRegistry(LogBase):
         self._config = config
         self.update_from_config()
 
+=======
+        self.config = Config()
+
+        # Load in the metadata file or create it if non-existent
+        if self.config.plugin_metadata_filepath.exists():
+            self.logs.info("PluginRegistry.__init__: Loading PluginRegistry from metadata file.")
+            self._plugin_cache = PluginCache.from_metadata(self.config.plugin_metadata_filepath)
+        else:
+            self.logs.info("PluginRegistry.__init__: Loading PluginRegistry from directories.")
+            self._plugin_cache = PluginCache.load_from_plugin_dir(self.config.builtin_plugins, self.config.plugins_dir)
+        self.update_from_config()
+
+    @property
+    def plugin_cache(self) -> PluginCache:
+        return self._plugin_cache
+>>>>>>> convostate
 
     def __getitem__(self, plugin_name: str) -> Optional[Plugin]:
         return self.plugin_cache[plugin_name]
 
+<<<<<<< HEAD
+=======
+    @property
+    def names(self) -> List[str]:
+        """ Return a list of Headspace names in the registry """
+        return self.plugin_cache.names
+
+    @property
+    def routing_examples(self) -> List[str]:
+        routes = { name: ", ".join(examples) for name, examples in self.plugin_cache.examples.items()  }
+        return [ f"{name}: {examples}" for name, examples in routes.items() ]
+#       return random.shuffle([ f"{name}: {examples}" for name, examples in routes.items() ])
+
+    def get_plugins_by_vertical(self, vertical: PluginVertical):
+        return [ plugin for plugin in self.plugin_cache.values() if plugin.get_vertical(vertical) ]
+
+>>>>>>> convostate
     def to_dict(self) -> dict:
         """Initial metadata for plugins."""
         return self.plugin_cache.to_dict()
@@ -257,7 +384,11 @@ class PluginRegistry(LogBase):
         changes_made = False
         for plugin in self.plugin_cache.plugins.values():
             old_status = plugin.status
+<<<<<<< HEAD
             if plugin.name in self._config.enabled_plugins:
+=======
+            if plugin.name in self.config.enabled_plugins:
+>>>>>>> convostate
                 plugin.enable()
             else:
                 plugin.disable()
@@ -265,6 +396,11 @@ class PluginRegistry(LogBase):
                 changes_made = True
 
         if changes_made:
+<<<<<<< HEAD
             self.plugin_cache.save(self._config.plugin_metadata_filepath)
 
     def get_plugins_by_type(Plugin
+=======
+            self.plugin_cache.save(self.config.plugin_metadata_filepath)
+
+>>>>>>> convostate

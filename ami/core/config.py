@@ -130,7 +130,7 @@ class Config:
         return {
             "stdout": log_config.get("stdout", True),
             "save_dir": self.ai_dir / log_config.get("directory", "logs"),
-            "log_level": log_config.get("level", "INFO"),
+            "log_level": log_config.get("log_level", "INFO"),
             "rotation": log_config.get("rotation", "1 day"),
             "retention": log_config.get("retention", "30 days"),
             "compression": log_config.get("compression", "gz")
@@ -158,6 +158,15 @@ class Config:
         return p
 
     @cached_property
+<<<<<<< HEAD
+=======
+    def convos_dir(self) -> Path:
+        p = self.data_dir / "conversations"
+        p.mkdir(parents=True, exist_ok=True)
+        return p
+
+    @cached_property
+>>>>>>> convostate
     def plugin_data_dir(self) -> Path:
         """ This is where Headspace specific data is stored """
         p = self.data_dir / "filespace"
@@ -170,6 +179,14 @@ class Config:
         p = self.data_dir / "plugins"
         p.mkdir(parents=True, exist_ok=True)
         return p
+<<<<<<< HEAD
+=======
+    
+    @cached_property
+    def environment_file(self) -> Path:
+        """ Return the location of the expected .env file """
+        return self.data_dir / ".env"
+>>>>>>> convostate
 
     @property
     def ai_dir(self):

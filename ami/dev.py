@@ -8,11 +8,12 @@ import multiprocessing as mp
 from PyQt6.QtWidgets import QApplication
 from watchdog.observers import Observer
 
-from ami.core import Config, ConfigMetadataPluginWatcher
+from ami.core import Config, ConfigMetadataPluginWatcher, Conversation
 from ami.ipc import IPCManager, ProcessType
 from ami.ai import AI
 from ami.gui import MainWindow as GUI
 from ami.ipc import EventType, IPCEvent
+from ami.llm.provider import LLMProvider
 
 # Global variables for process management
 ai: Optional[mp.Process] = None
@@ -108,10 +109,23 @@ if __name__ == '__main__':
             backend = Backend(ipc_manager)
             backend.start()
 
-
     # ---   MAIN PROCESS GUI
     if run_gui:
         app = QApplication(sys.argv)
         window = GUI(ipc_manager)
         window.show()
         sys.exit(app.exec())
+        
+
+    sequential_debuging = True
+    if sequential_debuging:
+
+        # Route a query and return a headspace
+#       hs = ai.brain.headspace_router("Set a reminder to take a out the trash every sunday at 6pm.")
+        hs = ai.brain['DATETIME']
+        convo = Conversation()
+        convo.add_message("This is a test query", role="human")
+#       q = hs.query(convo)
+
+        agent = LLMProvider.from_environment().as_funccalling_toa_agent()
+        agent._tools = hs.tools

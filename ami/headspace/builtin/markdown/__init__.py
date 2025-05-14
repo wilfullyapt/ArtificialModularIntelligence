@@ -29,3 +29,11 @@ def get_prompts():
     return MarkdownPrompts if MarkdownPrompts is not None else None
 
 __version__ = "0.1.0"
+
+EXAMPLES = [
+    "Let me edit a markdown file",
+    "Add an item to my list",
+    "Remove an item from my list",
+    "I need to download a list",
+    "I need the qr code for a list"
+]

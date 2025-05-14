@@ -1,12 +1,9 @@
 """Main AI orchestrator module"""
-import sys
 import asyncio
-from pathlib import Path
-from types import ModuleType
 from functools import cached_property
-from typing import Any, Dict, List, Optional, Type
+from typing import Any
 
-from ami.core import Config, PluginRegistry
+from ami.core.conversation import Conversation
 from ami.ipc import ProcessIPC, IPCManager, ProcessType, EventType, StateType, IPCEvent, on_event
 from ami.headspace.blueprint import Payload
 from ami.headspace.plugin_base import PluginType, PluginSource
@@ -28,15 +25,11 @@ class AI(ProcessIPC):
     def __init__(self, process_manager: IPCManager):
         """Initialize the AI instance."""
         ProcessIPC.__init__(self, process_manager, ProcessType.AI)
-
-        config = Config()
-        plugin_dirs = {
-            'core': Path(__file__).parent.parent / "headspace" / "core",
-            'addons': config.modules_dir / "addons"
-        }
+#       config = Config()
+        self.convo = Conversation()
         
     @cached_property
-    def brain(self):
+    def brain(self) -> Brain:
         """Get or create the audio listener."""
         return Brain(self.process_manager)
 
@@ -100,6 +93,9 @@ class AI(ProcessIPC):
         """Handle hotword detection."""
         self.route_event(event.forward(ProcessType.GUI))
         self.logs.debug("Hotword detected")
+        if not self.convo.is_blank():
+            self.logs.error("AI.convo is found non-blank during a Hotword Detection Event!")
+            self.convo = Conversation()
 
     @on_event(EventType.TRANSCRIPTION_READY)
     async def _on_transcription_ready(self, event: IPCEvent):
@@ -107,7 +103,15 @@ class AI(ProcessIPC):
         self.route_event(event.forward(ProcessType.GUI))
         self.logs.info(f"Transcription ready: {event.data}")
 
-        response = await self.brain.query(event.data)
+        self.convo.add_message(event.data, role="human")                # Add the Human message
+        self.process_manager.set_conversation(self.convo.to_dict())     # Updated ipc shared convo
+
+        response = self.brain.query(self.convo)                         # Query the brain against the convo
+        
+        self.convo.add_message(response, role="ai")                     # Add the AI response to the convo
+        self.process_manager.set_conversation(self.convo.to_dict())     # Update the ipc shared convo
+
+        # Route response to GUI
         self.route_event(IPCEvent(
             EventType.RESPONSE_READY, 
             ProcessType.AI, 
@@ -119,6 +123,7 @@ class AI(ProcessIPC):
     @on_event(EventType.INTERACTION_COMPLETED)
     def restart_hotword_detection(self, event: IPCEvent):
         """Restart hotword detection after interaction."""
+        self.convo = Conversation()
         self.listener.start_listening()
 
     @on_event(EventType.ERROR)
@@ -135,25 +140,7 @@ class AI(ProcessIPC):
             if hasattr(self, 'listener'):
                 self.listener.stop_listening()
             
-            if hasattr(self, 'plugin_registry'):
-                await self.plugin_registry.cleanup()
-                
             self.logs.info("AI resources cleaned up")
 
         except Exception as e:
             self.logs.error(f"Error during cleanup: {e}")
-
-    async def handle_payload(self, payload: Payload):
-        """Handle plugin-related payloads."""
-        try:
-            if payload.reload:
-                # Reload the specified plugin
-                plugin = await self.plugin_registry.reload_plugin(payload.module)
-                if not plugin:
-                    raise ValueError(f"Failed to reload plugin: {payload.module}")
-                    
-            self.logs.info(f"Handled payload for module: {payload.module}")
-            
-        except Exception as e:
-            self.logs.error(f"Error handling payload: {e}")
-            raise

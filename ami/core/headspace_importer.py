@@ -43,15 +43,10 @@ def load_submodules(module: ModuleType, base_path: Path) -> None:
 
 def import_plugin(dirpath: Path) -> Optional[ModuleType]:
     """Import a plugin from a directory path and return its package name."""
-<<<<<<< HEAD
-    if not dirpath.is_dir() or not (dirpath / "__init__.py").exists():
-        return None
-=======
     if not dirpath.is_dir():
         raise NotADirectoryError(f"Not a directory: {dirpath}")
     if not (dirpath / "__init__.py").exists():
         raise FileNotFoundError(f"No __init__.py found in package {dirpath}")
->>>>>>> convostate
         
     package_name = dirpath.name
     module_name = f"ami.__plugin__.{package_name}"

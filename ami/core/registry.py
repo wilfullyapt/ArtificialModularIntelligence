@@ -6,54 +6,26 @@ import json
 from enum import Enum
 from pathlib import Path
 from types import ModuleType
-<<<<<<< HEAD
-from typing import Dict, List, Optional, Tuple
-from dataclasses import dataclass
-=======
 from typing import Dict, List, Optional, Set, Tuple, Union
 from dataclasses import dataclass
 from importlib import import_module
->>>>>>> convostate
 
 import git
 
 from ami.core import LogBase, Config
 from .headspace_importer import import_plugin
 
-<<<<<<< HEAD
-def extract_prompt(file_path: Path):
-    # Read the file content
-    with open(file_path, 'r') as file:
-        source = file.read()
-
-    tree = ast.parse(source)        # Parse the source code into an AST
-
-    for node in ast.walk(tree):     # Traverse the AST to find the 'prompt' variable assignment
-        if isinstance(node, ast.Assign):
-            for target in node.targets:
-                if isinstance(target, ast.Name) and target.id == 'prompt':
-                    if isinstance(node.value, ast.Constant):
-                        return node.value.s
-                    elif isinstance(node.value, ast.Constant):
-                        return node.value.value
-    return None
-
-=======
->>>>>>> convostate
 def validate_plugin_directory(plugin_dirpath: Path) -> bool:
     # TODO: Check if `plugin_dirpath` is a git repo OR a builtin
     if plugin_dirpath.is_dir():
         return True
     return False
 
-<<<<<<< HEAD
-=======
 class PluginVertical(Enum):
     GUI = "GUI"
     HEADSPACE = "Headspace"
     BLUEPRINT = "Blueprint"
 
->>>>>>> convostate
 class ComponentStatus(Enum):
     """Status of a component or add-on."""
     ACTIVE = "active"
@@ -61,11 +33,7 @@ class ComponentStatus(Enum):
     ERROR = "error"
 
 @dataclass
-<<<<<<< HEAD
-class Plugin:
-=======
 class Plugin(LogBase):
->>>>>>> convostate
     """Metadata for an entire add-on package."""
     name: str
     repo_url: str
@@ -75,32 +43,6 @@ class Plugin(LogBase):
 
     @cached_property
     def module(self) -> Optional[ModuleType]:
-<<<<<<< HEAD
-        return import_plugin(self.location)
-
-    @cached_property
-    def prompt(self) -> str:
-        prompt = extract_prompt(self.location/"__init__.py")
-        if prompt:
-            return prompt
-        else:
-            return "This is the default Prompt!"
-
-    def headspace(self):
-        if 'get_headspace' in dir(self.module):
-            return self.module.get_headspace()
-        return None
-
-    def blueprint(self):
-        if 'get_blueprint' in dir(self.module):
-            return self.module.get_blueprint()
-        return None
-
-    def gui(self):
-        if 'get_gui' in dir(self.module):
-            return self.module.get_gui()
-        return None
-=======
         """ Cached import for the plugin """
         self.logs.info(f"Plugin({self.name}).module @cached_property triggered. Plugin loading.")
         return import_plugin(self.location)
@@ -149,7 +91,6 @@ class Plugin(LogBase):
                             raise ValueError(f"{self.name}.EXAMPLES needs to be of type list!")
 
         raise ValueError(f"Variable 'EXAMPLES' not found for the '{self.name}' plugin")
->>>>>>> convostate
 
     def enable(self):
         self.status = ComponentStatus.ACTIVE
@@ -179,11 +120,7 @@ class Plugin(LogBase):
         )
 
 @dataclass
-<<<<<<< HEAD
-class PluginCache:
-=======
 class PluginCache(LogBase):
->>>>>>> convostate
     """Cache for plugins."""
     plugins: Dict[str, Plugin]
 
@@ -194,8 +131,6 @@ class PluginCache(LogBase):
         return
 
     @property
-<<<<<<< HEAD
-=======
     def names(self) -> List[str]:
         return list(self.plugins.keys())
 
@@ -204,18 +139,14 @@ class PluginCache(LogBase):
         return { plugin.name: plugin.examples for plugin in self.plugins.values() }
 
     @property
->>>>>>> convostate
     def view(self):
         print("PluginCache")
         for name, plugin in self.plugins.items():
             print(f"    <Plugin[name:{name}, repo_url:{plugin.repo_url} version:{plugin.version}, status:{plugin.status}]>")
 
-<<<<<<< HEAD
-=======
     def values(self):
         return self.plugins.values()
 
->>>>>>> convostate
     @classmethod
     def from_metadata(cls, metadata_filepath: Path) -> "PluginCache":
         """Create a PluginCache instance from a JSON metadata file."""
@@ -324,22 +255,6 @@ class PluginRegistry(LogBase):
     def __init__(self, ipc_manager: "IPCManager"):
         super().__init__()
         self.ipc_manager = ipc_manager
-<<<<<<< HEAD
-        config = Config()
-
-        # Load in the metadata file or create it if non-existent
-        if config.plugin_metadata_filepath.exists():
-            self.logs.info("PluginRegistry.__init__: Loading PluginRegistry from metadata file.")
-            self.plugin_cache = PluginCache.from_metadata(config.plugin_metadata_filepath)
-        else:
-            self.logs.info("PluginRegistry.__init__: Loading PluginRegistry from directories.")
-            self.plugin_cache = PluginCache.load_from_plugin_dir(config.builtin_plugins, config.plugins_dir)
-
-        self._config = config
-        self.update_from_config()
-
-=======
-        self.config = Config()
 
         # Load in the metadata file or create it if non-existent
         if self.config.plugin_metadata_filepath.exists():
@@ -353,13 +268,10 @@ class PluginRegistry(LogBase):
     @property
     def plugin_cache(self) -> PluginCache:
         return self._plugin_cache
->>>>>>> convostate
 
     def __getitem__(self, plugin_name: str) -> Optional[Plugin]:
         return self.plugin_cache[plugin_name]
 
-<<<<<<< HEAD
-=======
     @property
     def names(self) -> List[str]:
         """ Return a list of Headspace names in the registry """
@@ -374,7 +286,6 @@ class PluginRegistry(LogBase):
     def get_plugins_by_vertical(self, vertical: PluginVertical):
         return [ plugin for plugin in self.plugin_cache.values() if plugin.get_vertical(vertical) ]
 
->>>>>>> convostate
     def to_dict(self) -> dict:
         """Initial metadata for plugins."""
         return self.plugin_cache.to_dict()
@@ -384,11 +295,7 @@ class PluginRegistry(LogBase):
         changes_made = False
         for plugin in self.plugin_cache.plugins.values():
             old_status = plugin.status
-<<<<<<< HEAD
-            if plugin.name in self._config.enabled_plugins:
-=======
             if plugin.name in self.config.enabled_plugins:
->>>>>>> convostate
                 plugin.enable()
             else:
                 plugin.disable()
@@ -396,11 +303,4 @@ class PluginRegistry(LogBase):
                 changes_made = True
 
         if changes_made:
-<<<<<<< HEAD
-            self.plugin_cache.save(self._config.plugin_metadata_filepath)
-
-    def get_plugins_by_type(Plugin
-=======
             self.plugin_cache.save(self.config.plugin_metadata_filepath)
-
->>>>>>> convostate

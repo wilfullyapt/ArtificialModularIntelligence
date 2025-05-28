@@ -2,7 +2,7 @@
 
 from .base import Primitive, Payload, SharedTool
 from .dialog import Dialog
-from .headspace import Headspace, agent_observation, ami_tool, generate_qr_image
+from .headspace import Headspace, ami_tool, generate_qr_image
 
 __all__ = [
     "Primitive",
@@ -10,7 +10,6 @@ __all__ = [
     "SharedTool",
     "Dialog",
     "Headspace",
-    "agent_observation",
     "ami_tool",
     "generate_qr_image",
 ]

@@ -10,9 +10,15 @@ import yaml
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
+def home_ami_dir() -> Path:
+    """ This is the device specific directory for AMI files; Config, Plugins, Env Variables, Headspace Data, Logs """
+    p = Path.home() / ".ami"
+    p.mkdir(parents=True, exist_ok=True)
+    return p
+
 def get_config_filepath() -> Path:
     """The config filepath is hardcoded relative to this file"""
-    return Path(__file__).parent.parent.parent / "config.yaml"
+    return home_ami_dir() / "ami_config.yaml"
 
 class ConfigFileHandler(FileSystemEventHandler):
     """Handles file system events for the config file"""

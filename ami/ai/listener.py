@@ -161,6 +161,92 @@ class Listener(LogBase):
             self.logs.error(f"Could not request results for speech recognition service; {e}")
             return ""
 
+    def _handle_error(self, e):
+        """Handle exceptions and log them appropriately."""
+        tb = traceback.extract_tb(e.__traceback__)
+        error_msg = f"An error occurred: {type(e).__name__} - {str(e)}"
+        self.logs.error(error_msg)
+
+        for frame in tb:
+            filename, lineno, func, text = frame
+            log_message = f"File {filename}, line {lineno}, in {func}"
+            if text:
+                log_message += f"\n    {text}"
+            self.logs.error(log_message)
+
+        self.event_handler(EventType.ERROR, error_msg)
+
+    def capture_speech(self, mic_stream, initial_audio, silence_threshold):
+        """
+        Capture and process speech after hotword detection.
+
+        Args:
+            mic_stream: The active microphone stream
+            initial_audio: The audio chunk where hotword was detected
+            silence_threshold: The calculated silence threshold
+        """
+
+        # TODO: VERY IMPORTANT !!!
+
+        # YOU NEED TO ADD THE MODEL FOR SPEECH DETECTION FROM https://github.com/snakers4/silero-vad
+
+        # TODO: VERY IMPORTANT !!!
+
+
+        self.state = ListenerState.LISTENING
+        audio_buffer = [initial_audio]
+        silence_counter = 0
+        speech_started = False
+        start_time = time.time()
+
+        try:
+            while silence_counter < self.LISTENING_PATIENCE and self.running:
+                audio = np.frombuffer(mic_stream.read(self.CHUNK), dtype=np.int16)
+                audio_buffer.append(audio)
+
+                if time.time() - start_time > 1 and not speech_started:
+                    if np.max(np.abs(audio)) > silence_threshold:
+                        speech_started = True
+                        start_time = time.time()
+                    else:
+                        if self.logs.level in ['DEBUG', 'INFO']:
+                            print(f"\rTimeout Counter: {time.time() - start_time:.1f}/{self.LISTENING_TIMEOUT} | threshold={np.max(np.abs(audio))}", end="", flush=True)
+
+                if speech_started:
+                    if self.logs.level in ['DEBUG', 'INFO']:
+                        print(f"\rSilence threshold: {np.max(np.abs(audio))} | {np.max(np.abs(audio))/silence_threshold}", end="", flush=True)
+                    if np.max(np.abs(audio)) < silence_threshold:
+                        silence_counter = time.time() - start_time
+                    else:
+                        start_time = time.time()
+                        silence_counter = 0
+
+                if time.time() - start_time > self.LISTENING_TIMEOUT:
+                    raise ListeningTimeout("Listening timeout occurred")
+
+            audio_data = np.concatenate(audio_buffer)
+            with io.BytesIO() as f:
+                sf.write(f, audio_data, 16000, format='wav')
+                text = self.string_from_audio(f)
+
+            if text:
+                self.event_handler(EventType.TRANSCRIPTION_READY, text)
+                self.logs.info(f"Transcribed text: {text}. Listening finished.")
+            else:
+                self.event_handler(EventType.ERROR, "Failed to transcribe audio")
+
+        except ListeningTimeout:
+            error_msg = "Listening Timeout occurred. Ending interaction."
+            self.logs.warning(error_msg)
+            self.event_handler(EventType.ERROR, error_msg)
+
+        except Exception as e:
+            self._handle_error(e)
+
+        finally:
+            self.state = ListenerState.IDLE
+            self.running = False
+
     def wait_for_hotword(self):
         """
         Continuously listen for the hotword.
@@ -218,84 +304,6 @@ class Listener(LogBase):
             p.terminate()
             self.model.reset()
             self.logs.debug("Hotword detection ended")
-
-    def capture_speech(self, mic_stream, initial_audio, silence_threshold):
-        """
-        Capture and process speech after hotword detection.
-
-        Args:
-            mic_stream: The active microphone stream
-            initial_audio: The audio chunk where hotword was detected
-            silence_threshold: The calculated silence threshold
-        """
-        self.state = ListenerState.LISTENING
-        audio_buffer = [initial_audio]
-        silence_counter = 0
-        speech_started = False
-        start_time = time.time()
-
-        try:
-            while silence_counter < self.LISTENING_PATIENCE and self.running:
-                audio = np.frombuffer(mic_stream.read(self.CHUNK), dtype=np.int16)
-                audio_buffer.append(audio)
-
-                if time.time() - start_time > 1 and not speech_started:
-                    if np.max(np.abs(audio)) > silence_threshold:
-                        speech_started = True
-                        start_time = time.time()
-                    else:
-                        if self.logs.level in ['DEBUG', 'INFO']:
-                            print(f"\rTimeout Counter: {time.time() - start_time:.1f}/{self.LISTENING_TIMEOUT} | threshold={np.max(np.abs(audio))}", end="", flush=True)
-
-                if speech_started:
-                    if self.logs.level in ['DEBUG', 'INFO']:
-                        print(f"\rSilence threshold: {np.max(np.abs(audio))} | {np.max(np.abs(audio))/silence_threshold}", end="", flush=True)
-                    if np.max(np.abs(audio)) < silence_threshold:
-                        silence_counter = time.time() - start_time
-                    else:
-                        start_time = time.time()
-                        silence_counter = 0
-
-                if time.time() - start_time > self.LISTENING_TIMEOUT:
-                    raise ListeningTimeout("Listening timeout occurred")
-
-            audio_data = np.concatenate(audio_buffer)
-            with io.BytesIO() as f:
-                sf.write(f, audio_data, 16000, format='wav')
-                text = self.string_from_audio(f)
-
-            if text:
-                self.event_handler(EventType.TRANSCRIPTION_READY, text)
-                self.logs.info(f"Transcribed text: {text}. Listening finished.")
-            else:
-                self.event_handler(EventType.ERROR, "Failed to transcribe audio")
-
-        except ListeningTimeout:
-            error_msg = "Listening Timeout occurred. Ending interaction."
-            self.logs.warning(error_msg)
-            self.event_handler(EventType.ERROR, error_msg)
-
-        except Exception as e:
-            self._handle_error(e)
-
-        finally:
-            self.state = ListenerState.IDLE
-            self.running = False
-
-    def _handle_error(self, e):
-        """Handle exceptions and log them appropriately."""
-        tb = traceback.extract_tb(e.__traceback__)
-        error_msg = f"An error occurred: {type(e).__name__} - {str(e)}"
-        self.logs.error(error_msg)
-
-        for frame in tb:
-            filename, lineno, func, text = frame
-            log_message = f"File {filename}, line {lineno}, in {func}"
-            if text:
-                log_message += f"\n    {text}"
-            self.logs.error(log_message)
-
-        self.event_handler(EventType.ERROR, error_msg)
 
     def start_listening(self):
         """Start the hotword detection thread."""

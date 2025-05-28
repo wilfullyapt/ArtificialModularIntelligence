@@ -34,7 +34,7 @@ class Conversation(LogBase):
     def __getitem__(self, key: Union[int, slice]) -> Union[Dict[str, str], List[Dict[str, str]]]:
         """Support indexing and slicing of messages."""
         if isinstance(key, int):
-            return self.messages[key]
+            return self.messages[key]["message"]
         elif isinstance(key, slice):
             return self.messages[key]
         else:
@@ -50,54 +50,11 @@ class Conversation(LogBase):
         """Get the path to this conversation's file."""
         return self.conversations_dir / f"{self.id}.json"
 
-    @cached_property
+    @property
     def transcript(self):
         """ Return the transcription for the conversation """
-        return self.messages.copy()
-
-    @classmethod
-    def from_filepath(cls, file_path: Union[str, Path]) -> 'Conversation':
-        """Create a Conversation instance from a file path, sorting messages by timestamp."""
-        file_path = Path(file_path)
-        if not file_path.exists():
-            raise FileNotFoundError(f"Conversation file {file_path} does not exist")
-
-        with open(file_path) as f:
-            data = json.load(f)
-
-        conv = cls()
-        conv.id = data["id"]
-        conv.messages = sorted(
-            data["messages"],
-            key=lambda x: datetime.strptime(x["timestamp"], "%Y.%m.%d-%H:%M:%S.%f")
-        )
-        conv.files = data.get("files", {})
-        return conv
-
-    @classmethod
-    def from_dict(cls, data: Dict) -> 'Conversation':
-        """Create a Conversation instance from dictionary format, sorting messages by timestamp."""
-        conv = cls()
-        conv.id = data["id"]
-        conv.messages = sorted(
-            data["messages"],
-            key=lambda x: datetime.strptime(x["timestamp"], "%Y.%m.%d-%H:%M:%S.%f")
-        )
-        conv.files = data.get("files", {})
-        return conv
-
-    def to_dict(self) -> Dict:
-        """Convert conversation to dictionary format."""
-        return {
-            "id": self.id,
-            "messages": self.messages,
-            "files": self.files
-        }
-
-    def save(self) -> None:
-        """Save conversation to file."""
-        with open(self.file_path, 'w') as f:
-            json.dump(self.to_dict(), f, indent=2)
+        trans = [ f"{dialog['role']}: {dialog['message']}" for dialog in self.messages ] 
+        return " \n".join(trans)
 
     def add_message(self, text: str, role: str, **metadata) -> None:
         """Add a message to the conversation with timestamp."""
@@ -142,3 +99,47 @@ class Conversation(LogBase):
         if max_messages:
             return self.messages[-max_messages:]
         return self.messages
+
+    def to_dict(self) -> Dict:
+        """Convert conversation to dictionary format."""
+        return {
+            "id": self.id,
+            "messages": self.messages,
+            "files": self.files
+        }
+
+    def save(self) -> None:
+        """Save conversation to file."""
+        with open(self.file_path, 'w') as f:
+            json.dump(self.to_dict(), f, indent=2)
+
+    @classmethod
+    def from_filepath(cls, file_path: Union[str, Path]) -> 'Conversation':
+        """Create a Conversation instance from a file path, sorting messages by timestamp."""
+        file_path = Path(file_path)
+        if not file_path.exists():
+            raise FileNotFoundError(f"Conversation file {file_path} does not exist")
+
+        with open(file_path) as f:
+            data = json.load(f)
+
+        conv = cls()
+        conv.id = data["id"]
+        conv.messages = sorted(
+            data["messages"],
+            key=lambda x: datetime.strptime(x["timestamp"], "%Y.%m.%d-%H:%M:%S.%f")
+        )
+        conv.files = data.get("files", {})
+        return conv
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'Conversation':
+        """Create a Conversation instance from dictionary format, sorting messages by timestamp."""
+        conv = cls()
+        conv.id = data["id"]
+        conv.messages = sorted(
+            data["messages"],
+            key=lambda x: datetime.strptime(x["timestamp"], "%Y.%m.%d-%H:%M:%S.%f")
+        )
+        conv.files = data.get("files", {})
+        return conv

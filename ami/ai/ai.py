@@ -1,12 +1,11 @@
 """Main AI orchestrator module"""
-import asyncio
+
+import time
 from functools import cached_property
 from typing import Any
 
-from ami.core.conversation import Conversation
+from ami.core import Config, Conversation
 from ami.ipc import ProcessIPC, IPCManager, ProcessType, EventType, StateType, IPCEvent, on_event
-from ami.headspace.blueprint import Payload
-from ami.headspace.plugin_base import PluginType, PluginSource
 
 from .brain import Brain
 from .listener import Listener
@@ -25,8 +24,6 @@ class AI(ProcessIPC):
     def __init__(self, process_manager: IPCManager):
         """Initialize the AI instance."""
         ProcessIPC.__init__(self, process_manager, ProcessType.AI)
-#       config = Config()
-        self.convo = Conversation()
         
     @cached_property
     def brain(self) -> Brain:
@@ -46,20 +43,12 @@ class AI(ProcessIPC):
             self.get_queue(ProcessType.AI).put(event)
         return Listener(queue_event)
 
-    async def setup(self):
+    def setup(self):
         """Set up the AI system."""
         try:
             self.logs.info("Setting up AI system")
-            
-            # Start the listener
             self.listener.start_listening()
-            
-            # Load enabled plugins
-            config = Config()
-
-            for plugin_name in config.enabled_headspaces:
-                await self.plugin_registry.load_plugin(plugin_name)
-            
+            self.convo = Conversation()
             self.running(True)
 
         except Exception as e:
@@ -67,10 +56,10 @@ class AI(ProcessIPC):
             self.process_manager.set_state(StateType.ERROR)
             raise
 
-    async def loop(self):
+    def loop(self):
         """Main processing loop."""
         # This could be used for periodic tasks like plugin health checks
-        await asyncio.sleep(1)
+        time.sleep(1)
 
     @on_event(EventType.PLUGIN_CHANGED)
     def _on_plugin_changed(self, ipc_event: IPCEvent):
@@ -93,25 +82,21 @@ class AI(ProcessIPC):
         """Handle hotword detection."""
         self.route_event(event.forward(ProcessType.GUI))
         self.logs.debug("Hotword detected")
-        if not self.convo.is_blank():
+        if not self.convo.is_empty():
             self.logs.error("AI.convo is found non-blank during a Hotword Detection Event!")
             self.convo = Conversation()
 
     @on_event(EventType.TRANSCRIPTION_READY)
-    async def _on_transcription_ready(self, event: IPCEvent):
+    def _on_transcription_ready(self, event: IPCEvent):
         """Handle transcription completion."""
         self.route_event(event.forward(ProcessType.GUI))
         self.logs.info(f"Transcription ready: {event.data}")
 
         self.convo.add_message(event.data, role="human")                # Add the Human message
-        self.process_manager.set_conversation(self.convo.to_dict())     # Updated ipc shared convo
-
-        response = self.brain.query(self.convo)                         # Query the brain against the convo
-        
-        self.convo.add_message(response, role="ai")                     # Add the AI response to the convo
+        steps, response = self.brain.query(self.convo.transcript)       # Query the brain against the convo
+        self.convo.add_message(response, role="ai", agent=steps)        # Add the AI response to the convo
         self.process_manager.set_conversation(self.convo.to_dict())     # Update the ipc shared convo
 
-        # Route response to GUI
         self.route_event(IPCEvent(
             EventType.RESPONSE_READY, 
             ProcessType.AI, 
@@ -119,6 +104,8 @@ class AI(ProcessIPC):
             response
         ))
         self.logs.info(f"Response ready: {response}")
+
+#       self.listener.capture_audio()
 
     @on_event(EventType.INTERACTION_COMPLETED)
     def restart_hotword_detection(self, event: IPCEvent):
@@ -133,7 +120,7 @@ class AI(ProcessIPC):
         self.process_manager.set_state(StateType.ERROR)
 
     @on_event(EventType.GLOBAL_STOP)
-    async def cleanup(self, event: IPCEvent):
+    def cleanup(self, event: IPCEvent):
         """Clean up AI resources."""
         self.logs.debug("Cleaning up AI resources")
         try:

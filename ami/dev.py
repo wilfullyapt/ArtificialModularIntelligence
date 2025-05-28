@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import QApplication
 from watchdog.observers import Observer
 
 from ami.core import Config, ConfigMetadataPluginWatcher, Conversation
+from ami.core.registry import PluginVertical
 from ami.ipc import IPCManager, ProcessType
 from ami.ai import AI
 from ami.gui import MainWindow as GUI
@@ -93,9 +94,13 @@ if __name__ == '__main__':
 #   assign_file_watchers(ipc_manager)
 
 
-    run_ai = True
+#   run_ai = True
+    run_gui = True
+#   run_backend = True
+
+    run_ai = False
+#   run_gui = False
     run_backend = False
-    run_gui = False
 
     # ---   ARTIFICIAL INTELLIGENCE
     if run_ai:
@@ -105,27 +110,32 @@ if __name__ == '__main__':
 
 
     # ---   BACKEND FASTAPI
-        if run_backend:
-            backend = Backend(ipc_manager)
-            backend.start()
+    if run_backend:
+        backend = Backend(ipc_manager)
+        backend.start()
 
     # ---   MAIN PROCESS GUI
     if run_gui:
         app = QApplication(sys.argv)
         window = GUI(ipc_manager)
-        window.show()
-        sys.exit(app.exec())
+#       window.show()
+#       sys.exit(app.exec())
         
 
+    sequential_debuging = False
     sequential_debuging = True
     if sequential_debuging:
 
         # Route a query and return a headspace
 #       hs = ai.brain.headspace_router("Set a reminder to take a out the trash every sunday at 6pm.")
-        hs = ai.brain['DATETIME']
-        convo = Conversation()
-        convo.add_message("This is a test query", role="human")
-#       q = hs.query(convo)
 
-        agent = LLMProvider.from_environment().as_funccalling_toa_agent()
-        agent._tools = hs.tools
+        # Query the headspace directly and return `steps` to be summarized and added to the convo
+#       steps = ai.brain['DATETIME'].query("Set a reminder to take out the trash every Sunday night at 5pm.")
+
+        # Query the brain, route to a headspace and return the `steps` and `summary`
+#       steps, summ = ai.brain.query("Set a reminder to take out the trash every Sunday night at 5pm.")
+
+        # Some checks on how the plugin registry is working in the background
+        vert = ai.brain.registry.get_plugins_by_vertical(PluginVertical.GUI)
+
+        print("Sequential debugging. Don't fuck it up.")

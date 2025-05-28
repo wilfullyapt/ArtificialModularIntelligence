@@ -9,7 +9,7 @@ class ZeroShot(LogBase):
         try:
             prompt = template.format(**inputs)
             self.logs.debug(prompt)
-            response = self.provider.generate_text(prompt)
+            response = self.provider.generate_response(prompt)
             self.logs.debug(response)
             return response
         except Exception as e:

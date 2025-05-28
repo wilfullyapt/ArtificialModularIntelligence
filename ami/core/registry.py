@@ -6,7 +6,7 @@ import json
 from enum import Enum
 from pathlib import Path
 from types import ModuleType
-from typing import Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 from dataclasses import dataclass
 from importlib import import_module
 
@@ -48,26 +48,26 @@ class Plugin(LogBase):
         return import_plugin(self.location)
 
     @property
-    def gui(self):
+    def gui(self) -> Any:
         """Returns the GUI object from the plugin, or None if not available."""
         return getattr(self.module, "GUI", None) if self.module else None
 
     @property
-    def headspace(self):
+    def headspace(self) -> Any:
         """Returns the Headspace object from the plugin, or None if not available."""
         return getattr(self.module, "Headspace", None) if self.module else None
 
     @property
-    def blueprint(self):
+    def blueprint(self) -> Any:
         """Returns the Headspace object from the plugin, or None if not available."""
         return getattr(self.module, "Blueprint", None) if self.module else None
 
-    def get_vertical(self, vertical: PluginVertical) -> None:
+    def get_vertical(self, vertical: PluginVertical) -> Any:
         """ Return a Class ready to be instanced or None """
         return getattr(self.module, vertical.value, None)
 
     @cached_property
-    def examples(self):
+    def examples(self) -> List[str]:
         init_file = self.location / "__init__.py"
 
         if not init_file.exists():
@@ -255,6 +255,7 @@ class PluginRegistry(LogBase):
     def __init__(self, ipc_manager: "IPCManager"):
         super().__init__()
         self.ipc_manager = ipc_manager
+        self.config = Config()
 
         # Load in the metadata file or create it if non-existent
         if self.config.plugin_metadata_filepath.exists():
@@ -278,13 +279,18 @@ class PluginRegistry(LogBase):
         return self.plugin_cache.names
 
     @property
+    def active_plugins(self) -> List[Plugin]:
+        """ Return a list of names of plugins that are active """
+        return [ plugin for plugin in self.plugin_cache.values() if plugin.status is ComponentStatus.ACTIVE ]
+
+    def get_plugins_by_vertical(self, vertical: PluginVertical) -> List[Plugin]:
+        return [ plugin for plugin in self.active_plugins if plugin.get_vertical(vertical) ]
+
+    @property
     def routing_examples(self) -> List[str]:
         routes = { name: ", ".join(examples) for name, examples in self.plugin_cache.examples.items()  }
         return [ f"{name}: {examples}" for name, examples in routes.items() ]
 #       return random.shuffle([ f"{name}: {examples}" for name, examples in routes.items() ])
-
-    def get_plugins_by_vertical(self, vertical: PluginVertical):
-        return [ plugin for plugin in self.plugin_cache.values() if plugin.get_vertical(vertical) ]
 
     def to_dict(self) -> dict:
         """Initial metadata for plugins."""

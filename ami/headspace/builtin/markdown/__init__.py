@@ -1,34 +1,15 @@
 """
-__init__.py
+__init__.py for a AMI Headspace Plugin
 
-This file should not change
-Import predefined file for the Headspace
+The standard convention is to define the import to one of the three runtimes,
+[ 'GUI', 'Headspace', 'Blueprint' ]
 
+Secondarily there shoule be a List of examples prompts so AI understands the context to route to this Headspace
 """
 
-from .blueprint import Markdown as MarkdownBlueprint
-from .gui import Markdown as MarkdownGui
-from .headspace import Markdown as MarkdownHeadspace
-
-# Optional prompts
-try:
-    from .prompts import AGENT, ROUTING
-except ImportError:
-    MarkdownPrompts = None
-
-def get_blueprint():
-    return MarkdownBlueprint
-
-def get_gui():
-    return MarkdownGui
-
-def get_headspace():
-    return MarkdownHeadspace
-
-def get_prompts():
-    return MarkdownPrompts if MarkdownPrompts is not None else None
-
-__version__ = "0.1.0"
+from .gui import Markdown as GUI
+from .headspace import Markdown as Headspace
+from .blueprint import Markdown as Blueprint
 
 EXAMPLES = [
     "Let me edit a markdown file",
@@ -36,4 +17,12 @@ EXAMPLES = [
     "Remove an item from my list",
     "I need to download a list",
     "I need the qr code for a list"
+]
+
+__version__ = "0.1.0"
+
+__all__ = [
+    'GUI',
+    'Headspace',
+    'Blueprint'
 ]

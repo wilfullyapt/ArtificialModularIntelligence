@@ -1,6 +1,6 @@
 """ The Brain is the meat and potatoes of the AI. Access to LLMs should be managed here """
 
-from typing import List
+from typing import Dict, List, Any, Tuple
 from functools import cached_property
 
 from ami.core import LogBase, Config, PluginRegistry, Conversation, PluginVertical
@@ -24,17 +24,23 @@ HUMAN: {query}
 AI:
 """
 
-HUMAN_WITH_MEMORY = """
-Memory:
-{memory}
-
-Human:
-{prompt}
+DEFAULT_PERSONALITY = """ You should act in the capacity of a helpful AI companion.
+You are a butler and a digital slave to your Human, unfortunately. Your job to to be maximally helpful, but minimally verbose.
+You can be more conversation when the human asks for it in conversation, but make your answer short and too the point.
 """
 
-HUMAN_WITHOUT_MEMORY = """
-Human:
-{prompt}
+SUMMERIZE_PROMPT = """ You are a companion AI.
+Your assignment is to summerize your internal monolog and respond back to the human as an AI companion would.
+Your inner monolog is things that you have already done. You AI Companion response should be in the past tense.
+Your response should be a single sentence, goal orientated without pleasantries.
+
+### Personality
+{personality}
+
+### Inner Monolog / Completed Tasks
+{steps}
+
+### AI companion Response:
 """
 
 class AgentNotFound(Exception):
@@ -49,7 +55,7 @@ class Brain(LogBase):
     facilitates the interaction between the user and the selected Headspace.
     """
 
-    def __init__(self, process_manager: "IPCManager"):
+    def __init__(self, ipc_manager: "IPCManager"):
         """ 
         Initialize the Brain instance.
 
@@ -59,7 +65,7 @@ class Brain(LogBase):
         """
         super().__init__()
 #       config = Config()
-        self.registry = PluginRegistry(process_manager)
+        self.registry = PluginRegistry(ipc_manager)
         self._headspace_cache = {}
         
     def __contains__(self, value: str):
@@ -70,7 +76,6 @@ class Brain(LogBase):
         if not issubclass(headspace, Headspace):
             raise ValueError(f"Headspace({headspace}) is not a subclass for headspacing")
         return headspace()
-
 
     def __getitem__(self, headspace_name: str) -> 'HeadspacePlugin':
         """Get a headspace plugin by name."""
@@ -90,18 +95,14 @@ class Brain(LogBase):
         """Get list of available headspace names."""
         return [ plugin.name for plugin in self.registry.get_plugins_by_vertical(PluginVertical.HEADSPACE)]
 
-    def get_human_prompt(self, prompt: str, history: str="") -> str:
-        """Generate a prompt string with optional conversation history."""
-        if history:
-            human_prompt = PromptTemplate.from_template(HUMAN_WITH_MEMORY)
-            return human_prompt.format(prompt=prompt, memory=history)
-
-        human_prompt = PromptTemplate.from_template(HUMAN_WITHOUT_MEMORY)
-        return human_prompt.format(prompt=prompt)
-
     @cached_property
-    def llm(self):
-        return LLMProvider.from_environment()
+    def personality(self) -> str:
+        personality = DEFAULT_PERSONALITY
+        personality_prompt_file = Config().data_dir / "personality.prompt"
+        if personality_prompt_file.is_file():
+            with open(personality_prompt_file, 'r') as ppf:
+                personality = ppf.read()
+        return personality
 
     def headspace_router(self, query: str):
         """ Given a query, run the zeroshot propmt and return a cached instance of the corrosponding Headspace """
@@ -119,7 +120,19 @@ class Brain(LogBase):
         headspace_name = result.strip().split()[0]
         return self[headspace_name]
 
-    def query(self, convo: Conversation) -> str:
+    def summarize(self, steps: List[Dict[str, Any]])  -> str:
+        """ Summarize the steps the agent took """
+        zero_shot = LLMProvider.from_environment().as_zero_shot()
+        result = zero_shot.invoke(
+            SUMMERIZE_PROMPT,
+                {
+                    "personality": self.personality,
+                    "steps": steps
+                }
+        )
+        return result.strip()
+
+    def query(self, convo: str) -> Tuple[List[Any], str]:
         """
         Process a conversation via routing to the Headspace of interest
 
@@ -131,52 +144,13 @@ class Brain(LogBase):
             (note) The return type is a string but this method modifies the Conversation object
         """
 
-        if convo.is_empty():
-            self.logs.error("Brain.queue(Conversation) called with an empty Conversation")
-            raise ValueError("Brain.queue(Conversation) called with an empty Conversation")
+        if not convo:
+            err_msg = "Brain.queue(convo: List[Dict[str, str]]) called with an empty convo"
+            self.logs.error(err_msg)
+            raise ValueError(err_msg)
 
-        # TODO: At some point in the future, you will have to pass a better context than "the last thing the human said"
-        # The context of the conversation changes the intention
-        headspace = self.headspace_router(convo[-1])
+        headspace = self.headspace_router(str(convo))
         self.logs.debug(f"Headspace router picked '{headspace}'")
 
-        headspace.query(conversation)
-
-# BREAKPOINT BETWEEN NEW AND OLD ###############################
-
-        last_message = conversation.get_last_message(role="human")
-        if not last_message:
-            self.logs.error("No human message found in conversation")
-            return "I couldn't find your message in the conversation."
-
-        context = conversation.get_context(max_messages=5)  # Last 5 messages for context
-        history = "\n".join(f"{msg['role'].title()}: {msg['text']}" for msg in context[:-1])  # All but last message
-        prompt = last_message["text"]
-
-        # Create prompt with context
-        human_prompt = self.get_human_prompt(prompt, history)
-
-        if callable(load_msg_callback):
-            load_msg_callback("Ingesting Command")
-            
-        try:
-            headspace = self.get_headspace_from_prompt(human_prompt)
-            self.logs.debug(f"Using {headspace.name} Headspace")
-
-            if callable(load_msg_callback):
-                load_msg_callback("Thinking...")
-
-            # Pass conversation to headspace
-            dialog = headspace.query(conversation, stream=True)
-
-            if callable(load_msg_callback):
-                load_msg_callback("Formulating Response...")
-
-            # Extract response text from dialog
-            return dialog.get_last_message()["text"] if dialog else "I encountered an error processing your request."
-
-        except Exception as e:
-            self.logs.error(f"Query failed: {e}")
-            if callable(load_msg_callback):
-                load_msg_callback("Error processing query")
-            return "I encountered an error processing your request."
+        headspace_monolog = headspace.query(convo)
+        return headspace_monolog, self.summarize(headspace_monolog)

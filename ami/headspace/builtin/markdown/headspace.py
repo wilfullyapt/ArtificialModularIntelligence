@@ -1,6 +1,6 @@
 from urllib.parse import quote_plus
 
-from ami.headspace import Headspace, ami_tool, agent_observation
+from ami.headspace import Headspace, ami_tool
 from ami.backend.utils import get_network_url
 from ami.headspace.headspace import generate_qr_image
 
@@ -18,12 +18,12 @@ class Markdown(Headspace):
     @ami_tool
     def list_md_files(self):
         """ Use this tool to list out the known markdown files """
-        return agent_observation(str(self.markdown.md_files))
+        return str(self.markdown.md_files)
 
     @ami_tool
     def list_lists(self):
         """ Use this tool to list out the known lists in the markdown files """
-        return agent_observation(str(self.markdown.lists))
+        return str(self.markdown.lists)
 
     @ami_tool
     def add_to_list(self, list_name:str, item:str, index:int=-1):
@@ -33,9 +33,9 @@ class Markdown(Headspace):
             self.markdown.update_list(md)
 
         else:
-            return agent_observation(f"List '{list_name}' not found! Try the `list_lists` tool, then retry the add_to_list tool.")
+            return f"List '{list_name}' not found! Try the `list_lists` tool, then retry the add_to_list tool."
 
-        return agent_observation(f"'{item}' successfully added to the '{list_name}' list!")
+        return f"'{item}' successfully added to the '{list_name}' list!"
 
     @ami_tool
     def remove_from_list(self, list_name: str, item: str):
@@ -45,9 +45,9 @@ class Markdown(Headspace):
             self.markdown.update_list(md)
 
         else:
-            return agent_observation(f"List '{list_name}' not found! Try the `list_lists` tool, then retry the remove_from_list tool.")
+            return f"List '{list_name}' not found! Try the `list_lists` tool, then retry the remove_from_list tool."
 
-        return agent_observation(f"'{item}' successfully removed from the '{list_name}' list!")
+        return f"'{item}' successfully removed from the '{list_name}' list!"
 
     @ami_tool
     def spawn_list(self, list_name: str, filename: str):
@@ -73,11 +73,10 @@ class Markdown(Headspace):
 
         qr_code_url = f"http://{get_network_url()}/editor/{markdown_file.headspace_location}"
         qr_path = generate_qr_image(qr_code_url)
-
-        self.dialog.visual = qr_path
+        self.append_visual(qr_path)
 
 #       return f"Finished! Here is a QR code to use to edit the file. The URL is {qr_code_url}"
-        return agent_observation(f"Finished! Here is a QR code to use to edit the file. The URL is {qr_code_url}")
+        return f"Finished! Here is a QR code to use to edit the file. The URL is {qr_code_url}"
 
     @ami_tool
     def dowload_list(self, list_name:str):
@@ -88,7 +87,7 @@ class Markdown(Headspace):
 
         qr_code_url = f"http://{get_network_url()}/download_list/{quote_plus(list_name)}"
         qr_path = generate_qr_image(qr_code_url)
-        self.dialog.visual = qr_path
+        self.append_visual(qr_path)
 
-        return agent_observation(f"Finished! Here is a QR code to download that list. {qr_code_url}")
+        return f"Finished! Here is a QR code to download that list. {qr_code_url}"
 

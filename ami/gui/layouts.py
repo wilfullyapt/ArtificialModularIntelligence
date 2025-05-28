@@ -49,6 +49,9 @@ class FlexiblePositioningLayout(QLayout, LogBase):
 
         self.addChildWidget(w)
 
+    def add_widget(self, *args, **kwargs):
+        self.addWidget(*args, **kwargs)
+
     def count(self):
         return len(self._items)
 

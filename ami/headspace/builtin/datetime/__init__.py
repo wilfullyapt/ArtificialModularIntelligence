@@ -1,12 +1,13 @@
 """
-__init__.py
+__init__.py for a AMI Headspace Plugin
 
-This file should not change
-Import predefined file for the Headspace
+The standard convention is to define the import to one of the three runtimes,
+[ 'GUI', 'Headspace', 'Blueprint' ]
 
+Secondarily there shoule be a List of examples prompts so AI understands the context to route to this Headspace
 """
 
-from .gui import Time as GUI
+from .gui import DateTime as GUI
 from .headspace import DatetimeHeadspace as Headspace
 
 

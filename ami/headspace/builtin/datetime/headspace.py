@@ -1,7 +1,7 @@
 from typing import Literal, Optional
 from urllib.parse import quote_plus
 
-from ami.headspace import Headspace, ami_tool, agent_observation
+from ami.headspace import Headspace, ami_tool
 
 AGENT_ROLE = """
 remove_event(date: str, name: str) - Remove an event from the calendar given a date and a name for the event to be removed, args: {'date': {'title': 'Date', 'type': 'string'}, 'name': {'title': 'Name', 'type': 'string'}}
@@ -30,9 +30,9 @@ class DatetimeHeadspace(Headspace):
             reoccurring: bool=False
     ):
         """ Set a reminder for something. Unless explicitly state do not make it reoccurring. """
-        pass
+        return "Reminder successfully set!"
 
     @ami_tool
     def set_timer(self, number: int, unit: Literal["minutes", "hours"], name: Optional[str]):
         """ Set a timer for something. Only name it if explicitly named by the user. 5 minutes => (5,"minutes"), 2 hours => (2, "hours") """
-        pass
+        return "Timer successfully set!"

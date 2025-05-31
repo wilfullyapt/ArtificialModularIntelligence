@@ -38,7 +38,7 @@ def generate_qr_image(url) -> Path:
 
     img = qr.make_image(fill_color="black", back_color="white")
 
-    qr_img_path = Config().ai_dir / "resources" / "img_dump" / "qr_code.png"
+    qr_img_path = Config().data_dir / "resources" / "img_dump" / "qr_code.png"
     qr_img_path.parent.mkdir(parents=True, exist_ok=True)
 
     img.save(qr_img_path)

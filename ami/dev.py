@@ -123,7 +123,7 @@ if __name__ == '__main__':
         
 
     sequential_debuging = False
-    sequential_debuging = True
+#   sequential_debuging = True
     if sequential_debuging:
 
         # Route a query and return a headspace

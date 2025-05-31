@@ -9,48 +9,42 @@ from ami.gui import BaseWidget,BaseWidgetSettings
 class DateTimeDefaultSettings(BaseWidgetSettings):
     x: int = 1
     y: int = 1
-    anchor: str = "topleft"
+    anchor: str = "nw"
     background_color: str = "black"
     font_name: str = "Arial"
     highlight_color: str = "#C3C3C3"
     lowlight_color: str = "#C3C3C3"
 
-    def save_to_file(self, file_path: str) -> None:
-        with open(file_path, "w") as f:
-            f.write(self.json())
-
 class DateTime(BaseWidget):
     """ The DateTime builtin Headspace GUI for the AMI project """
     settings_class = DateTimeDefaultSettings
 
-    def __init__(self, parent=None, yaml_config=None):
+    def setup_ui(self):
+        pass
+
+    def __init__(self, parent=None):
         super().__init__(parent)
-        self.yaml = yaml_config if yaml_config else {}
+        self.name = "datetime"
         
         # Set background color
-        self.setStyleSheet("background-color: black;")
-        
-        # Get configuration values
-        font_name = self.yaml.get("font", "Arial")
-        highlight_color = self.yaml.get("highlight_color", "#C3C3C3")
-        lowlight_color = self.yaml.get("lowlight_color", "#666666")
+        self.setStyleSheet(f"background-color: {self.settings.background_color};")
         
         # Create labels
         self.date_label = QLabel()
-        self.date_label.setFont(QFont(font_name, 26))
-        self.date_label.setStyleSheet(f"color: {highlight_color};")
+        self.date_label.setFont(QFont(self.settings.font, 26))
+        self.date_label.setStyleSheet(f"color: {self.settings.highlight_color};")
         
         self.time_label = QLabel()
-        self.time_label.setFont(QFont(font_name, 28))
-        self.time_label.setStyleSheet(f"color: {highlight_color};")
+        self.time_label.setFont(QFont(self.settings.font, 28))
+        self.time_label.setStyleSheet(f"color: {self.settings.highlight_color};")
         
         self.seconds_label = QLabel()
-        self.seconds_label.setFont(QFont(font_name, 18))
-        self.seconds_label.setStyleSheet(f"color: {lowlight_color};")
+        self.seconds_label.setFont(QFont(self.settings.font, 18))
+        self.seconds_label.setStyleSheet(f"color: {self.settings.lowlight_color};")
         
         self.am_pm_label = QLabel()
-        self.am_pm_label.setFont(QFont(font_name, 24))
-        self.am_pm_label.setStyleSheet(f"color: {lowlight_color};")
+        self.am_pm_label.setFont(QFont(self.settings.font, 24))
+        self.am_pm_label.setStyleSheet(f"color: {self.settings.lowlight_color};")
         
         # Setup layout
         self.define_render()

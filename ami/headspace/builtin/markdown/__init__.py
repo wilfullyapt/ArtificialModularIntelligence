@@ -7,7 +7,7 @@ The standard convention is to define the import to one of the three runtimes,
 Secondarily there shoule be a List of examples prompts so AI understands the context to route to this Headspace
 """
 
-from .gui import Markdown as GUI
+from .gui import MarkdownGUI as GUI
 from .headspace import Markdown as Headspace
 from .blueprint import Markdown as Blueprint
 

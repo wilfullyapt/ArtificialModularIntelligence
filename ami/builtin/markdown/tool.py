@@ -7,9 +7,7 @@ from typing import List
 
 from pydantic import BaseModel, Field
 
-from ami.headspace.filesystem import Filesystem
-from ami.core import Config
-from ami.headspace.base import SharedTool
+from ami.core import Config, LogBase
 
 def convert_md_to_html(md_file):
     with open(md_file, 'r') as f:
@@ -95,7 +93,7 @@ class MarkdownFile(BaseModel):
 
         return return_flag
 
-class Markdown(SharedTool):
+class Markdown(LogBase):
     """ Markdown has access to all markdown files likes Calendar has access to ./calendar.json
 
         TODO
@@ -105,15 +103,19 @@ class Markdown(SharedTool):
 
     """
 
-    def __init__(self):
+    def __init__(self, base_path: Path):
         local_config_path = Path(__file__).parent / "config.yaml"
         with open(local_config_path, "r") as f:
             self.config = yaml.safe_load(f)
 
-        self.filesystem = Filesystem("markdown")
+        self._filesystem: Path = base_path
 
         if self.md_files == []:
-            default_markdowns(self.filesystem.path)
+            default_markdowns(self.filesystem)
+
+    @property
+    def filesystem(self) -> Path:
+        return self._filesystem
 
     @property
     def md_files(self):

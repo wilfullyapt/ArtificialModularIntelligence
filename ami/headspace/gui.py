@@ -15,130 +15,156 @@ Classes:
 The module relies on tkinter for GUI components and uses YAML for configuration management.
 """
 
+import json
+import os
+import sys
 from pathlib import Path
-from tkinter import Frame
-from abc import ABC, abstractmethod
-from typing import Dict
+from functools import cached_property
+from typing import ClassVar, Dict, Any, Optional, Type
 
-from ami.headspace.base import Primitive
+from PyQt6.QtWidgets import QWidget
+from pydantic import BaseModel, ValidationError, ValidationInfo, field_validator, model_validator
 
-class MissingConfigException(Exception):
-    pass
+from ami.core import Config
+from ami.headspace import Primitive
 
-class InvalidPlacementError(ValueError):
-    pass
 
-class GuiFrame(Frame, ABC, Primitive):
-    """
-    Abstract base class for creating GUI frames in a tkinter application.
+class BaseWidgetSettings(BaseModel):
+    x: Optional[int] = None
+    y: Optional[int] = None
+    relx: Optional[float] = None
+    rely: Optional[float] = None
+    anchor: str = "nw"
 
-    This class provides a foundation for building modular and configurable GUI components.
-    It includes standardized initialization, rendering, and configuration loading capabilities,
-    as well as error handling for invalid placements and missing configurations.
+    background_color: str = "black"
+    font: str = "Arial"
+    highlight_color: str = "#C3C3C3"
+    lowlight_color: str = "#C3C3C3"
 
-    Attributes:
-        headspace (str): The name of the module's headspace.
-        placement (dict): A dictionary containing placement information for the frame.
+    VALID_ANCHORS: ClassVar[set[str]] = {
+        "nw",     "n",     "ne",
+        "w",   "center",   "e",
+        "sw",     "s",     "se"
+    }
 
-    Methods:
-        define_render: Abstract method to define the render logic for the frame.
-        render: Render the frame based on the defined placement.
-        redraw: Redraw the frame by destroying all widgets and rendering again.
-        load_config: Load configuration from a YAML file.
-        _validate_placement: Validate the placement dictionary for widget positioning.
-    """
+    @field_validator("anchor")
+    @classmethod
+    def validate_anchor(cls, v):
+        if v not in cls.VALID_ANCHORS:
+            raise ValueError(f"Anchor must be one of {cls.VALID_ANCHORS}, got '{v}'")
+        return v
 
-    def __init__(self, parent, *args, **kwargs):
-        """
-        Initialize the GuiFrame instance.
+    @field_validator("relx", "rely")
+    @classmethod
+    def validate_relative_range(cls, v: Optional[float], info: ValidationInfo) -> Optional[float]:
+        if v is not None and not (0.0 <= v <= 1.0):
+            raise ValueError(f"'{info.field_name}' must be between 0.0 and 1.0, got {v}")
+        return v
 
-        Args:
-            parent: The parent widget.
-            module_directory: The directory containing the module configuration file.
-            *args: Additional arguments passed to the Frame constructor.
-            **kwargs: Additional keyword arguments passed to the Frame constructor.
-        """
-        Frame.__init__(self, parent, *args, **kwargs)
-        Primitive.__init__(self)
+    @model_validator(mode='after')
+    def check_positioning(self) -> 'BaseWidgetSettings':
+        has_absolute = self.x is not None and self.y is not None
+        has_relative = self.relx is not None and self.rely is not None
 
-        self.headspace = self.__module__.split('.')[-2]
+        if has_absolute and has_relative:
+            raise ValueError("Cannot specify both absolute (x, y) and relative (relx, rely) positioning")
+        if not has_absolute and not has_relative:
+            raise ValueError("Must specify either absolute (x, y) or relative (relx, rely) positioning")
 
-    @abstractmethod
-    def define_render(self) -> None:
-        """
-        Define the render logic for the frame.
+        return self
 
-        This module should implemente this method to define the placement of objects in the frame.
-        """
-        raise NotImplementedError("Subclasses must implement the define_render method.")
+    def save_to_file(self, file_path: Path) -> None:
+        with open(file_path, "w") as f:
+            f.write(self.model_dump_json(indent=2))
 
-    def render(self):
-        """
-        Render the frame based on the defined placement.
-
-        Raises:
-            InvalidPlacementError: If the placement dictionary is invalid.
-        """
-        self.filesystem.load_config()
-        self.placement: dict = self.yaml.get("placement", {})
-        self.define_render()
-
-        try:
-            placement = self._validate_placement(self.placement)
-            self.place(**placement)
-            self.update_idletasks()
-            self.logs.debug(f"Frame Information: [ Name: {self.winfo_name()} , Height: {self.winfo_height()} , Width: {self.winfo_width()} ]")
-        except InvalidPlacementError as e:
-            raise InvalidPlacementError(f"Invalid placement: {e}") from e
-
-        self.logs.debug(f"GUI({self.headspace}).render() finished")
-
-    def redraw(self):
-        """
-        Redraw the frame by destroying all widgets and rendering again.
-        """
-        for widget in self.winfo_children():
-            widget.destroy()
-        self.render()
-
-    def _validate_placement(self, placement: Dict[str, str]) -> Dict[str, str]:
-        """
-        Validate the placement dictionary to ensure it can be used by self.place.
-        The placement dictionary can contain either
-            - 'relx', 'rely' and 'relwidth', 'relheight'
-            -'x', 'y', and 'relwidth', 'relheight'.
-        The keyword 'anchor' specifies the anchor point for the placement of the widget.
-            - Literals are ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw', 'center'].
-            - Default anchor point is 'center'.
-
-        Args:
-            placement: The placement dictionary to validate.
-
-        Returns:
-            The validated placement dictionary.
-
-        Raises:
-            InvalidPlacementError: If the placement dictionary is invalid.
-        """
-        valid_anchors = ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw', 'center']
-        if "anchor" in placement:
-            if placement["anchor"] not in valid_anchors:
-                raise InvalidPlacementError(f"Invalid anchor value: {placement['anchor']}")
+    @classmethod
+    def from_file(cls, file_path: Path) -> 'BaseWidgetSettings':
+        if file_path.is_file():
+            try:
+                with open(file_path, "r") as f:
+                    data = json.load(f)
+                    return cls(**data)
+            except (json.JSONDecodeError, ValidationError) as e:
+                print(f"Warning: Invalid settings file '{file_path}', using defaults: {e}")
+                settings = cls()
+                settings.save_to_file(file_path)
+                return settings
         else:
-            placement["anchor"] = "center"
+            settings = cls()
+            settings.save_to_file(file_path)
+            return settings
 
-        if "x" in placement and "y" in placement:
-            # Check if x and y are present
-            if not isinstance(placement["x"], int) or not isinstance(placement["y"], int):
-                raise InvalidPlacementError("Values for 'x' and 'y' must be integers")
-            return placement
+class BaseWidget(QWidget, Primitive):
+    """
+    Base widget class with configuration management. settings_class must be defined by the child.
 
-        if "relx" in placement and "rely" in placement:
-            # Check if relx and rely are present
-            if not isinstance(placement["relx"], float) or not isinstance(placement["rely"], float):
-                raise InvalidPlacementError("Values for 'relx' and 'rely' must be floats")
-            if not 0 <= float(placement["relx"]) <= 1 or not 0 <= float(placement["rely"]) <= 1:
-                raise InvalidPlacementError("Value for 'relx' or 'rely' is out of bounds")
-            return placement
+    """
+    settings_class: Type[BaseWidgetSettings] = None
 
-        raise InvalidPlacementError("Must specify either absolute or relative placement")
+    def __init__(self, parent: Optional[QWidget] = None):
+        QWidget.__init__(self, parent)
+        if self.settings_class is None:
+            raise ValueError("Subclasses must define 'settings_class'")
+        self.setup_ui()
+
+    def __init_subclass__(cls, **kwargs):
+        """ Called when a subclass is defined. Sets the plugin_directory attribute on the subclass. """
+        super().__init_subclass__(**kwargs)
+        file_path = sys.modules[cls.__module__].__file__
+        directory = os.path.basename(os.path.dirname(file_path))
+        cls.plugin_directory = directory
+
+    @cached_property
+    def filespace(self) -> Path:
+        filespace = Config().plugin_data_dir / self.__class__.plugin_directory
+        filespace.mkdir(parents=True, exist_ok=True)
+        return filespace
+
+    @cached_property
+    def name(self) -> str:
+        return self.__class__.__name__
+
+    @cached_property
+    def _settings_file(self) -> Path:
+        return self.filespace /  f"{self.name}_settings.json"
+
+    @cached_property
+    def settings(self) -> type[BaseWidgetSettings]:
+        return self._load_settings()
+
+    @property
+    def placement(self) -> Dict[str, Any]:
+        """
+        Returns a dictionary with positioning information based on settings.
+        Returns either absolute (x, y, anchor) or relative (relx, rely, anchor) positioning.
+        """
+        if self.settings.relx is not None and self.settings.rely is not None:
+            return {
+                'relx': self.settings.relx,
+                'rely': self.settings.rely,
+                'anchor': self.settings.anchor
+            }
+        return {
+            'x': self.settings.x,
+            'y': self.settings.y,
+            'anchor': self.settings.anchor
+        }
+
+    def _load_settings(self) -> Any:
+        if self._settings_file.is_file():
+            try:
+                with open(self._settings_file, "r") as f:
+                    data = json.load(f)
+                    settings = self.settings_class(**data)
+            except (json.JSONDecodeError, ValidationError) as e:
+                print(f"Warning: Invalid settings file '{self._settings_file}', using defaults: {e}")
+                settings = self.settings_class()
+                settings.save_to_file(self._settings_file)
+        else:
+            settings = self.settings_class()
+            settings.save_to_file(self._settings_file)
+
+        return settings
+
+    def setup_ui(self) -> None:
+        raise NotImplementedError("Subclasses must implement 'setup_ui'")

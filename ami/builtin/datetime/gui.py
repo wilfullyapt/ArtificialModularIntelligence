@@ -4,7 +4,7 @@ from PyQt6.QtGui import QFont
 from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QLabel, QGridLayout
 
-from ami.gui import BaseWidget,BaseWidgetSettings 
+from ami.headspace import BaseWidget,BaseWidgetSettings 
 
 class DateTimeDefaultSettings(BaseWidgetSettings):
     x: int = 1

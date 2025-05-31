@@ -152,7 +152,7 @@ class Config:
     @cached_property
     def builtin_plugins(self) -> Path:
         """ Return the path where the built-in add-ons are """
-        return self.root / "ami" / "headspace" / "builtin"
+        return self.root / "ami" / "builtin"
 
 #---------------- DATA DIRECTORY PATHS (~/.ami)
 

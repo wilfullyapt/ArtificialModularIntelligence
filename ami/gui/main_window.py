@@ -1,15 +1,14 @@
 """ Main full screen UI for the AMI system """
 
 import traceback
-from typing import List
+
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import QApplication
 
-from ami.core import Config, PluginRegistry, PluginVertical, Plugin
+from ami.core import Config, PluginRegistry, PluginVertical
 from ami.ipc import IPCManager, ProcessType, EventType, IPCQWidget, IPCEvent, on_event
 
 from .popup import AMIDialog
-from .widgets import builtin_widgets
 from .layouts import FlexiblePositioningLayout
 
 class MainWindow(IPCQWidget):

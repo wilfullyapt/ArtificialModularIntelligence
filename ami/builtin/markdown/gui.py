@@ -7,7 +7,7 @@ import markdown as md
 from PyQt6.QtWidgets import QLabel, QTextBrowser, QGridLayout
 from PyQt6.QtCore import Qt
 
-from ami.gui import BaseWidget, BaseWidgetSettings
+from ami.headspace import BaseWidget, BaseWidgetSettings
 
 def copy_default_markdowns(destination_dir: Path):
     """Copy default markdown files to the destination directory."""

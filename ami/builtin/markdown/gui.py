@@ -1,14 +1,13 @@
-import re
 from pathlib import Path
-from PyQt6.QtWidgets import QWidget, QLabel, QTextBrowser, QGridLayout
-from PyQt6.QtCore import Qt
 from typing import List
-import markdown as md
-from pydantic import BaseModel, Field, ValidationError
+from shutil import copy2 as file_copy
 
-# Replace with your base class if not using GuiFrame
-from ami.gui.base_widget import BaseWidget, BaseWidgetSettings
-from ami.headspace.gui import GuiFrame  # Assuming this exists in your project
+import markdown as md
+
+from PyQt6.QtWidgets import QLabel, QTextBrowser, QGridLayout
+from PyQt6.QtCore import Qt
+
+from ami.gui import BaseWidget, BaseWidgetSettings
 
 def copy_default_markdowns(destination_dir: Path):
     """Copy default markdown files to the destination directory."""
@@ -24,7 +23,7 @@ class MarkdownDefaultSettings(BaseWidgetSettings):
     anchor: str = "n"
     markdown_files: List[str] = ["effective_accelerationism.md", "techno_optimist.md"]
     background_color: str = "black"
-    border: str = "none"
+    border: str = "1px solid white"
     font_name: str = "Arial"
     highlight_color: str = "#C3C3C3"
     lowlight_color: str = "#C3C3C3"
@@ -45,54 +44,10 @@ class MarkdownGUI(BaseWidget):        # Or QWidget if GuiFrame isn’t applicabl
     settings_class = MarkdownDefaultSettings
 
     def setup_ui(self):
-        pass
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.name = "Markdown"
+        """ Inherited required GUI init """
         self.setStyleSheet(f"background-color: {self.settings.background_color}; border: {self.settings.border};")
         self.screen_width = self.screen().availableSize().width()
-
-    def define_render(self) -> None:
         self.render_markdown_files([ self.filespace / file for file in self.settings.markdown_files])
-
-    def render_markdown_files(self, markdown_files):
-        """Render multiple markdown files in a grid layout."""
-        layout = QGridLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
-
-        for i, markdown_file in enumerate(markdown_files):
-            # Create and style the file name label
-            md_name = QLabel(markdown_file.name)
-            md_name.setStyleSheet(f"""
-                font-family: {self.settings.font};
-                font-size: 20px;
-                font-weight: bold;
-                border: 2px solid white;
-                padding: 4px;
-                color: white;
-            """)
-            md_name.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-            # Render markdown content
-            md_widget = self.render_markdown_file(markdown_file)
-
-            # Add widgets to layout
-            layout.addWidget(md_name, 0, i, 1, 1)
-            layout.addWidget(md_widget, 1, i, 1, 1)
-
-            # Configure column properties
-            layout.setColumnMinimumWidth(i, self.settings.width)
-            layout.setColumnStretch(i, 1)
-
-        # Allow the content row to expand
-        layout.setRowStretch(1, 1)
-
-        self.setLayout(layout)
-        self.setFixedHeight(self.settings.height)
-
-        self.logs.debug(f"Markdown info(Frame): [ Name: {self.objectName()} , Height: {self.height()} , Width: {self.width()} ]")
 
     def get_markdown_from_path(self, markdown_filepath: Path) -> str:
         """Read markdown content from a file."""
@@ -126,3 +81,53 @@ class MarkdownGUI(BaseWidget):        # Or QWidget if GuiFrame isn’t applicabl
         md_text_widget.document().setDefaultStyleSheet(css)
 
         return md_text_widget
+
+    def sanitize_markdown_files_and_check_existence(self, markdown_files: List[Path]) -> List[Path]:
+        """ Move default markdown to the .ami directory and remove md files in the List that don't exist """
+        for mdf in markdown_files:
+            if not mdf.exists():
+                if mdf.name in MarkdownDefaultSettings().markdown_files:
+                    file_copy(Path(__file__).parent/mdf.name, mdf)
+                    self.logs.info(f"Copy default markdown file: {mdf.name}")
+        markdown_files = [ mdf for mdf in markdown_files if mdf.is_file() ]
+        self.logs.debug(f"Markdown files being rendered: {[ mdf.name for mdf in markdown_files]}")
+        return markdown_files
+
+    def render_markdown_files(self, markdown_files):
+        """Render multiple markdown files in a grid layout."""
+        self.logs.info("Rendering markdown")
+        layout = QGridLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        markdown_files = self.sanitize_markdown_files_and_check_existence(markdown_files)
+        for i, markdown_file in enumerate(markdown_files):
+            md_name = QLabel(markdown_file.name)
+            md_name.setStyleSheet(f"""
+                font-family: {self.settings.font};
+                font-size: 20px;
+                font-weight: bold;
+                border: 2px solid white;
+                padding: 4px;
+                color: white;
+            """)
+            md_name.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+            # Render markdown content
+            md_widget = self.render_markdown_file(markdown_file)
+
+            # Add widgets to layout
+            layout.addWidget(md_name, 0, i, 1, 1)
+            layout.addWidget(md_widget, 1, i, 1, 1)
+
+            # Configure column properties
+            layout.setColumnMinimumWidth(i, self.settings.width)
+            layout.setColumnStretch(i, 1)
+
+        # Allow the content row to expand
+        layout.setRowStretch(1, 1)
+
+        self.setLayout(layout)
+        self.setFixedHeight(self.settings.height)
+
+        self.logs.debug(f"Markdown info(Frame): [ Name: {self.objectName()} , Height: {self.height()} , Width: {self.width()} ]")

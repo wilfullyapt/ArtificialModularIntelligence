@@ -58,7 +58,7 @@ class BaseWidgetSettings(BaseModel):
 
     def save_to_file(self, file_path: Path) -> None:
         with open(file_path, "w") as f:
-            f.write(self.model_dump_json())
+            f.write(self.model_dump_json(indent=2))
 
     @classmethod
     def from_file(cls, file_path: Path) -> 'BaseWidgetSettings':
@@ -104,8 +104,12 @@ class BaseWidget(QWidget, LogBase):
         return filespace
 
     @cached_property
+    def name(self) -> str:
+        return self.__class__.__name__
+
+    @cached_property
     def _settings_file(self) -> Path:
-        return self.filespace /  f"{self.__class__.__name__}.json"
+        return self.filespace /  f"{self.name}_settings.json"
 
     @cached_property
     def settings(self) -> type[BaseWidgetSettings]:

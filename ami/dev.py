@@ -118,8 +118,8 @@ if __name__ == '__main__':
     if run_gui:
         app = QApplication(sys.argv)
         window = GUI(ipc_manager)
-#       window.show()
-#       sys.exit(app.exec())
+        window.show()
+        sys.exit(app.exec())
         
 
     sequential_debuging = False

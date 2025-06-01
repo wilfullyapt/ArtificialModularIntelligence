@@ -4,16 +4,15 @@ from ami.headspace import Headspace, ami_tool
 from ami.backend.utils import get_network_url
 from ami.headspace.headspace import generate_qr_image
 
+from .settings import MarkdownDefaultSettings
 from .tool import Markdown as MarkdownTool
 
 class Markdown(Headspace):
     """ Built-in markdown agent """
+    settings_class = MarkdownDefaultSettings
 
-    HANDLE_PARSING_ERRORS: bool = True
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.markdown = MarkdownTool()
+    def __init__(self):
+        self.markdown = MarkdownTool(self.filespace, self.settings.markdown_settings)
 
     @ami_tool
     def list_md_files(self):

@@ -1,4 +1,4 @@
-""" AMI Headspace Core Funcionality """
+""" AMI Headspace Abstract Base Class and Core Funcionality """
 
 import json
 import typing
@@ -10,7 +10,7 @@ from functools import cached_property, wraps
 
 import qrcode
 
-from ami.core import Config, Conversation
+from ami.core import Config
 from ami.headspace import Primitive
 from ami.llm.provider import LLMProvider
 
@@ -29,7 +29,6 @@ def ami_tool(func):
         return func
 
     return wrapper()
-
 
 def generate_qr_image(url) -> Path:
     qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=10, border=4)
@@ -85,10 +84,6 @@ def extract_tool_info(func):
         "description": description,
         "arg_schema": parameters
     }
-
-#@dataclass
-#class ToolArgSchema:
-
 
 @dataclass
 class HeadspaceTool:
@@ -157,20 +152,9 @@ class Headspace(Primitive):
             raise TypeError("Headspace class cannot be instantiated directly.")
         return super().__new__(cls, *args, **kwargs)
 
-
-    def __init__(self):
-        """
-        Initialize the Headspace instance.
-        """
-        Primitive.__init__(self)
-
     def __repr__(self):
         """ Custom __repr__ function for the Headspace instanced """
         return f"Headspace(name={self.name})"
-
-    @cached_property
-    def name(self):
-        return self.__class__.__name__.lower()
 
     @cached_property
     def tool_names(self):

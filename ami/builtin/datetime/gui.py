@@ -4,16 +4,9 @@ from PyQt6.QtGui import QFont
 from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QLabel, QGridLayout
 
-from ami.headspace import BaseWidget,BaseWidgetSettings 
+from ami.headspace import BaseWidget
 
-class DateTimeDefaultSettings(BaseWidgetSettings):
-    x: int = 1
-    y: int = 1
-    anchor: str = "nw"
-    background_color: str = "black"
-    font_name: str = "Arial"
-    highlight_color: str = "#C3C3C3"
-    lowlight_color: str = "#C3C3C3"
+from .settings import DateTimeDefaultSettings
 
 class DateTime(BaseWidget):
     """ The DateTime builtin Headspace GUI for the AMI project """

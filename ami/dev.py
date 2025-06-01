@@ -94,11 +94,11 @@ if __name__ == '__main__':
 #   assign_file_watchers(ipc_manager)
 
 
-#   run_ai = True
+    run_ai = True
     run_gui = True
 #   run_backend = True
 
-    run_ai = False
+#   run_ai = False
 #   run_gui = False
     run_backend = False
 
@@ -136,6 +136,6 @@ if __name__ == '__main__':
 #       steps, summ = ai.brain.query("Set a reminder to take out the trash every Sunday night at 5pm.")
 
         # Some checks on how the plugin registry is working in the background
-        vert = ai.brain.registry.get_plugins_by_vertical(PluginVertical.GUI)
+#       vert = ai.brain.registry.get_plugins_by_vertical(PluginVertical.GUI)
 
         print("Sequential debugging. Don't fuck it up.")

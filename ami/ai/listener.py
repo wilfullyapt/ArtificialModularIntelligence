@@ -96,10 +96,10 @@ class Listener(LogBase):
         self.LISTENING_PATIENCE = config.listening_patience
         self.LISTENING_TIMEOUT = config.listening_timeout
         self.SILENCE_THRESHOLD = config.silence_threshold
-        self.logs.info(f"DETECTION_THRESHOLD is {self.DETECTION_THRESHOLD}")
-        self.logs.info(f"SILENCE_THRESHOLD is {self.LISTENING_PATIENCE} seconds")
-        self.logs.info(f"LISTENING_PATIENCE is {self.LISTENING_PATIENCE}")
-        self.logs.info(f"SILENCE_THRESHOLD is {self.SILENCE_THRESHOLD}")
+        self.logs.debug(f"DETECTION_THRESHOLD is {self.DETECTION_THRESHOLD}")
+        self.logs.debug(f"SILENCE_THRESHOLD is {self.LISTENING_PATIENCE} seconds")
+        self.logs.debug(f"LISTENING_PATIENCE is {self.LISTENING_PATIENCE}")
+        self.logs.debug(f"SILENCE_THRESHOLD is {self.SILENCE_THRESHOLD}")
 
         self.model = self.get_model(
             config.oww_models_dir,
@@ -145,13 +145,13 @@ class Listener(LogBase):
 
     def string_from_audio(self, audio_data) -> str:
         """ Convert the audio data to text """
-        self.logs.info("Audio to text in progress...")
+        self.logs.debug("Audio to text in progress...")
 
         try:
             audio = sr.AudioData(audio_data.getvalue(), sample_rate=16000, sample_width=2)
             text = self.r.recognize_google(audio)      # google is the cloud
 #           text = self.r.recognize_sphinx(audio)      # sphinx is local
-            self.logs.info("recognize_google used for audio STT")
+            self.logs.debug("recognize_google used for audio STT")
             return text
 
         except sr.UnknownValueError:
@@ -231,7 +231,7 @@ class Listener(LogBase):
 
             if text:
                 self.event_handler(EventType.TRANSCRIPTION_READY, text)
-                self.logs.info(f"Transcribed text: {text}. Listening finished.")
+                self.logs.info(f"Listening finished; transcribed text: {text}")
             else:
                 self.event_handler(EventType.ERROR, "Failed to transcribe audio")
 

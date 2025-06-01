@@ -2,7 +2,8 @@
 
 from .base import Primitive
 from .headspace import Headspace, ami_tool, generate_qr_image
-from .gui import BaseWidget, BaseWidgetSettings 
+from .widget import BaseWidget
+from .settings import BaseWidgetSettings 
 
 __all__ = [
     "Primitive",

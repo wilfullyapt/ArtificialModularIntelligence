@@ -7,7 +7,9 @@ import markdown as md
 from PyQt6.QtWidgets import QLabel, QTextBrowser, QGridLayout
 from PyQt6.QtCore import Qt
 
-from ami.headspace import BaseWidget, BaseWidgetSettings
+from ami.headspace import BaseWidget
+
+from .settings import MarkdownDefaultSettings
 
 def copy_default_markdowns(destination_dir: Path):
     """Copy default markdown files to the destination directory."""
@@ -17,36 +19,15 @@ def copy_default_markdowns(destination_dir: Path):
         destination = destination_dir / md_file.name
         destination.write_bytes(md_file.read_bytes())
 
-class MarkdownDefaultSettings(BaseWidgetSettings):
-    relx: float = .5
-    rely: float = .4
-    anchor: str = "n"
-    markdown_files: List[str] = ["effective_accelerationism.md", "techno_optimist.md"]
-    background_color: str = "black"
-    border: str = "1px solid white"
-    font_name: str = "Arial"
-    highlight_color: str = "#C3C3C3"
-    lowlight_color: str = "#C3C3C3"
-
-    width: int = 300
-    height: int = 300
-    padding: int = 20
-
-    font: str = "Verdana"
-    font_size: int = 12
-    h1_size: int = 22
-    h2_size: int = 20
-    h3_size: int = 18
-
 class MarkdownGUI(BaseWidget):        # Or QWidget if GuiFrame isn’t applicable
     """PyQt6 plugin for displaying markdown files."""
-
     settings_class = MarkdownDefaultSettings
 
     def setup_ui(self):
         """ Inherited required GUI init """
         self.setStyleSheet(f"background-color: {self.settings.background_color}; border: {self.settings.border};")
         self.screen_width = self.screen().availableSize().width()
+        self.screen_height = self.screen().availableSize().height()
         self.render_markdown_files([ self.filespace / file for file in self.settings.markdown_files])
 
     def get_markdown_from_path(self, markdown_filepath: Path) -> str:
@@ -68,6 +49,8 @@ class MarkdownGUI(BaseWidget):        # Or QWidget if GuiFrame isn’t applicabl
         """)
         md_text_widget.setReadOnly(True)
         md_text_widget.setHtml(self.get_html_from_markdown_path(markdown_file))
+        md_text_widget.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        md_text_widget.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
         # Apply custom CSS for styling
         css = f"""
@@ -100,8 +83,12 @@ class MarkdownGUI(BaseWidget):        # Or QWidget if GuiFrame isn’t applicabl
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
+        total_width = 0
         markdown_files = self.sanitize_markdown_files_and_check_existence(markdown_files)
         for i, markdown_file in enumerate(markdown_files):
+            md_width = self.settings.width if isinstance(self.settings.width, int) else int(self.screen_width * self.settings.width)
+            total_width += md_width
+
             md_name = QLabel(markdown_file.name)
             md_name.setStyleSheet(f"""
                 font-family: {self.settings.font};
@@ -127,7 +114,10 @@ class MarkdownGUI(BaseWidget):        # Or QWidget if GuiFrame isn’t applicabl
         # Allow the content row to expand
         layout.setRowStretch(1, 1)
 
-        self.setLayout(layout)
-        self.setFixedHeight(self.settings.height)
+#       self.setLayout(layout)
+
+        height = self.settings.height if isinstance(self.settings.height, int) else int(self.screen_height * self.settings.height)
+        self.setFixedHeight(height)
+        self.setFixedWidth(total_width)
 
         self.logs.debug(f"Markdown info(Frame): [ Name: {self.objectName()} , Height: {self.height()} , Width: {self.width()} ]")

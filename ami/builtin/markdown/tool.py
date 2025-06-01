@@ -3,7 +3,7 @@ import qrcode
 import yaml
 import markdown
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -14,10 +14,6 @@ def convert_md_to_html(md_file):
         md_content = f.read()
         html_content = markdown.markdown(md_content)
         return html_content
-
-def get_markdown_file(filename):
-    filepath = str(Config().headspaces_dir / "markdown" / filename)
-    return convert_md_to_html(filepath)
 
 class MarkdownFile(BaseModel):
     filepath: Path
@@ -85,12 +81,6 @@ class MarkdownFile(BaseModel):
                     else:
                         heading_found = False
 
-                if heading_found:
-                    if line.startswith("- "):
-                        self.list_contents.append(line[2:].rstrip())
-                    else:
-                        heading_found = False
-
         return return_flag
 
 class Markdown(LogBase):
@@ -103,15 +93,9 @@ class Markdown(LogBase):
 
     """
 
-    def __init__(self, base_path: Path):
-        local_config_path = Path(__file__).parent / "config.yaml"
-        with open(local_config_path, "r") as f:
-            self.config = yaml.safe_load(f)
-
+    def __init__(self, base_path: Path, markdown_files: List[str]):
         self._filesystem: Path = base_path
-
-        if self.md_files == []:
-            default_markdowns(self.filesystem)
+        self._md_files: List[str] = markdown_files
 
     @property
     def filesystem(self) -> Path:
@@ -119,7 +103,7 @@ class Markdown(LogBase):
 
     @property
     def md_files(self):
-        return [ filename for filename in self.filesystem.contents if filename.endswith(".md") ]
+        return [ self.filesystem / filename for filename in self._md_files if filename.endswith(".md") ]
 
     @property
     def lists(self):
@@ -128,13 +112,7 @@ class Markdown(LogBase):
             md_lists.extend(md.get_lists())
         return md_lists
 
-    @property
-    def qr_dir(self):
-        dir_path = Path(self.markdown_qr_dir) / "markdown_qr"
-        dir_path.mkdir(parents=True, exist_ok=True)
-        return dir_path
-
-    def get_markdown_file(self, md_filename) -> MarkdownFile:
+    def get_markdown_file(self, md_filename) -> Optional[MarkdownFile]:
         if not md_filename.endswith(".md"):
             md_filename = f"{md_filename}.md"
 
@@ -209,12 +187,3 @@ class Markdown(LogBase):
                 return md
             except:
                 return
-
-class MarkdownFileDataModel(BaseModel):
-    name: str
-    html: str
-
-    @classmethod
-    def from_path(cls, markdown_filepath):
-        html = get_markdown_file(markdown_filepath)
-        return cls(name=markdown_filepath, html=html)

@@ -19,9 +19,6 @@ Here is a list of your availalbe headspaces:
 {headspaces}
 
 Begin!
-
-HUMAN: {query}
-AI:
 """
 
 DEFAULT_PERSONALITY = """ You should act in the capacity of a helpful AI companion.
@@ -86,6 +83,7 @@ class Brain(LogBase):
                 self.logs.error(f"Headspace({headspace_name}) cannot be found in Brain's Plugin Registry.")
                 raise AgentNotFound(f"Headspace({headspace_name}) cannot be found in Brain's Plugin Registry. Check Brain.available_headspaces")
 
+            self.logs.debug(f"Caching {key} Headspace")
             self._headspace_cache[key] = self.instance_headspace(plugin.get_vertical(PluginVertical.HEADSPACE))
 
         return self._headspace_cache[key]
@@ -109,14 +107,24 @@ class Brain(LogBase):
 
         zero_shot = LLMProvider.from_environment().as_zero_shot()
         result = zero_shot.invoke(
-            HEADSPACE_ROUTER,
-            {
-                "examples": "/n".join(self.registry.routing_examples),
-                "headspaces": str(self.registry.names),
-                "query": query
-            }
+            [
+                { 
+                    "role": "system",
+                    "content": HEADSPACE_ROUTER.format(
+                        **{
+                            "examples": "\n".join(self.registry.routing_examples),
+                            "headspaces": str(self.registry.names)
+                        }
+                    )
+                },
+                {
+                    "role": "user",
+                    "content": query
+                }
+            ]
         )
 
+        self.logs.debug(f"Raw headspace router output: {result}")
         headspace_name = result.strip().split()[0]
         return self[headspace_name]
 

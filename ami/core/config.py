@@ -192,10 +192,6 @@ class Config:
     def headspaces_dir(self):
         """ pretty sure this should be DEPRICATED too """
         return self.plugins_dir
-    @property
-    def modules_dir(self):
-        """ DEPRICATED for self.plugins_dir """
-        return self.plugins_dir
 
     @cached_property
     def oww_models_dir(self) -> Path:

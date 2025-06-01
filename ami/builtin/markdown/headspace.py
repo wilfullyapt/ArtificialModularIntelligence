@@ -12,7 +12,7 @@ class Markdown(Headspace):
     settings_class = MarkdownDefaultSettings
 
     def __init__(self):
-        self.markdown = MarkdownTool(self.filespace, self.settings.markdown_settings)
+        self.markdown = MarkdownTool(self.filespace, self.settings.markdown_files)
 
     @ami_tool
     def list_md_files(self):

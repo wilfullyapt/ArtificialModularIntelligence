@@ -90,17 +90,15 @@ if __name__ == '__main__':
 
     # ---   Interpeocess Communication Manager
     ipc_manager = IPCManager(stop_flag=should_exit)
-
 #   assign_file_watchers(ipc_manager)
 
+    run_ai = False
+    run_gui = False
+    run_backend = False
 
     run_ai = True
     run_gui = True
 #   run_backend = True
-
-#   run_ai = False
-#   run_gui = False
-    run_backend = False
 
     # ---   ARTIFICIAL INTELLIGENCE
     if run_ai:
@@ -137,5 +135,13 @@ if __name__ == '__main__':
 
         # Some checks on how the plugin registry is working in the background
 #       vert = ai.brain.registry.get_plugins_by_vertical(PluginVertical.GUI)
+
+        # Checking on the functionality of the Function Calling Agent
+#       raw_output = 'Thought: The human wants to add "dog food" to a list they refer to as "Costco list". To ensure this list exists before proceeding, I should first check the available lists using the appropriate tool.\n\nAction:```json\n{"action": "list_lists", "args": {}}\n```'
+#       from ami.llm.agents import parse_llm_output
+#       thought, action = parse_llm_output(raw_output)
+
+
+
 
         print("Sequential debugging. Don't fuck it up.")

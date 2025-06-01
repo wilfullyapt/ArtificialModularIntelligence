@@ -93,9 +93,10 @@ class Markdown(LogBase):
 
     """
 
-    def __init__(self, base_path: Path, markdown_files: List[str]):
+    def __init__(self, base_path: Path, markdown_files: List[Path]):
         self._filesystem: Path = base_path
         self._md_files: List[str] = markdown_files
+        self.logs.debug(f"Markdown Files for MarkdownTool: {self._md_files}")
 
     @property
     def filesystem(self) -> Path:
@@ -103,7 +104,7 @@ class Markdown(LogBase):
 
     @property
     def md_files(self):
-        return [ self.filesystem / filename for filename in self._md_files if filename.endswith(".md") ]
+        return self._md_files
 
     @property
     def lists(self):
@@ -113,6 +114,7 @@ class Markdown(LogBase):
         return md_lists
 
     def get_markdown_file(self, md_filename) -> Optional[MarkdownFile]:
+        self.logs.debug(f"get_markdown_file called for {md_filename}")
         if not md_filename.endswith(".md"):
             md_filename = f"{md_filename}.md"
 
@@ -161,6 +163,7 @@ class Markdown(LogBase):
 
 
     def add_to_list(self, list_name:str, item:str, index:int=-1):
+        self.logs.debug(f"add_to_list: Markdown obj for the list is = {list_name}")
         md = self.get_list(list_name)
         if md is None:
             return

@@ -1,4 +1,5 @@
-""" Hotword detection and listening function """
+""" Hotword detection and listening functionality using OpenWakeWord and Silero VAD models """
+
 from enum import Enum, auto
 import io
 import time
@@ -14,6 +15,8 @@ import openwakeword
 from openwakeword.utils import download_models
 from openwakeword.model import Model
 import soundfile as sf
+import requests
+from silero_vad.utils import init_jit_model, VADIterator
 
 from ami.core import Config, LogBase
 from ami.ipc import EventType
@@ -50,38 +53,36 @@ class Listener(LogBase):
     """
     A class for handling audio input, hotword detection, and speech-to-text conversion.
 
-    This class uses OpenWakeWord for hotword detection and Google Speech Recognition
-    for speech-to-text conversion. It runs in a separate thread to continuously listen
-    for a specified hotword and then record and transcribe subsequent audio input.
+    This class uses OpenWakeWord for hotword detection and Silero VAD for speech detection,
+    followed by Google Speech Recognition for speech-to-text conversion. It runs in a separate
+    thread to continuously listen for a specified hotword and then record and transcribe
+    subsequent audio input.
 
     Attributes:
-        create_event (): A multiprocess queue to put events into.
-        thread (Thread): A thread object for running the hotword detection.
-        r (Recognizer): A speech recognition recognizer instance.
-        model (openwakeword.Model): An OpenWakeWord Model instance.
-        running (bool): A flag indicating whether the hotword detection is running.
-        LISTENING_PATIENCE (int): The gap between when the Human stops speaking and when the Ears ingest the command.
-        SILENCE_THRESHOLD (int): The minimum threshold that determines if there is silence.
-
-    Methods:
-        get_model: Get or download the hotword detection model.
-        string_from_audio: Convert audio data to text.
-        listen: Continuously listen for the hotword and process audio input.
-        start_listening: Start the listening thread.
-        stop: Stop the listening thread.
+        event_handler (Callable): Callback function to handle events.
+        thread (Thread): Thread object for running the detection.
+        r (Recognizer): Speech recognition recognizer instance.
+        model (openwakeword.Model): OpenWakeWord Model instance for hotword detection.
+        vad_model: Silero VAD model for voice activity detection.
+        running (bool): Flag indicating whether detection is running.
+        LISTENING_PATIENCE (int): Duration to wait after speech ends (overridden by VAD).
+        LISTENING_TIMEOUT (int): Maximum listening duration.
+        SILENCE_THRESHOLD (int): Legacy threshold, used as fallback.
     """
     def __init__(self, event_handler: Callable[[EventType, Any], None]):
         """
-        Initialize the Listener class.
+        Initialize the Listener class with hotword and VAD models.
 
         Args:
             event_handler: Callback function to handle events. Takes EventType and str parameters.
 
+
         This method sets up the initial state of the Listener object, including:
-        - Configuring audio processing parameters
-        - Setting up the speech recognition recognizer
-        - Loading the hotword detection model
-        - Initializing various attributes for audio processing and recording
+            - Configuring audio processing parameters
+            - Setting up the speech recognition recognizer
+            - Loading the hotword detection model
+            - Loading the voice audio detection model
+            - Initializing various attributes for audio processing and recording
         """
         super().__init__()
         self.event_handler = event_handler
@@ -97,8 +98,8 @@ class Listener(LogBase):
         self.LISTENING_TIMEOUT = config.listening_timeout
         self.SILENCE_THRESHOLD = config.silence_threshold
         self.logs.debug(f"DETECTION_THRESHOLD is {self.DETECTION_THRESHOLD}")
-        self.logs.debug(f"SILENCE_THRESHOLD is {self.LISTENING_PATIENCE} seconds")
         self.logs.debug(f"LISTENING_PATIENCE is {self.LISTENING_PATIENCE}")
+        self.logs.debug(f"LISTENING_TIMEOUT is {self.LISTENING_TIMEOUT}")
         self.logs.debug(f"SILENCE_THRESHOLD is {self.SILENCE_THRESHOLD}")
 
         self.model = self.get_model(
@@ -108,11 +109,41 @@ class Listener(LogBase):
             embedding_model_path=str(get_embeddings_filepath(config.oww_models_dir))
         )
 
+        vad_model_path = self.download_silero_vad_model(config.oww_models_dir)
+        self.vad_model = init_jit_model(str(vad_model_path))
+
         self.running = False
+
+    def download_silero_vad_model(self, models_dir: Path) -> Path:
+        """
+        Download the Silero VAD model to the specified directory if not present.
+
+        Args:
+            models_dir (Path): Directory to store the model.
+
+        Returns:
+            Path: Path to the downloaded or existing model file.
+        """
+        model_filename = "silero_vad.jit"
+        model_path = models_dir / model_filename
+        if not model_path.exists():
+            url = "https://github.com/snakers4/silero-vad/raw/master/files/silero_vad.jit"
+            response = requests.get(url)
+            response.raise_for_status()
+            with open(model_path, "wb") as f:
+                f.write(response.content)
+            self.logs.info(f"Downloaded {model_filename} to {models_dir}")
+        else:
+            self.logs.debug(f"{model_filename} already exists in {models_dir}")
+        return model_path
 
     def get_model(self, models_dir: Path, hotword: str, **kwargs) -> Model:
         """
         Get or download the hotword detection model.
+        This method checks if a model for the specified hotword exists in the models directory.
+        If found, it returns a Model instance using the existing file. If not found, it attempts
+        to download the model from the OpenWakeWord repository. If the hotword is not valid,
+        it raises an InvalidModel exception.
 
         Args:
             models_dir (Path): The directory where models are stored.
@@ -123,20 +154,14 @@ class Listener(LogBase):
 
         Raises:
             InvalidModel: If the specified hotword is not valid.
-
-        This method checks if a model for the specified hotword exists in the models directory.
-        If found, it returns a Model instance using the existing file. If not found, it attempts
-        to download the model from the OpenWakeWord repository. If the hotword is not valid,
-        it raises an InvalidModel exception.
         """
         tflite_files = list(models_dir.glob(f"*{hotword}*.tflite"))
 
         if len(tflite_files) > 0:
             return Model(wakeword_models=[str(tflite_files[0])], **kwargs)
-
         else:
             if hotword not in openwakeword.MODELS.keys():
-                err_msg = f"Hotword {hotword} not valid. Please reconfigire with one of the following {openwakeword.MODELS.keys()}"
+                err_msg = f"Hotword {hotword} not valid. Please reconfigure with one of {openwakeword.MODELS.keys()}"
                 self.logs.error(err_msg)
                 raise InvalidModel(err_msg)
             else:
@@ -144,16 +169,14 @@ class Listener(LogBase):
                 return self.get_model(models_dir, hotword, **kwargs)
 
     def string_from_audio(self, audio_data) -> str:
-        """ Convert the audio data to text """
+        """Convert the audio data to text """
         self.logs.debug("Audio to text in progress...")
-
         try:
             audio = sr.AudioData(audio_data.getvalue(), sample_rate=16000, sample_width=2)
             text = self.r.recognize_google(audio)      # google is the cloud
 #           text = self.r.recognize_sphinx(audio)      # sphinx is local
             self.logs.debug("recognize_google used for audio STT")
             return text
-
         except sr.UnknownValueError:
             self.logs.error("Google Speech Recognition could not understand audio")
             return ""
@@ -178,52 +201,50 @@ class Listener(LogBase):
 
     def capture_speech(self, mic_stream, initial_audio, silence_threshold):
         """
-        Capture and process speech after hotword detection.
+        Capture and process speech after hotword detection using Silero VAD.
 
         Args:
-            mic_stream: The active microphone stream
-            initial_audio: The audio chunk where hotword was detected
-            silence_threshold: The calculated silence threshold
+            mic_stream: The active microphone stream.
+            initial_audio: The audio chunk where hotword was detected (not used directly in VAD).
+            silence_threshold: Legacy threshold (used as fallback).
         """
-
-        # TODO: VERY IMPORTANT !!!
-
-        # YOU NEED TO ADD THE MODEL FOR SPEECH DETECTION FROM https://github.com/snakers4/silero-vad
-
-        # TODO: VERY IMPORTANT !!!
-
-
         self.state = ListenerState.LISTENING
-        audio_buffer = [initial_audio]
-        silence_counter = 0
-        speech_started = False
+        vad_iterator = VADIterator(self.vad_model, return_probs=True)
+        threshold = 0.5  # VAD speech detection threshold
+        silence_duration = 2.0  # Stop after 2 seconds of silence
+        chunk_duration = self.CHUNK / 16000.0  # Duration of each chunk in seconds
         start_time = time.time()
+        audio_buffer = []
 
         try:
-            while silence_counter < self.LISTENING_PATIENCE and self.running:
+            # Wait for speech to start
+            while self.running:
                 audio = np.frombuffer(mic_stream.read(self.CHUNK), dtype=np.int16)
-                audio_buffer.append(audio)
-
-                if time.time() - start_time > 1 and not speech_started:
-                    if np.max(np.abs(audio)) > silence_threshold:
-                        speech_started = True
-                        start_time = time.time()
-                    else:
-                        if self.logs.level in ['DEBUG', 'INFO']:
-                            print(f"\rTimeout Counter: {time.time() - start_time:.1f}/{self.LISTENING_TIMEOUT} | threshold={np.max(np.abs(audio))}", end="", flush=True)
-
-                if speech_started:
-                    if self.logs.level in ['DEBUG', 'INFO']:
-                        print(f"\rSilence threshold: {np.max(np.abs(audio))} | {np.max(np.abs(audio))/silence_threshold}", end="", flush=True)
-                    if np.max(np.abs(audio)) < silence_threshold:
-                        silence_counter = time.time() - start_time
-                    else:
-                        start_time = time.time()
-                        silence_counter = 0
-
+                audio_float = audio.astype(np.float32) / 32768.0  # Convert to float32 for VAD
+                prob = vad_iterator(audio_float)
+                if prob > threshold:
+                    audio_buffer.append(audio)
+                    break
                 if time.time() - start_time > self.LISTENING_TIMEOUT:
                     raise ListeningTimeout("Listening timeout occurred")
 
+            # Collect audio until 2 seconds of silence
+            silence_time = 0.0
+            while self.running:
+                audio = np.frombuffer(mic_stream.read(self.CHUNK), dtype=np.int16)
+                audio_float = audio.astype(np.float32) / 32768.0
+                prob = vad_iterator(audio_float)
+                audio_buffer.append(audio)
+                if prob > threshold:
+                    silence_time = 0.0
+                else:
+                    silence_time += chunk_duration
+                if silence_time >= silence_duration:
+                    break
+                if time.time() - start_time > self.LISTENING_TIMEOUT:
+                    raise ListeningTimeout("Listening timeout occurred")
+
+            # Process the collected audio
             audio_data = np.concatenate(audio_buffer)
             with io.BytesIO() as f:
                 sf.write(f, audio_data, 16000, format='wav')
@@ -250,7 +271,6 @@ class Listener(LogBase):
     def wait_for_hotword(self):
         """
         Continuously listen for the hotword.
-
         This method opens a microphone stream and continuously analyzes the audio input
         for the presence of a hotword. When detected, it transitions to the listening state.
         """
@@ -271,7 +291,7 @@ class Listener(LogBase):
             while self.running and self.state == ListenerState.WAITING_HOTWORD:
                 audio = np.frombuffer(mic_stream.read(self.CHUNK), dtype=np.int16)
                 last_minute_buffer.append(audio)
-                if len(last_minute_buffer) > 60 * 16000 // self.CHUNK:  # Keep last minute of audio
+                if len(last_minute_buffer) > 60 * 16000 // self.CHUNK:          # Keep last minute of audio
                     last_minute_buffer.pop(0)
 
                 prediction = self.model.predict(audio)
@@ -316,6 +336,7 @@ class Listener(LogBase):
         else:
             self.logs.warning(f"Cannot start listening! running='{str(self.running)}', state='{self.state}'")
 
+
     def capture_audio(self):
         """Start the hotword detection thread."""
         time.sleep(0.5)
@@ -334,8 +355,3 @@ class Listener(LogBase):
                 self.thread.join()
             self.state = ListenerState.IDLE
             self.logs.info("Ears stopped!")
-
-#     TODO Implement Calibration
-#     def calibrate_sensitivity(self, sensitivity_range=(.1, 4), interval=.2):
-#         start_sensitivity = sensitivity_range[0]
-#         end_sensitivity = sensitivity_range[-1]

@@ -1,11 +1,12 @@
 """ Hotword detection and listening functionality using OpenWakeWord and Silero VAD models """
 
 from enum import Enum, auto
+from functools import cached_property
 import io
 import time
 import traceback
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Literal
 from threading import Thread
 
 import pyaudio
@@ -35,19 +36,73 @@ def get_embeddings_filepath(models_dir: Path, search_string: str="embedding", ex
         return file
     return None
 
-class ListenerState(Enum):
-    """Enum representing the different states of the Listener."""
-    IDLE = auto()
-    WAITING_HOTWORD = auto()
-    LISTENING = auto()
 
-class InvalidModel(Exception):
-    """Exception raised for invalid hotword models."""
-    pass
 
-class ListeningTimeout(Exception):
-    """Exception raised when listening timeout occurs."""
-    pass
+class AudioML(LogBase):
+
+    def __init__(self, models_dir: Path):
+        self.models_dir = models_dir
+
+    @cached_property
+    def HotwordDetector(self):
+        models_dir = self.models_sub_dir("hotword")
+        pass
+
+    @cached_property
+    def SpeechDetector(self):
+        models_dir = self.models_sub_dir("speech")
+        pass
+
+    @cached_property
+    def STT(self):
+        models_dir = self.models_sub_dir("stt")
+        pass
+
+    def models_sub_dir(self, subdirectory_name: str) -> Path:
+        subdir_name = self.models_dir / subdirectory_name
+        subdir_name.mkdir(parents=True, exist_ok=True)
+        return subdir_name
+
+    def download_oww_vad_model(self, model_name: str):
+        pass
+
+
+    def get_model(self, model_type: Literal["hotword", "speech", "sst"], model_dir: Path) -> Any:
+        pass
+
+    def get_old_model(self, models_dir: Path, hotword: str, **kwargs) -> Model:
+        """
+        Get or download the hotword detection model.
+        This method checks if a model for the specified hotword exists in the models directory.
+        If found, it returns a Model instance using the existing file. If not found, it attempts
+        to download the model from the OpenWakeWord repository. If the hotword is not valid,
+        it raises an InvalidModel exception.
+
+        Args:
+            models_dir (Path): The directory where models are stored.
+            hotword (str): The name of the hotword to detect.
+
+        Returns:
+            Model: An instance of the OpenWakeWord Model class.
+
+        Raises:
+            InvalidModel: If the specified hotword is not valid.
+        """
+        tflite_files = list(models_dir.glob(f"*{hotword}*.tflite"))
+
+        if len(tflite_files) > 0:
+            return Model(wakeword_models=[str(tflite_files[0])], **kwargs)
+        else:
+            if hotword not in openwakeword.MODELS.keys():
+                err_msg = f"Hotword {hotword} not valid. Please reconfigure with one of {openwakeword.MODELS.keys()}"
+                self.logs.error(err_msg)
+                raise InvalidModel(err_msg)
+            else:
+                download_models(model_names=[hotword], target_directory=str(models_dir))
+                return self.get_model(models_dir, hotword, **kwargs)
+
+
+
 
 class Listener(LogBase):
     """
@@ -137,37 +192,7 @@ class Listener(LogBase):
             self.logs.debug(f"{model_filename} already exists in {models_dir}")
         return model_path
 
-    def get_model(self, models_dir: Path, hotword: str, **kwargs) -> Model:
-        """
-        Get or download the hotword detection model.
-        This method checks if a model for the specified hotword exists in the models directory.
-        If found, it returns a Model instance using the existing file. If not found, it attempts
-        to download the model from the OpenWakeWord repository. If the hotword is not valid,
-        it raises an InvalidModel exception.
-
-        Args:
-            models_dir (Path): The directory where models are stored.
-            hotword (str): The name of the hotword to detect.
-
-        Returns:
-            Model: An instance of the OpenWakeWord Model class.
-
-        Raises:
-            InvalidModel: If the specified hotword is not valid.
-        """
-        tflite_files = list(models_dir.glob(f"*{hotword}*.tflite"))
-
-        if len(tflite_files) > 0:
-            return Model(wakeword_models=[str(tflite_files[0])], **kwargs)
-        else:
-            if hotword not in openwakeword.MODELS.keys():
-                err_msg = f"Hotword {hotword} not valid. Please reconfigure with one of {openwakeword.MODELS.keys()}"
-                self.logs.error(err_msg)
-                raise InvalidModel(err_msg)
-            else:
-                download_models(model_names=[hotword], target_directory=str(models_dir))
-                return self.get_model(models_dir, hotword, **kwargs)
-
+    
     def string_from_audio(self, audio_data) -> str:
         """Convert the audio data to text """
         self.logs.debug("Audio to text in progress...")
@@ -354,4 +379,4 @@ class Listener(LogBase):
                 self.logs.info("Listener thread.join() called!")
                 self.thread.join()
             self.state = ListenerState.IDLE
-            self.logs.info("Listening stopped!")
+            self.logs.info("Ears stopped!")

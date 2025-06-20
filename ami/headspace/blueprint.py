@@ -8,7 +8,7 @@ import pickle
 from flask import Blueprint as FlaskBlueprint, render_template as flask_render_template
 from pydantic import BaseModel
 
-from ami.headspace.base import Payload, Primitive
+from ami.headspace import Primitive
 
 def get_path_from_class_module(class_module: str) -> Path:
     """ Returns the parent module path for a child module """
@@ -121,9 +121,9 @@ class Blueprint(FlaskBlueprint, Primitive, metaclass=BlueprintMeta):
         """ Given reload GUI call for subclasses """
         if not module_name:
             module_name = self.name.lower()
-        reloader = Payload.reload(module_name=module_name)
-        pickled_payload = pickle.dumps(reloader)
-        self.pipe.send(pickled_payload)
+#       reloader = Payload.reload(module_name=module_name)
+#       pickled_payload = pickle.dumps(reloader)
+#       self.pipe.send(pickled_payload)
 
     @property
     def tempsets(self):

@@ -26,6 +26,8 @@ class EventType(Enum):
     METADATA_CHANGED = "METADATA_CHANGED"
     PLUGIN_CHANGED = "PLUGIN_CHANGED"
 
+    RELOAD_GUI = "RELOAD_GUI"
+
 class StateType(Enum):
     """States for the AI system."""
 

@@ -16,6 +16,9 @@ pyaudio==0.2.14
 soundfile==0.12.1
 speechrecognition==3.10.4
 openwakeword==0.6.0
+silero-vad==5.1.2
+vosk==0.3.45
+sounddevice==0.5.1
 
 # Machine Learning
 numpy==1.26.4

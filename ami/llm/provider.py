@@ -61,7 +61,10 @@ class XAIClient(LLMClient, LogBase):
 
 
     def generate_response(self, prompt: str, **kwargs) -> str:
-        return self.get_completion(prompt, **kwargs).choices[0].message.content.strip()
+        result = self.get_completion(prompt, **kwargs).choices[0].message
+        self.logs.debug(f"XAI generate completion called. Raw output: {result}")
+        return result.content.strip()
+#       return self.get_completion(prompt, **kwargs).choices[0].message.content.strip()
 
 class AnthropicClient(LLMClient, LogBase):
     def __init__(self, api_key: str):

@@ -297,7 +297,7 @@ class PluginRegistry(LogBase):
         return self.plugin_cache.to_dict()
 
     def update_from_config(self):
-        """Update plugin statuses based on current config."""
+        """ Update plugin statuses based on current config and save if mismatched"""
         changes_made = False
         for plugin in self.plugin_cache.plugins.values():
             old_status = plugin.status

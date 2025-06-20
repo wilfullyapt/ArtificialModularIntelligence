@@ -2,9 +2,10 @@
 
 import time
 from functools import cached_property
-from typing import Any
+from typing import Any, List
 
 from ami.core import Config, Conversation
+from ami.headspace.headspace_instructions import HeadspaceInstruction, InstructionType
 from ami.ipc import ProcessIPC, IPCManager, ProcessType, EventType, StateType, IPCEvent, on_event
 
 from .brain import Brain
@@ -24,6 +25,9 @@ class AI(ProcessIPC):
     def __init__(self, process_manager: IPCManager):
         """Initialize the AI instance."""
         ProcessIPC.__init__(self, process_manager, ProcessType.AI)
+
+        # For testing, remove later
+        self.convo = Conversation()
         
     @cached_property
     def brain(self) -> Brain:
@@ -92,10 +96,12 @@ class AI(ProcessIPC):
         self.route_event(event.forward(ProcessType.GUI))
         self.logs.info(f"Transcription ready: {event.data}")
 
-        self.convo.add_message(event.data, role="human")                # Add the Human message
-        steps, response = self.brain.query(self.convo.transcript)       # Query the brain against the convo
-        self.convo.add_message(response, role="ai", agent=steps)        # Add the AI response to the convo
-        self.process_manager.set_conversation(self.convo.to_dict())     # Update the ipc shared convo
+        self.convo.add_message(event.data, role="human")                    # Add the Human message
+        result, response = self.brain.query(self.convo.transcript)          # Query the brain against the convo
+        self.handle_headspace_instruction(result)
+        self.q = result
+        self.convo.add_message(response, role="ai", agent=result.as_steps)  # Add the AI response to the convo
+        self.process_manager.set_conversation(self.convo.to_dict())         # Update the ipc shared convo
 
         self.route_event(IPCEvent(
             EventType.RESPONSE_READY, 
@@ -131,3 +137,23 @@ class AI(ProcessIPC):
 
         except Exception as e:
             self.logs.error(f"Error during cleanup: {e}")
+
+    def handle_headspace_instruction(self, headspace_instruction: HeadspaceInstruction):
+
+        instruction = headspace_instruction.instructions
+
+        if InstructionType.RELOAD_GUI in instruction:
+            self.logs.debug(f"Reload GUI instruction detected for the {headspace_instruction.name} headspace")
+            event = IPCEvent(
+                type=EventType.RELOAD_GUI,
+                source=ProcessType.AI,
+                target=ProcessType.GUI,
+                data=[headspace_instruction.name]
+            )
+            self.get_queue(ProcessType.GUI).put(event)
+
+        if InstructionType.ASK_USER_INPUT in instruction:
+            self.logs.debug("Reload GUI instruction detected!")
+
+        if InstructionType.CONFIRM_WITH_HUMAN in instruction:
+            self.logs.debug("Confirm with User instruction detected!")

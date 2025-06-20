@@ -1,18 +1,20 @@
-""" AMI Headspace Core Funcionality """
+""" AMI Headspace Abstract Base Class and Core Funcionality """
 
 import json
 import typing
 import inspect
 from pathlib import Path
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List
+from typing import Callable, Dict, List
 from functools import cached_property, wraps
 
 import qrcode
 
-from ami.core import Config, Conversation
-from ami.headspace import Primitive
-from ami.llm.provider import LLMProvider
+from ami.core import Config
+from ami.llm import LLMProvider
+
+from .base import Primitive
+from .headspace_instructions import HeadspaceInstruction
 
 def ami_tool(func):
     """ Decorator for creating tools within AI-controlled classes.
@@ -30,7 +32,6 @@ def ami_tool(func):
 
     return wrapper()
 
-
 def generate_qr_image(url) -> Path:
     qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=10, border=4)
     qr.add_data(url)
@@ -38,7 +39,7 @@ def generate_qr_image(url) -> Path:
 
     img = qr.make_image(fill_color="black", back_color="white")
 
-    qr_img_path = Config().ai_dir / "resources" / "img_dump" / "qr_code.png"
+    qr_img_path = Config().data_dir / "resources" / "img_dump" / "qr_code.png"
     qr_img_path.parent.mkdir(parents=True, exist_ok=True)
 
     img.save(qr_img_path)
@@ -85,10 +86,6 @@ def extract_tool_info(func):
         "description": description,
         "arg_schema": parameters
     }
-
-#@dataclass
-#class ToolArgSchema:
-
 
 @dataclass
 class HeadspaceTool:
@@ -157,20 +154,9 @@ class Headspace(Primitive):
             raise TypeError("Headspace class cannot be instantiated directly.")
         return super().__new__(cls, *args, **kwargs)
 
-
-    def __init__(self):
-        """
-        Initialize the Headspace instance.
-        """
-        Primitive.__init__(self)
-
     def __repr__(self):
         """ Custom __repr__ function for the Headspace instanced """
-        return f"Headspace(name={self.name})"
-
-    @cached_property
-    def name(self):
-        return self.__class__.__name__.lower()
+        return f"<Headspace(name={self.name})>"
 
     @cached_property
     def tool_names(self):
@@ -196,12 +182,8 @@ class Headspace(Primitive):
     def append_visual(self, img_path: Path):
         print(f"Image appended to Headspace returning: {img_path}")
 
-    def query(self, prompt: str) -> List[Dict[str, Any]]:
+    def query(self, prompt: str) -> HeadspaceInstruction:
         """ Process a user query according to the tools in the child headspace opbject """
         agent = LLMProvider.from_environment().as_funccalling_toa_agent(self.name)
 
-        # TODO: The Headspace.query method shouldnt just return a list o the agent transcription. This is where images or files could be attached. or any number of configured outputs
-        # IMAGINE: The headspace wants to send back an inline VIDEO or IMAGE or LESSONPLAN or some preconfigured output that the associated Plugin GUI for the Headsoace knows how to render. How would this work????
-        # How would a predefined output work?
-        # TODO: Get image returing to work first
         return agent.run(prompt, self.tools)

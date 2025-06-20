@@ -8,7 +8,7 @@ from functools import cached_property
 from datetime import datetime
 
 from .config import Config
-from .logger import Logger as LogBase
+from .logger import Base as LogBase
 
 class IllegalConversationId(Exception):
     """Raised when a conversation ID already exists."""

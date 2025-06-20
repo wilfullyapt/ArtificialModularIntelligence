@@ -135,7 +135,7 @@ class Config:
         log_config: Dict[str, Any] = self.get("logging", {})
         return {
             "stdout": log_config.get("stdout", True),
-            "save_dir": self.ai_dir / log_config.get("directory", "logs"),
+            "save_dir": self.data_dir / log_config.get("directory", "logs"),
             "log_level": log_config.get("log_level", "INFO"),
             "rotation": log_config.get("rotation", "1 day"),
             "retention": log_config.get("retention", "30 days"),
@@ -152,7 +152,7 @@ class Config:
     @cached_property
     def builtin_plugins(self) -> Path:
         """ Return the path where the built-in add-ons are """
-        return self.root / "ami" / "headspace" / "builtin"
+        return self.root / "ami" / "builtin"
 
 #---------------- DATA DIRECTORY PATHS (~/.ami)
 
@@ -189,22 +189,14 @@ class Config:
         return self.data_dir / ".env"
 
     @property
-    def ai_dir(self):
-        """ DEPRICATED FOR self.addon_data_dir """
-        return self.plugin_data_dir
-    @property
     def headspaces_dir(self):
         """ pretty sure this should be DEPRICATED too """
-        return self.plugins_dir
-    @property
-    def modules_dir(self):
-        """ DEPRICATED for self.plugins_dir """
         return self.plugins_dir
 
     @cached_property
     def oww_models_dir(self) -> Path:
         """ Get the path for OWW models, create the directory if it doesn't exist """
-        models_dir = self.ai_dir / "resources" / "models"
+        models_dir = self.data_dir / "resources" / "models"
         models_dir.mkdir(parents=True, exist_ok=True)
         return models_dir
 

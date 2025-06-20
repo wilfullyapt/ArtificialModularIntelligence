@@ -4,6 +4,7 @@ import signal
 import traceback
 from typing import Any, Optional
 import multiprocessing as mp
+from pprint import pprint as pp
 
 from PyQt6.QtWidgets import QApplication
 from watchdog.observers import Observer
@@ -16,8 +17,6 @@ from ami.gui import MainWindow as GUI
 from ami.ipc import EventType, IPCEvent
 from ami.llm.provider import LLMProvider
 
-# Global variables for process management
-ai: Optional[mp.Process] = None
 should_exit = mp.Event()
 
 def signal_handler(signum, frame):
@@ -82,6 +81,11 @@ def assign_file_watchers(ipc_manager: IPCManager):
     observer.schedule(handler, str(config.plugins_dir), recursive=False)
     observer.start()
 
+def search(obj: Any, srch_str: str):
+    for item in dir(obj):
+        if srch_str in item:
+            print(f":::  '{item}'  :::  TYPE {type(getattr(obj, item))}")
+
 if __name__ == '__main__':
     print(" --- DEV SCRIPT ---")
 
@@ -102,27 +106,34 @@ if __name__ == '__main__':
 
     # ---   ARTIFICIAL INTELLIGENCE
     if run_ai:
-        ai = AI(ipc_manager)
+        ai: AI = AI(ipc_manager)
         if any([run_backend, run_gui]):
             ai.start()
 
 
     # ---   BACKEND FASTAPI
     if run_backend:
-        backend = Backend(ipc_manager)
+        backend: Backend = Backend(ipc_manager)
         backend.start()
 
     # ---   MAIN PROCESS GUI
     if run_gui:
         app = QApplication(sys.argv)
-        window = GUI(ipc_manager)
-        window.show()
-        sys.exit(app.exec())
+
+        gui: GUI = GUI(ipc_manager)
+        if any([run_backend, run_ai]):
+            gui.run()
+            sys.exit(app.exec())
         
 
     sequential_debuging = False
 #   sequential_debuging = True
     if sequential_debuging:
+
+        # function for testing Event and Data combos to the AI
+        def queue_event(event_type: EventType, data: Any):
+            event = IPCEvent(type=event_type, source=ProcessType.AI, target=ProcessType.GUI, data=data)
+            ai.get_queue(ProcessType.AI).put(event)
 
         # Route a query and return a headspace
 #       hs = ai.brain.headspace_router("Set a reminder to take a out the trash every sunday at 6pm.")
@@ -141,7 +152,11 @@ if __name__ == '__main__':
 #       from ami.llm.agents import parse_llm_output
 #       thought, action = parse_llm_output(raw_output)
 
+        # Tests a Transcription to the AI
+#       queue_event(EventType.TRANSCRIPTION_READY, "add steak to the costco list")
+#       ai.check_and_handle_incoming_ipc_event()
 
-
+        # Markdown specific testing
+        md = ai.brain['markdown'].markdown
 
         print("Sequential debugging. Don't fuck it up.")

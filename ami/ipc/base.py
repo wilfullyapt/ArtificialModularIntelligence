@@ -1,4 +1,6 @@
+from logging import warning
 import time
+import traceback
 from multiprocessing import Process, Queue
 from functools import cached_property
 from typing import Dict, Callable
@@ -26,7 +28,7 @@ class BaseIPC(LogBase):
         super().__init__()
         self.process_manager = ipc_manager
         self.process_type: ProcessType = process_type
-        ipc_logs_name = f"{self.__module__}.{self.__class__.__name__}.process"
+        ipc_logs_name = f"{self.__module__}.{self.__class__.__name__}:BaseIPC"
         self.ipc_logs: Logger = Logger(Config().log_config)(ipc_logs_name)
 
     def get_queue(self, process_type: ProcessType) -> Queue:
@@ -50,28 +52,24 @@ class BaseIPC(LogBase):
                     pass
         return handlers
 
-
-
     def check_and_handle_incoming_ipc_event(self):
         """
-        Handle the incoming events in the proces specific multiprocessing Queue
-
+        Handle the incoming events in the process-specific multiprocessing Queue
 
         Events handling is specific to the `@on_event` decorator, which you can see in use in the ProcessIPC.run Keep Alive loop.
         """
         try:
-            # Get the event from the queue and assert the instance it is
             event = self.get_queue(self.process_type).get_nowait()
             assert isinstance(event, IPCEvent)
 
-            # If there is an EventType registered, execute it with this event
             if event.type in self.event_handlers:
                 try:
                     callback = self.event_handlers[event.type]
                     self.ipc_logs.info(f"BaseIPC Event Handling {event.type}: {callback}")
                     self.event_handlers[event.type](event)
                 except Exception as e:
-                    self.ipc_logs.error(f"Error handling event {event.type}: {e}")
+                    tb_str = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
+                    self.ipc_logs.error(f"Error handling event {event.type}: {e}\nFull traceback:\n{tb_str}")
 
             else:
                 self.ipc_logs.warning(f"Unhandled event type: {event.type}")
@@ -79,7 +77,8 @@ class BaseIPC(LogBase):
         except (AssertionError, Empty):
             pass
         except Exception as e:
-            self.ipc_logs.error(f"Error in event loop: {e}")
+            tb_str = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
+            self.ipc_logs.error(f"Error in event loop: {e}\nFull traceback:\n{tb_str}")
 
     def update_cache(self):
         """ Update local cache from shared data."""

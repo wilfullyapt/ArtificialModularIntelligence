@@ -2,7 +2,7 @@ from urllib.parse import quote_plus
 
 from ami.headspace import Headspace, ami_tool
 from ami.backend.utils import get_network_url
-from ami.headspace.headspace import generate_qr_image
+from ami.headspace import HeadspaceInstruction, generate_qr_image
 
 from .settings import MarkdownDefaultSettings
 from .tool import Markdown as MarkdownTool
@@ -27,33 +27,27 @@ class Markdown(Headspace):
     @ami_tool
     def add_to_list(self, list_name:str, item:str, index:int=-1):
         """ Use this tool to add an item to a list, do not supply an index unless it is the user's intention """
-        md = self.markdown.add_to_list(list_name, item, index)
-        if md:
-            self.markdown.update_list(md)
-
-        else:
-            return f"List '{list_name}' not found! Try the `list_lists` tool, then retry the add_to_list tool."
-
-        return f"'{item}' successfully added to the '{list_name}' list!"
+        try:
+            self.markdown.add_to_list(list_name, item, index)
+            return HeadspaceInstruction.reload_gui(f"'{item}' successfully added to the '{list_name}' list!")
+        except Exception as e:
+            return f"Error in add_to_list! Use the `list_lists` tool to identify the right list. Error: {e}"
 
     @ami_tool
     def remove_from_list(self, list_name: str, item: str):
         """ Use this tool to remove an item to a list. Ensure to spell the list_name correctly. """
-        md = self.markdown.remove_from_list(list_name, item)
-        if md:
-            self.markdown.update_list(md)
+        try:
+            self.markdown.remove_from_list(list_name, item)
+            return HeadspaceInstruction.reload_gui(f"'{item}' successfully removed to the '{list_name}' list!")
+        except Exception as e:
+            return f"Error in remove_from_list! Use the `list_lists` tool to identify the right list. Error: {e}"
 
-        else:
-            return f"List '{list_name}' not found! Try the `list_lists` tool, then retry the remove_from_list tool."
-
-        return f"'{item}' successfully removed from the '{list_name}' list!"
-
-    @ami_tool
+#   @ami_tool
     def spawn_list(self, list_name: str, filename: str):
         """ Use this tool to create a new list(list_name) in a markdown file(filename) """
         return "Do not use this tool! It has not been implemented!"
 
-    @ami_tool
+#   @ami_tool
     def clear_list(self, list_name: str):
         """ Use this tool to reset/clear/erase a list and delete all items in the list """
         return "Do not use this tool! It has not been implemented!"

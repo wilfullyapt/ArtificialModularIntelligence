@@ -44,16 +44,16 @@ class Primitive(LogBase):
         return filespace
 
     @cached_property
-    def name(self) -> str:
+    def class_name(self) -> str:
         return self.__class__.__name__.lower()
 
     @cached_property
-    def plugin_name(self) -> str:
+    def name(self) -> str:
         return self._hs_name
 
     @cached_property
     def _settings_file(self) -> Path:
-        return self.filespace /  f"{self.plugin_name}_settings.json"
+        return self.filespace /  f"{self.name}_settings.json"
 
     def _load_settings(self) -> Any:
         if self._settings_file.is_file():

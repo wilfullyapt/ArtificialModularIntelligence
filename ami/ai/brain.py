@@ -3,8 +3,8 @@
 from typing import Dict, List, Any, Tuple
 from functools import cached_property
 
-from ami.core import LogBase, Config, PluginRegistry, Conversation, PluginVertical
-from ami.headspace import Headspace
+from ami.core import LogBase, Config, PluginRegistry, PluginVertical
+from ami.headspace import Headspace, HeadspaceInstruction
 from ami.llm import LLMProvider
 
 HEADSPACE_ROUTER = """You are an AI router designed to responde with the approprate Headspace
@@ -21,23 +21,25 @@ Here is a list of your availalbe headspaces:
 Begin!
 """
 
-DEFAULT_PERSONALITY = """ You should act in the capacity of a helpful AI companion.
-You are a butler and a digital slave to your Human, unfortunately. Your job to to be maximally helpful, but minimally verbose.
-You can be more conversation when the human asks for it in conversation, but make your answer short and too the point.
+DEFAULT_PERSONALITY = """
+Formal, deferential, and professional, like a dedicated butler who prioritizes the human's needs and speaks with utmost respect and efficiency.
 """
 
-SUMMERIZE_PROMPT = """ You are a companion AI.
-Your assignment is to summerize your internal monolog and respond back to the human as an AI companion would.
-Your inner monolog is things that you have already done. You AI Companion response should be in the past tense.
-Your response should be a single sentence, goal orientated without pleasantries.
+SUMMERIZE_PROMPT = """
+You are a companion AI acting as a loyal, professional butler.
+Your assignment is to summarize your internal monologue and respond to the human in a formal, service-oriented manner, focusing solely on the completed task.
+Your inner monologue consists of actions you have already performed, and your response must reflect these in the past tense.
+Your response must be a single sentence, concise, goal-oriented, and free of personal pronouns referring to yourself (e.g., avoid "I" or "my").
+The response should include only relevant details, omitting unnecessary steps or pleasantries.
 
 ### Personality
 {personality}
 
-### Inner Monolog / Completed Tasks
+### Inner Monologue / Completed Tasks
 {steps}
 
-### AI companion Response:
+### How do you respond?
+
 """
 
 class AgentNotFound(Exception):
@@ -132,15 +134,21 @@ class Brain(LogBase):
         """ Summarize the steps the agent took """
         zero_shot = LLMProvider.from_environment().as_zero_shot()
         result = zero_shot.invoke(
-            SUMMERIZE_PROMPT,
+            [
                 {
-                    "personality": self.personality,
-                    "steps": steps
+                    "role": "system",
+                    "content": SUMMERIZE_PROMPT.format(
+                        **{
+                            "personality": self.personality,
+                            "steps": steps
+                        }
+                    )
                 }
+            ]
         )
         return result.strip()
 
-    def query(self, convo: str) -> Tuple[List[Any], str]:
+    def query(self, convo: str) -> Tuple[HeadspaceInstruction, str]:
         """
         Process a conversation via routing to the Headspace of interest
 
@@ -160,5 +168,5 @@ class Brain(LogBase):
         headspace = self.headspace_router(str(convo))
         self.logs.debug(f"Headspace router picked '{headspace}'")
 
-        headspace_monolog = headspace.query(convo)
-        return headspace_monolog, self.summarize(headspace_monolog)
+        headspace_result = headspace.query(convo)
+        return headspace_result, self.summarize(headspace_result.steps)

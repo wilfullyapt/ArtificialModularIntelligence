@@ -5,11 +5,11 @@ import traceback
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import QApplication
 
-from ami.core import Config, PluginRegistry, PluginVertical
+from ami.core import PluginRegistry, PluginVertical
 from ami.ipc import IPCManager, ProcessType, EventType, IPCQWidget, IPCEvent, on_event
 
 from .popup import AMIDialog
-from .layouts import FlexiblePositioningLayout
+from .layouts import ManagedFlexiblePositioningLayout
 
 class MainWindow(IPCQWidget):
 
@@ -19,7 +19,6 @@ class MainWindow(IPCQWidget):
 
         self.registry = PluginRegistry(ipc_manager)
 
-        # Create single popup instance
         def popup_callback():
             self.process_manager.send_event(
                     IPCEvent(
@@ -31,64 +30,32 @@ class MainWindow(IPCQWidget):
             )
         self.popup = AMIDialog(self, popup_callback)
 
-        self.setWindowFlags(
-            Qt.WindowType.FramelessWindowHint |                     # Remove window frame
-            Qt.WindowType.MaximizeUsingFullscreenGeometryHint       # Use full screen geometry
-        )
-        self.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent)   # Enable OpenGL acceleration if available
+#       self.setWindowFlags(
+#           Qt.WindowType.FramelessWindowHint |                     # Remove window frame
+#           Qt.WindowType.MaximizeUsingFullscreenGeometryHint       # Use full screen geometry
+#       )
+#       self.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent)   # Enable OpenGL acceleration if available
 
         try:
-            # Setup the GUI
-            self.layout_ = FlexiblePositioningLayout()
-            self.setLayout(self.layout_)
+            screen = QApplication.primaryScreen()
+#           if not screen:
+#               raise RuntimeError("Primary Screen not found!")
+
+            self.managed_layout = ManagedFlexiblePositioningLayout(screen.geometry())
+            self.setLayout(self.managed_layout)
             self.setStyleSheet("background-color: black;")
 
-            # Iterate over the plugins with GUI and dynamically add them to the layout
             for plugin in self.registry.get_plugins_by_vertical(PluginVertical.GUI):
-                widget = plugin.gui(self)
-                self.layout_.add_widget(widget, **widget.placement)
-                self.logs.info(f"Added {widget.name} with placement: {widget.placement}")
-
-            # Setup screen management
-            self.screen_timer = QTimer(self)
-            self.screen_timer.timeout.connect(self.check_screen_changes)
-            self.screen_timer.start(1000)  # Check screen changes every second
+                self.managed_layout.add_plugin_widget(plugin.gui)
 
         except Exception as e:
             tb_str = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
             self.logs.critical(f"Failed to initialize MainWindow: {tb_str}")
 
-    def check_screen_changes(self):
-        """Monitor and handle screen geometry changes"""
-        try:
-            screen = QApplication.primaryScreen()
-            if screen:
-                geometry = screen.geometry()
-                if geometry != self.geometry():
-                    self.ensure_proper_screen_geometry()
-        except Exception as e:
-            self.logs.error(f"Error checking screen changes: {e}")
-
-    def ensure_proper_screen_geometry(self):
-        """Ensure window uses full screen geometry"""
-        try:
-            screen = QApplication.primaryScreen()
-            if screen:
-                geometry = screen.geometry()
-                self.setGeometry(geometry)
-                self.layout_.setGeometry(geometry)
-        except Exception as e:
-            self.logs.error(f"Error setting screen geometry: {e}")
-
-    def _show(self):
-        # Show fullscreen
+    def run(self):
+        self.logs.debug("MainWindow.run() called! -> This is the show event")
+        self.managed_layout.setGeometry(self.managed_layout.screen_geometry)
         self.showFullScreen()
-        self.ensure_proper_screen_geometry()
-
-    def showEvent(self, event):
-        """Handle show event to ensure proper fullscreen"""
-        super().showEvent(event)
-        self.ensure_proper_screen_geometry()
 
     @on_event(EventType.HOTWORD_DETECTED)
     def on_hotword_detection(self, event: IPCEvent):
@@ -105,3 +72,9 @@ class MainWindow(IPCQWidget):
         """Handle AI response by updating the popup"""
         self.popup.show_response(event.data)
 
+    @on_event(EventType.RELOAD_GUI)
+    def reload_plugin_gui(self, event: IPCEvent):
+        """Reload plugin widgets specified in the event data."""
+        self.logs.info(f"Reload GUI triggered for {str(event.data)}")
+        for plugin_name in event.data:
+            self.managed_layout.update_plugin_widget(plugin_name)

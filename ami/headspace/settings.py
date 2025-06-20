@@ -18,8 +18,8 @@ class BaseWidgetSettings(BaseModel):
     rely: Optional[float] = None
     anchor: str = "nw"
 
-    width: Union[int, float] = 300
-    height: Union[int, float] = 300
+    width: int = 300
+    height: int = 300
 
     background_color: str = "black"
     font: str = "Arial"

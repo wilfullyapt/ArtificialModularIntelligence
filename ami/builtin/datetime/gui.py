@@ -54,6 +54,8 @@ class DateTime(BaseWidget):
         self.am_pm_label.setContentsMargins(0, 0, 15, 0)
         self.setLayout(layout)
 
+        self.update_time()
+
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_time)
         self.timer.start(1000)

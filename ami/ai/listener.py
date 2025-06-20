@@ -169,8 +169,9 @@ class Listener(LogBase):
                 return self.get_model(models_dir, hotword, **kwargs)
 
     def string_from_audio(self, audio_data) -> str:
-        """Convert the audio data to text """
+        """ Convert the audio data to text """
         self.logs.debug("Audio to text in progress...")
+
         try:
             audio = sr.AudioData(audio_data.getvalue(), sample_rate=16000, sample_width=2)
             text = self.r.recognize_google(audio)      # google is the cloud
@@ -331,7 +332,6 @@ class Listener(LogBase):
         if not self.running and self.state == ListenerState.IDLE:
             self.running = True
             self.thread = Thread(target=self.wait_for_hotword, daemon=True)
-            self.logs.info("-- Waiting Hotword --")
             self.thread.start()
         else:
             self.logs.warning(f"Cannot start listening! running='{str(self.running)}', state='{self.state}'")

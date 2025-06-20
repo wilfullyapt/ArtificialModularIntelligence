@@ -5,14 +5,16 @@ import typing
 import inspect
 from pathlib import Path
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List
+from typing import Callable, Dict, List
 from functools import cached_property, wraps
 
 import qrcode
 
 from ami.core import Config
-from ami.headspace import Primitive
-from ami.llm.provider import LLMProvider
+from ami.llm import LLMProvider
+
+from .base import Primitive
+from .headspace_instructions import HeadspaceInstruction
 
 def ami_tool(func):
     """ Decorator for creating tools within AI-controlled classes.
@@ -154,7 +156,7 @@ class Headspace(Primitive):
 
     def __repr__(self):
         """ Custom __repr__ function for the Headspace instanced """
-        return f"Headspace(name={self.name})"
+        return f"<Headspace(name={self.name})>"
 
     @cached_property
     def tool_names(self):
@@ -180,12 +182,8 @@ class Headspace(Primitive):
     def append_visual(self, img_path: Path):
         print(f"Image appended to Headspace returning: {img_path}")
 
-    def query(self, prompt: str) -> List[Dict[str, Any]]:
+    def query(self, prompt: str) -> HeadspaceInstruction:
         """ Process a user query according to the tools in the child headspace opbject """
         agent = LLMProvider.from_environment().as_funccalling_toa_agent(self.name)
 
-        # TODO: The Headspace.query method shouldnt just return a list o the agent transcription. This is where images or files could be attached. or any number of configured outputs
-        # IMAGINE: The headspace wants to send back an inline VIDEO or IMAGE or LESSONPLAN or some preconfigured output that the associated Plugin GUI for the Headsoace knows how to render. How would this work????
-        # How would a predefined output work?
-        # TODO: Get image returing to work first
         return agent.run(prompt, self.tools)

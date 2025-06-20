@@ -19,6 +19,11 @@ class IPCQWidget(BaseIPC, QWidget):
             self.ipc_timer.start(interval)
             self.ipcgui_info_log("StopFlag timer is running")
 
+    def resizeEvent(self, event):
+        self.logs.debug(f"IPCQWidget resize Event: {event}")
+        self.a= event
+        super().resizeEvent(event)
+
     def ipcgui_info_log(self, log_message):
         self.logs.info(log_message)
         self.ipc_logs.info(log_message)

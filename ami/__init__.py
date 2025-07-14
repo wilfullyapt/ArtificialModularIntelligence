@@ -4,8 +4,8 @@ __init__.py
 
 import pytz
 
-from .headspace import Headspace, Dialog
-from .ai import AI
+from ami.headspace import Headspace, Dialog
+from ami.ai import AI
 
 def timezones():
     """ Get all pytz timezones """

@@ -12,8 +12,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 from pydantic import BaseModel
 
-from ami.base import Base
-from ami.config import Config
+from ami.core import LogBase, Config
 from ami.headspace import Dialog
 from ami.headspace.core.calendar import prompts
 
@@ -109,7 +108,7 @@ class HeadspaceCache(BaseModel):
             prompts=get_prompts_as_module(module.__module__)
         )
 
-class Brain(Base):
+class Brain(LogBase):
     """
     The Brain class is the language processing part of the AI system, responsible for managing
     and coordinating the various Headspaces that resolve the queries with the available Headspaces.

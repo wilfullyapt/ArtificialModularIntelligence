@@ -1,125 +1,114 @@
-""" The main attraction """
+"""Main AI orchestrator module"""
 import sys
-import signal
-import pickle
 import asyncio
-import importlib.util as importer
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Callable, List, Literal, Optional, Type
-from multiprocessing import Pipe, Event as MultiprocessEvent
+import importlib.util as importer
+from functools import cached_property
+from typing import Any, List, Literal, Optional, Type
+from queue import Empty
 
-from pydantic import ValidationError
-
-from ami.base import Base
-from ami.config import Config
+from ami.core import Config
+from ami.ipc import ProcessIPC, IPCManager, ProcessType, EventType, StateType, IPCEvent, on_event
 from ami.headspace.blueprint import Payload
-from ami.flask.manager import FlaskManager, create_flask_app
 
-class TemporalCommunications:
-    """
-    A class for implementing the Observer pattern, allowing objects to subscribe
-    to and publish events.
-    """
-    def __init__(self):
-        """
-        Initialize the TemporalCommunications instance with an empty dictionary
-        to store subscribers.
-        """
-        self.subscribers = {}
+from .listener import Listener
 
-    def subscribe(self, event, callback: Callable):
-        """
-        Subscribe a callable (function or method) to an event.
-
-        Args:
-            event (str): The name of the event to subscribe to.
-            callback (Callable): The callable to be invoked when the event is published.
-        """
-        if event not in self.subscribers:
-            self.subscribers[event] = []
-        self.subscribers[event].append(callback)
-
-    def publish(self, event, data=None):
-        """
-        Publish an event, invoking all subscribed callables.
-
-        Args:
-            event (str): The name of the event to publish.
-            data (optional): Data to be passed to the subscribed callables.
-        """
-        if event in self.subscribers:
-            for callback in self.subscribers[event]:
-                if data is None:
-                    callback()
-                else:
-                    callback(data)
-
-class AI(Base):
+class AI(ProcessIPC):
     """
     The AI class represents the core Artificial Modular Intelligence system.
-
-    This class integrates various components such as attention management,
-    brain processing, audio input (ears), graphical user interface, and
-    inter-process communication. It manages the initialization, running,
-    and stopping of these components, as well as handling payloads for
-    module management and GUI updates.
-
-    Attributes:
-        async_thread (Thread): Thread for asynchronous operations by the Attention.
-        ai_pipe (Connection): Pipe inter-process communication from the Flask server.
-        flask_pipe (Connection): Pipe inter-process communication for the Flask server.
-        stop_event: multiprocesses.Event to signal stopping of the AI system.
-        _core_modules (MultiprocessEvent): List of core module names or loaded module objects.
-        attn (Attention): Attention management component, basically an async event loop.
-        temp_comms (TemporalCommunications): Observer pattern Event Bus.
-        ears (Ears): Audio input component.
-        gui (GUI): Tkinter Graphical user interface component.
-        flask_manager (FlaskManager): Manager for the Flask app and Gunicorn.
-        brain (Brain): LLM powerhouse and Headspace manager.
-
-    Inherits from:
-        Base: Provides basic functionality and logging capabilities.
     """
 
-    def __init__(self):
-        """
-        Initialize the AI instance.
-
-        This method sets up the necessary components and configurations for the AI system.
-        It loads the core modules based on the enabled headspaces, initializes the attention
-        mechanism, temporal communications, ears, GUI, Flask manager, and brain components.
-        """
-        super().__init__()
-
-        self.async_thread = None
-        self.ai_pipe, self.flask_pipe = Pipe()
-        self.stop_event = MultiprocessEvent()
+    def __init__(self, process_manager: IPCManager):
+        """ Initialize the AI instance. """
+        ProcessIPC.__init__(self, process_manager, ProcessType.AI)
 
         enabled_headspaces = Config().enabled_headspaces
         self.submodules = ('headspace', 'blueprint', 'gui', 'prompts')
-        self._core_modules: List[ModuleType] = self._load_core_modules(enabled_headspaces)
-#         self._core_modules = ( "markdown",)
+        self._core_modules = enabled_headspaces
 
-        from . import Attention, Brain
-        from ami.ears import Ears
-        from ami.gui import GUI
+    @cached_property
+    def listener(self):
+        def queue_event(event_type: EventType, data: Any):
+            event = IPCEvent(
+                type=event_type,
+                source=ProcessType.AI,
+                target=ProcessType.GUI,
+                data=data
+            )
+            self.get_queue(ProcessType.AI).put(event)
+        return Listener(queue_event)
 
-        self.attn = Attention(ignore_coroname_logging=["process_whisperer"])
+    def setup(self):
+        """ Subclassed from BaseProcess for the process setup """
+        try:
+#           self.process_manager.set_state(StateType.IDLE)
+            self.logs.info("Setup function called")
+            self.listener.start_listening()
+            self.running(True)
+#           self.process_manager.set_state(StateType.WAITING)
 
-        self.temp_comms = TemporalCommunications()
-        self.ears = Ears(temp_comms=self.temp_comms)
+        except Exception as e:
+            self.logs.error(f"Error in setup: {e}")
+#           self.process_manager.set_state(StateType.ERROR)
+            raise
 
-        self.gui = GUI(temp_comms=self.temp_comms)
-        self.flask_manager = FlaskManager(self.stop_event)
-        self.brain = Brain(temp_comms=self.temp_comms, headspaces=self.get_modules_part("headspace"))
+    def loop(self):
+        """ Subclassed from BaseProcess for the process loop """
+        pass
 
-        self.establish_temporal_communications()
 
-    @property
-    def server_url(self):
-        """ Return the URL of the flask app """
-        return self.flask_manager.url
+    @on_event(EventType.HOTWORD_DETECTED)
+    def _handle_hotword(self, event: IPCEvent):
+        """Handle hotword detection"""
+        self.route_event(event.forward(ProcessType.GUI))
+        self.logs.debug("HOTWORD_DETECTED event triggered!")
+
+    @on_event(EventType.TRANSCRIPTION_READY)
+    def _handle_transcription(self, event: IPCEvent):
+        """Handle transcription completion"""
+        self.route_event(event.forward(ProcessType.GUI))
+        self.logs.info(f"AI.IPCEvent(TRANSCRIPTION_READY): {event.data}")
+
+        response = self.query(event.data)
+        self.route_event(IPCEvent(EventType.RESPONSE_READY, ProcessType.AI, ProcessType.GUI, response))
+        self.logs.info(f"AI.IPCEvent(RESPONSE_READY): {response}")
+#       self.process_manager.set_state(StateType.WAITING)
+
+    @on_event(EventType.INTERACTION_COMPLETED)
+    def restart_hotword_detection(self, event: IPCEvent):
+        self.listener.start_listening()
+
+    @on_event(EventType.ERROR)
+    def _handle_error(self, event: IPCEvent):
+        """Handle error events"""
+        self.logs.error(f"Error event received: {event.data}")
+        self.process_manager.set_state(StateType.ERROR)
+
+    def query(self, message: str) -> str:
+        """Query the AI with a message and return the response"""
+        try:
+            # First try to process locally with brain
+#           response = self.brain.query(message)        # DEPRICATE
+            response = message[::-1]
+            return response
+        except Exception as e:
+            self.logs.error(f"Local brain query failed: {e}")
+
+    @on_event(EventType.GLOBAL_STOP)
+    def cleanup(self, event: IPCEvent):
+        """Clean up AI resources"""
+        self.logs.debug("AI cleanup called. Listening thread to terminate.")
+        self.logs.debug(f"Event: {event}")
+        try:
+            if hasattr(self, 'listener'):
+                self.listener.stop_listening()
+                self.logs.info("Cleanup: AI resources cleaned up")
+            else:
+                self.logs.info("Cleanup: No AI resources needed to be cleaned")
+
+        except Exception as e:
+            self.logs.error(f"Error during AI cleanup: {e}")
 
     def import_headspace_module(self, module_path: Path, mode: Literal["core", "import"]="import") -> ModuleType:
         """
@@ -196,62 +185,6 @@ class AI(Base):
         modules = [ getattr(module, part) for module in self.core_modules if hasattr(module, part) ]
         return [ getattr(module, get_name(module)) for module in modules if get_name(module) ]
 
-    def run(self):
-        """ Run the AI """
-        signal.signal(signal.SIGINT, self.stop)
-
-        app = create_flask_app(self.get_modules_part("blueprint"), self.flask_pipe)
-        self.flask_manager.start(app)
-
-        self.ears.start_listening()
-        self.attn.start()
-        self.attn.schedule(self.process_whisperer())
-
-#       self.gui.run(builtins=self.get_builtin_guis(), modules=self.get_modules_part("gui"))
-        self.gui.run(self.get_modules_part("gui"))  # The GUI must run in the main thread
-
-        self.stop()                                 # If the GUI closes, everything else should
-
-    def stop(self, event=None, frame=None):
-        """ Stop all composed object """
-        self.logs.debug("AI.stop() called!!!")
-        self.flask_manager.stop()
-        self.ears.stop()
-        self.gui.stop()
-        self.attn.stop()
-
-    def establish_temporal_communications(self):
-        """ Core temporal communication pipelines """
-        self.temp_comms.subscribe("ears.hotword_detected", self.start_chat)
-        self.temp_comms.subscribe("ears.recorder_callback", self.human_to_ai)
-        self.temp_comms.subscribe("ears.timeout", self.gui.popup.close)
-        self.temp_comms.subscribe("gui.popup.loading_message", self.gui.popup.set_loading_message)
-        self.temp_comms.subscribe("gui.interaction_finished", self.ears.start_listening)
-        self.temp_comms.subscribe("attn.schedule", self.attn.schedule)
-
-    def start_chat(self):
-        """ Initiate the chat in the GUI """
-        async def _start_chat():
-
-            self.gui.create_popup()
-
-        self.attn.schedule(_start_chat())
-
-    def human_to_ai(self, message):
-        """ Handle the what the GUI should show, query the brain with the message """
-        if message is False:
-            self.logs.warn("AI recieved no input! Cancelling interaction!")
-            return
-
-        async def _human_to_ai(message):
-            """ async function that does all the work """
-            self.gui.popup.set_human_message(message)
-            dialog = self.brain.query(message, load_msg_callback=self.gui.popup.set_loading_message)
-#           self.q = dialog
-            self.gui.popup.set_ai_response(dialog)
-
-        self.attn.schedule(_human_to_ai(message))
-
     def handle_payload(self, payload: Payload):
         """ Accept a Payload object, do it's bidding """
         if payload.module.lower() in [ cm.__name__.split('.')[-1] for cm in self.core_modules ]:
@@ -260,32 +193,3 @@ class AI(Base):
 
         else:
             self.logs.error(f"Module `{payload.module}` invalid!")
-
-    async def process_whisperer(self):
-        """ Scheduled in the Attention recursively. Watches the IPC and handles events """
-        if self.stop_event.is_set():
-            self.gui.stop()
-
-        if self.ai_pipe.poll():
-            try:
-                data = self.ai_pipe.recv()
-                payload = pickle.loads(data)
-
-                if isinstance(payload, Payload):
-                    self.handle_payload(payload)
-                else:
-                    raise ValueError("Received data is not a valid Payload object")
-
-            except pickle.UnpicklingError as e:
-                self.logs.error(f"Failed to unpickle payload: {e}")
-            except ValidationError as e:
-                self.logs.error(f"Invalid payload format: {e}")
-            except EOFError as e:
-                self.logs.error(f"EOF error while reading from pipe: {e}")
-            except Exception as e:
-                self.logs.error(f"Unexpected error processing payload: {e}")
-
-        else:
-            await asyncio.sleep(1)
-
-        self.attn.schedule(self.process_whisperer())

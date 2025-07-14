@@ -5,15 +5,13 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any, List
 
-from pprint import pprint as pp
-
 from langchain.agents import AgentExecutor, create_structured_chat_agent
 from langchain.tools import StructuredTool
 from langchain.prompts import ChatPromptTemplate, PromptTemplate
 import qrcode
 
-from ami.config import Config
-from ami.headspace.base import Primitive
+from ami.core import Config
+from ami.headspace import Primitive
 
 from .dialog import Dialog
 

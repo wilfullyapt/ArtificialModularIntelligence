@@ -7,10 +7,10 @@ from sys import modules as sys_modules
 
 from pydantic import BaseModel, Field
 
-from ami.base import Base
+from ami.core import LogBase
 from ami.headspace.filesystem import Filesystem
 
-class Primitive(Base):
+class Primitive(LogBase):
     """
     Primitive is the object all module specific Parent inherit from.
     Abstract Base Class for establishing the Filesystem necesarry for Headspace modules.
@@ -92,7 +92,7 @@ class Payload(BaseModel):
         """ Return a Payload only intended to reload the GUI associated with the Headspace """
         return cls(module=module_name, gui_reload=True)
 
-class SharedTool(Base):
+class SharedTool(LogBase):
     _instance = None
 
     def __new__(cls, *args, **kwargs):

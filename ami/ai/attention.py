@@ -5,9 +5,9 @@ from typing import Coroutine, Any
 
 from gunicorn.app.base import traceback
 
-from ami.base import Base
+from ami.core import LogBase
 
-class Attention(Base):
+class Attention(LogBase):
     """
     Manages an asynchronous task queue in a thread.
 

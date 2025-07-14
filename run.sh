@@ -38,6 +38,9 @@ elif [ "$1" == "-s" ]; then
 elif [ "$1" == "-n" ]; then
     echo "---- NEW AMI ---"
     python -i -m ami.main
+elif [ "$1" == "-t" ]; then
+    echo " -- AMI TREE --"
+    tree -a -I '.git|venv|private|modules|filespace|tests|__pycache__'
 else
     echo "Running in normal mode (ami.ami)"
     python -m ami.ami

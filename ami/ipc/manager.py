@@ -51,18 +51,11 @@ class IPCManager(LogBase):
     Methods:
         NO POINT. THIS WILL CHANGE
 
-
-
     """
     def __init__(self, stop_flag: Optional[mpEventType]=None):
         """Initialize the IPC Manager."""
-        super().__init__()
 
-        if stop_flag:
-            self.stop_flag = stop_flag
-        else:
-            self.logs.error(f"__init__(stop_flasg: mulitprocessing.Event) is of the wrong type: {type(stop_flag)}")
-
+        self._stop_flag = stop_flag
         self.manager = Manager()
         self.state = self.manager.Value('i', StateType.IDLE.value)
         self.event_queues: Dict[ProcessType, Queue] = {
@@ -77,6 +70,12 @@ class IPCManager(LogBase):
 
         self._conversation = self.manager.dict()
         self._conversation.update({})
+
+    @property
+    def stop_flag(self):
+        if self._stop_flag:
+            return self._stop_flag
+        raise ValueError(f"STOP_FLAG doesn't exist! Cannot continue!")
 
     def get_state(self) -> StateType:
         """Get current system state."""

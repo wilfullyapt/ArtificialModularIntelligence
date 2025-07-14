@@ -2,11 +2,15 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**AMI** is an AI companion with plug-n-play Headspaces with Headspace specific directory access. **AMI** is intended to be a voice companion that deploys a Flask server to her local network for more detailed interfacing with a visual tkinter element. **AMI** is built with the intention to be put on a Raspberry Pi with a monitor as an in home AI.
+**AMI** is an AI companion with a plugin architecture called *Headspaces*. Headspaces can include 1 to 3 elements: Visual GUI, Web endpoint, and an LLM driven agent.
+**AMI** is built with the intention to be put on a Raspberry Pi with a monitor as an in home AI.
 
 **Capabilities:**
-- Basic voice assistant calendar + Google Calendar sycing
-- Basic voice assistant for Markdown notes + downloading lists
+- Timer and Reminder (builtin Datetime Headspace)
+- Notes and List capabilities, including downloading list for on the go (builtin Markdown Headspace)
+- Finacial Assistant / Advisor (builtin Finance Headspace)
+- Media player for YouTube or Spotify (builtin Media Headspace)
+- Voice assistant calendar + Google Calendar sycing [AMI-Calendar](https://github.com/wilfullyapt/AMI-Calendar)
 
 ### 🚀 Getting Started
 
@@ -18,13 +22,13 @@ sudo apt install git make
 ```
 2. Clone the repo & `cd`: `git clone https://github.com/wilfullyapt/ArtificialModularIntelligence.git && cd ArtificialModularIntelligence`
 3. Install AMI via Make: `make full-install`
-4. (optional) Create the service autostart file & reboot
-5. run `make run`
+4. (optional) Create the service autostart file & reboot `ami autostart`
+5. Run `ami`
 
 ### 🔮 ML Models at work
 - Hot Word / Wake word detection (local): [openWakeWord](https://github.com/dscripka/openWakeWord)
-- Speech to Text (STT): Sphinx (local) or Google (cloud) => [SpeechRecognition](https://github.com/Uberi/speech_recognition).Recognizer()
-- LLM Inference: [LangChain](https://github.com/langchain-ai/langchain) (local) & [TogetherAI](https://api.together.xyz/) (cloud / actual inference)
+- Voice Activity Detector & STT (local): [silero-vad](https://github.com/snakers4/silero-vad)
+- LLM Inference: XAI or Anthropic or OpenAI
 
 
 ### 💻 AMI Directory Structure
@@ -70,13 +74,6 @@ ArtificiakModularIntelligence/
 
 ### 🧩 Build your own Headspace
 See ami.ai.headspace directory to understand how the GUI, Blueprint, and Headspace tie into the Headspace Module
-
-## Changelog
-1. Implemented OpenWakeWord for hotword detection
-2. Utils Headspace added for config editing through Flask server
-3. Calendar syncing with Google Calendar + Ledgend
-4. Redesigned basically the entire app
-
 
 ### Developer Notes
 - Possible switch from Tkinter to PyQt6

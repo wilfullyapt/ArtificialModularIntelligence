@@ -37,6 +37,8 @@ ANCHOR_OFFSETS = {
 class BaseWidget(QWidget, Primitive):
     """ Base widget class with configuration management """
 
+    main_view = True
+
     def __init__(self, parent: Optional[QWidget] = None):
         QWidget.__init__(self, parent)
         self.hide()
@@ -80,6 +82,10 @@ class BaseWidget(QWidget, Primitive):
     def _setup_ui(self) -> None:
         self.setup_ui()
         self.setFixedSize(self.sizeHint())
+
+    def show(self) -> None:
+        if self.main_view:
+            QWidget.show(self)
 
     def resizeEvent(self, event):
         self.logs.debug(f"BaseWidget resize Event: {event}")

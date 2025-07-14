@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Artificial Modular Intellegence{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/all.min.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    {% block extra_styles %}{% endblock %}
+</head>
+<body>
+    <header class="top-bar">
+        <button class="hamburger">☰</button>
+        <h3>{% block page_header %}{{ header }}{% endblock %}</h3>
+        {% if buttons %}
+            <div class="buttons">
+                {% for button in buttons %}
+                    <button>{{ button }}</button>
+                {% endfor %}
+            </div>
+        {% endif %}
+    </header>
+
+    <nav id="slide_menu" class="slide-menu">
+        <button class="close-btn">×</button>
+        <div class="menu-items">
+            <a href="{{ url_for('welcome') }}">Welcome!</a>
+            <a href="{{ url_for('tree') }}">Tree</a>
+            <a href="{{ url_for('logs') }}">Logs</a>
+            <hr>
+            {% if menu_items %}
+                {% for item in menu_items %}
+                    <a href="{{ item.url }}">{{ item.name }}</a>
+                {% endfor %}
+            {% endif %}
+        </div>
+        <div class="bottom-icons">
+            <a href="https://github.com/your-repo"><i class="fab fa-github"></i></a>
+            <a href="https://x.com"><i class="fas fa-external-link-alt"></i></a>
+        </div>
+    </nav>
+
+    <main class="content">
+        {% block contents %}{{ content | safe }}{% endblock %}
+    </main>
+
+    <footer>
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                const hamburger = document.querySelector('.hamburger');
+                const slideMenu = document.querySelector('.slide-menu');
+                const closeBtn = document.querySelector('.close-btn');
+
+                if (hamburger && slideMenu && closeBtn) {
+                    hamburger.addEventListener('click', () => {
+                        slideMenu.classList.add('show');
+                    });
+
+                    closeBtn.addEventListener('click', () => {
+                        slideMenu.classList.remove('show');
+                    });
+                } else {
+                    console.error('One or more elements not found');
+                }
+            });
+        </script>
+        {% if js %}<script src="{{ url_for(headspace + 'static', filename=js) }}"></script>{% endif %}
+    </footer>
+</body>
+</html>

@@ -6,11 +6,11 @@ from PyQt6.QtWidgets import QLabel, QGridLayout
 
 from ami.headspace import BaseWidget
 
-from .settings import DateTimeDefaultSettings
+from .settings import CorespaceDefaultSettings
 
-class DateTime(BaseWidget):
+class CorespaceGUI(BaseWidget):
     """ The DateTime builtin Headspace GUI for the AMI project """
-    settings_class = DateTimeDefaultSettings
+    settings_class = CorespaceDefaultSettings
 
     def update_time(self):
         self.date_label.setText(time.strftime('%A %B %d, %Y'))

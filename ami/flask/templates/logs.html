@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block page_title %}AMI | Logs{% endblock %}
+
+{% block extra_styles %}
+    <style>p { margin: 4px 0px; }</style>
+{% endblock %}
+
+{% block page_heading %}Logs{% endblock %}
+
+{% block contents %}
+<h2>Log File: {{ logfile }}</h2>
+
+{% for line in log_content %}
+   <p>{{ line }}</p>
+{% endfor %}
+
+{% endblock %}

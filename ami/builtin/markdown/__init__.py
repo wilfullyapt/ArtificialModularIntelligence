@@ -22,7 +22,8 @@ EXAMPLES = [
 __version__ = "0.1.0"
 
 __all__ = [
-    'GUI',
-    'Headspace',
-    'Blueprint'
+    "GUI",
+    "Headspace",
+    "Blueprint",
+    "EXAMPLES",
 ]

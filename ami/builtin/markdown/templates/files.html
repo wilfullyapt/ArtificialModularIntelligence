@@ -1,0 +1,10 @@
+<div id="markdown-stuff">
+    <h3>Markdown Files</h3>
+    <div id="markdown-list">
+        <ul>
+            {% for md_file in markdown_files %}
+            <li><a href="{{ url_for('.edit_file', filepath=md_file) }}" class="md-list-link">{{md_file}}</a><li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>

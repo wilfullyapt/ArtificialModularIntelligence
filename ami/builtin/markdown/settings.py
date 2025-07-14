@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Tuple
 
 from ami.headspace import BaseWidgetSettings
 
@@ -22,3 +22,8 @@ class MarkdownDefaultSettings(BaseWidgetSettings):
     h1_size: int = 22
     h2_size: int = 20
     h3_size: int = 18
+
+    css: str = "markdown_styles.css"
+    menu_items: List[Tuple[str, str]] = [
+        ( "Files", "files" )
+    ]

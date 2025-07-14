@@ -1,13 +1,13 @@
 """ Blueprint Abstract Class definition """
+from functools import cached_property, wraps
 from pathlib import Path
 from sys import modules as sys_modules
-from typing import Any, Callable, List, Literal, Optional
-from multiprocessing.connection import Connection
-import pickle
+from typing import Any, Callable, Dict, List, Literal, Tuple
 
-from flask import Blueprint as FlaskBlueprint, render_template as flask_render_template
+from flask import Blueprint as FlaskBlueprint, render_template
 from pydantic import BaseModel
 
+from ..ipc import IPCManager
 from ..headspace import Primitive
 
 def get_path_from_class_module(class_module: str) -> Path:
@@ -23,43 +23,13 @@ def route(route: str, methods: List[str] = ['GET']):
         return func
     return decorator
 
-class MenuItem(BaseModel):
-    """ Side Menu selections for AMI Blueprint page inegration """
-    name: str
-    url: str
+def plugin_template(template_name, **kwargs) -> Tuple[str, Dict[str, Any]]:
+    return template_name, kwargs
 
 class HeaderButton(BaseModel):
     """ Header item for AMI Blueprint page inegration """
     form: str
     value: str
-
-class TemplateSettings(BaseModel):
-    """ Template settings for AMI Blueprint page inegration """
-    headspace: str
-    title: str
-    header: str
-    css: Optional[str] = None
-    js: Optional[str] = None
-    buttons: List[HeaderButton] = []
-    menu_items: List[MenuItem] = []
-
-    def augment(self, **kwargs: Any) -> 'TemplateSettings':
-        """ Augement setting without changing the settings """
-        data = self.asdict()
-        for key, value in kwargs.items():
-            if key in data:
-                data[key] = value
-        return TemplateSettings(**data)
-
-    def asdict(self):
-        """ Get settings as a dictionary """
-        return self.model_dump()
-
-def render_template(template_name, tempsets: TemplateSettings, *args, **kwargs):
-    """ AMI Blueprint implementation for Flask.render_template """
-    template_settings = tempsets.asdict()
-    template_settings['content'] = flask_render_template(template_name, *args, **kwargs)
-    return flask_render_template('base.html', **template_settings)
 
 class BlueprintMeta(type):
     """ Blueprint metaclass for routing purposes """
@@ -87,7 +57,7 @@ class Blueprint(FlaskBlueprint, Primitive, metaclass=BlueprintMeta):
     provides methods for reloading the GUI and managing template settings.
     """
 
-    def __init__(self, pipe: Connection, *args, **kwargs):
+    def __init__(self, ipc_manager: IPCManager, *args, **kwargs):
         module_name = self.__class__.__name__
         class_module = self.__module__
         self._module_dir = get_path_from_class_module(class_module)
@@ -97,22 +67,45 @@ class Blueprint(FlaskBlueprint, Primitive, metaclass=BlueprintMeta):
                                 static_folder=self._module_dir/"static",
                                 static_url_path=f"/{module_name.lower()}",
                                 template_folder=self._module_dir/"templates",
+                                url_prefix=f"/{self._module_dir.name}",
                                 *args,
                                 **kwargs
                                )
-        Primitive.__init__(self)
 
-        self.pipe: Connection = pipe
+        self.ipc_manager: IPCManager = ipc_manager
 
         for _, method in self._routes:
             route, methods = method._route
-            self.route(route, methods=methods)(method.__get__(self, self.__class__))
+            bound_method = method.__get__(self, self.__class__)
+            wrapped_method = self.router_wrapper(bound_method)
+            self.route(route, methods=methods)(wrapped_method)
 
-        self._template_settings = TemplateSettings(
-            headspace=module_name,
-            title=f"{module_name} Headspace",
-            header=f"{module_name} Blueprint"
-        )
+    def router_wrapper(self, func: Callable) -> Callable:
+        """Wraps route functions to handle rendering within base.html or pass through other responses."""
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            result = func(*args, **kwargs)
+            if isinstance(result, tuple) and len(result) == 2 and isinstance(result[1], dict):
+                template_name, blueprint_context = result
+                rendered_blueprint = render_template(template_name, **blueprint_context)
+                
+                context = self.template_context
+                context.update(blueprint_context.pop("context_overides", {}))
+                context.update(blueprint_context.pop("buttons", {}))
+
+                print(context)
+
+                return render_template('base.html', content=rendered_blueprint, **context)
+
+            return result
+        return wrapper
+
+    @cached_property
+    def template_context(self):
+        return {
+            "title": self.name.capitalize(),
+            "header": f"{self.name.capitalize()} Headspace"
+        }
 
     def __repr__(self) -> str:
         return f"<AMI.headspace.Blueprint('{self.name}') package='{self.__module__}'>"
@@ -121,15 +114,5 @@ class Blueprint(FlaskBlueprint, Primitive, metaclass=BlueprintMeta):
         """ Given reload GUI call for subclasses """
         if not module_name:
             module_name = self.name.lower()
-#       reloader = Payload.reload(module_name=module_name)
-#       pickled_payload = pickle.dumps(reloader)
-#       self.pipe.send(pickled_payload)
+            self.logs.info(f"Reload GUI called for {module_name}")
 
-    @property
-    def tempsets(self):
-        """ Template Setting property """
-        return self._template_settings
-
-    def update_tempsets(self, **kwargs):
-        """ Template setting augementer """
-        self._template_settings = self.tempsets.augment(**kwargs)

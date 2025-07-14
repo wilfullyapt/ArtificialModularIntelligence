@@ -49,7 +49,7 @@ class Primitive(LogBase):
 
     @cached_property
     def name(self) -> str:
-        return self._hs_name
+        return self._hs_name.lower()
 
     @cached_property
     def _settings_file(self) -> Path:
@@ -61,13 +61,15 @@ class Primitive(LogBase):
                 with open(self._settings_file, "r") as f:
                     data = json.load(f)
                     settings = self.settings_class(**data)
+                    self.logs.debug(f"Setting for {self.name} loaded from file!")
             except (json.JSONDecodeError, ValidationError) as e:
-                print(f"Warning: Invalid settings file '{self._settings_file}', using defaults: {e}")
+                self.logs.warning(f"Invalid settings file '{self._settings_file}', using defaults: {e}")
                 settings = self.settings_class()
                 settings.save_to_file(self._settings_file)
         else:
             settings = self.settings_class()
             settings.save_to_file(self._settings_file)
+            self.logs.debug(f"Setting for {self.name} loaded from defaults and saved!")
 
         return settings
 

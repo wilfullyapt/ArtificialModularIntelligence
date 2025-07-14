@@ -157,3 +157,13 @@ class AI(ProcessIPC):
 
         if InstructionType.CONFIRM_WITH_HUMAN in instruction:
             self.logs.debug("Confirm with User instruction detected!")
+
+        if InstructionType.INLINE_POPUP in instruction:
+            event = IPCEvent(
+                type=EventType.INLINE_POPUP,
+                source=ProcessType.AI,
+                target=ProcessType.GUI,
+                data=headspace_instruction.observation
+            )
+            self.get_queue(ProcessType.GUI).put(event)
+

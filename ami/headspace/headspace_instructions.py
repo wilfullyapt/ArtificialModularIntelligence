@@ -9,6 +9,7 @@ class InstructionType(Enum):
     ASK_USER_INPUT = "ASK_USER_INPUT"
     PROVIDE_IMAGE_PATH = "PROVIDE_IMAGE_PATH"
     CONFIRM_WITH_HUMAN = "CONFIRM_WITH_HUMAN"
+    INLINE_POPUP = "INLINE_POPUP"
 
 class HeadspaceInstruction(LogBase):
     """A standardized instruction returned by tools or the agent."""
@@ -111,6 +112,16 @@ class HeadspaceInstruction(LogBase):
         return cls(instructions=[InstructionType.RELOAD_GUI], observation=observation, should_continue=True)
 
     @classmethod
+    def popup_markdown(cls, observation: str) -> 'HeadspaceInstruction':
+        """Instruct to reload the GUI."""
+        return cls(instructions=[InstructionType.INLINE_POPUP], observation=observation, should_continue=True)
+
+    @classmethod
+    def popup_injection(cls, observation: str) -> 'HeadspaceInstruction':
+        """Instruct to reload the GUI."""
+        return cls(instructions=[InstructionType.INLINE_POPUP], observation=observation, should_continue=True)
+
+    @classmethod
     def stop_agent(cls, observation: str) -> 'HeadspaceInstruction':
         """Instruct to stop the agent."""
         return cls(instructions=[InstructionType.STOP_AGENT], observation=observation, should_continue=False)
@@ -124,3 +135,5 @@ class HeadspaceInstruction(LogBase):
     def provide_image_path(cls, observation: str, image_path: str) -> 'HeadspaceInstruction':
         """Instruct to handle an image path."""
         return cls(instructions=[InstructionType.PROVIDE_IMAGE_PATH], observation=observation, should_continue=True, image_path=image_path)
+
+

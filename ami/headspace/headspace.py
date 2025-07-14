@@ -141,12 +141,7 @@ class Headspace(Primitive):
 
     Note: The Headspace class cannot be instantiated directly and is intended to be inherited by
     concrete subclasses that define the specific agent functionality.
-
-    Member optionally set by subclass:
-        HANDLE_PARSING_ERRORS: Boolean flag how the agent should be handling parsing errors
     """
-
-    HANDLE_PARSING_ERRORS: bool = False
 
     def __new__(cls, *args, **kwargs):
         """ This class is only inheritable, cannot be instantiated alone """

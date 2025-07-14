@@ -5,6 +5,7 @@ from .headspace_instructions import HeadspaceInstruction, InstructionType
 from .headspace import Headspace, ami_tool, generate_qr_image
 from .widget import BaseWidget
 from .settings import BaseWidgetSettings 
+from .blueprint import Blueprint, HeaderButton, route, plugin_template
 
 __all__ = [
     "Primitive",
@@ -15,4 +16,8 @@ __all__ = [
     "generate_qr_image",
     "BaseWidget",
     "BaseWidgetSettings",
+    "Blueprint",
+    "HeaderButton",
+    "route",
+    "plugin_template",
 ]

@@ -231,12 +231,12 @@ class Config:
     @property
     def server_port(self):
         """Get the server port per the config"""
-        return self.get('port')
+        return self.get('port', "5000")
 
     @property
     def server_host(self):
         """Get the host per the config"""
-        return self.get('host')
+        return self.get('host', "0.0.0.0")
 
     @property
     def hot_word(self) -> str:

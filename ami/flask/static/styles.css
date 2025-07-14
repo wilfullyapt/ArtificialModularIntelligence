@@ -1,0 +1,118 @@
+body {
+    background-color: #36454F;
+    color: #F0EAD6;
+    font-family: Arial, sans-serif;
+    margin: 0;
+}
+
+.top-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    background-color: #333;
+    color: #fff;
+    padding: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 1;
+    height: 60px;
+}
+
+.top-bar h3 {
+    margin: 0 auto;
+}
+
+.hamburger {
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 24px;
+    cursor: pointer;
+}
+
+.slide-menu {
+    position: fixed;
+    top: 0;
+    left: -240px;
+    width: 200px;
+    height: 100%;
+    background-color: #222;
+    color: #fff;
+    padding: 0px;
+    transition: left 0.3s ease;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+}
+
+.slide-menu.show {
+    left: 0;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 24px;
+    cursor: pointer;
+    align-self: flex-end;
+}
+
+.menu-items {
+    margin-top: 40px;
+}
+
+.menu-items > a {
+    display: block;
+    padding: 10px;
+    text-decoration: none;
+    color: white;
+}
+
+.menu-items > a:hover {
+    background-color: #444;
+}
+
+.bottom-icons {
+    margin-top: auto;
+    display: flex;
+    justify-content: space-around;
+}
+
+.bottom-icons a {
+    color: #fff;
+    font-size: 24px;
+}
+
+.bottom-icons a:hover {
+    color: #F0EAD6;
+}
+
+.content {
+    margin-top: 60px;
+    padding: 20px;
+    box-sizing: border-box;
+    height: calc(100vh - 60px);
+}
+
+span.code {
+    background-color: #444;
+    border: 1px solid #666;
+    padding: 2px 4px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 14px;
+    border-radius: 3px;
+    color: #F0EAD6;
+}
+
+@media (max-width: 600px) {
+    .slide-menu {
+        width: 80%;
+        left: -80%;
+    }
+    .slide-menu.show {
+        left: 0;
+    }
+}

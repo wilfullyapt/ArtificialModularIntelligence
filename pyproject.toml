@@ -35,7 +35,7 @@ build-backend = "hatchling.build"
 packages = ["ami"]
 
 [project.scripts]
-test = "ami.test:test"
+ami = "ami.main:main"
 
 [tool.uv]
 package = true

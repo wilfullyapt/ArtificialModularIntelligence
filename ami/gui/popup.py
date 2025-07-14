@@ -31,8 +31,9 @@ class Dialog(QWidget, LogBase):
         self._id = id(self)
         self.destroyed.connect(self._on_destroyed)
 
-        layout = QHBoxLayout()
-        layout.setContentsMargins(0, 5, 0, 5)
+        # Horizontal layout for speaker and message
+        self.message_layout = QHBoxLayout()
+        self.message_layout.setContentsMargins(0, 5, 0, 5)
 
         self.speaker_label = QLabel(speaker)
         self.speaker_label.setFixedWidth(80)
@@ -42,9 +43,10 @@ class Dialog(QWidget, LogBase):
         self.message_label.setWordWrap(True)
         self.message_label.setStyleSheet("color: white;")
 
-        layout.addWidget(self.speaker_label)
-        layout.addWidget(self.message_label, stretch=1)
-        self.setLayout(layout)
+        # Main vertical layout
+        self.main_layout = QVBoxLayout()
+        self.main_layout.addLayout(self.message_layout)
+        self.setLayout(self.main_layout)
 
         self._spinner_timer = QTimer()
         self._spinner_timer.timeout.connect(self._update_spinner)
@@ -71,10 +73,13 @@ class Dialog(QWidget, LogBase):
 
     def update_message(self, new_text: str, is_loading: bool=False):
         """Update the message text"""
-        if self._is_loading and is_loading is False and self._spinner_timer.isActive():
+        if self._is_loading and not is_loading and self._spinner_timer.isActive():
             self._spinner_timer.stop()
-
+        self._is_loading = is_loading
         self.message_label.setText(new_text)
+
+    def inject_widget(self, w: QWidget):
+        self.main_layout.addWidget(w)
 
     def _on_destroyed(self):
         """Handle the destroyed signal"""
@@ -149,6 +154,11 @@ class ConversationView(QScrollArea, LogBase):
             self.logs.error(f"Dialog is of the wrong type: type({type(dialog)})")
             return False
 
+    def inject_inline_widget(self, w:QWidget):
+        dialog = self[-1]
+        if isinstance(dialog, Dialog):
+            dialog.inject_widget(w)
+
     def reset(self):
         """Reset the conversation by clearing all messages and widgets"""
 
@@ -169,10 +179,10 @@ class ConversationView(QScrollArea, LogBase):
 
         self.messages.clear()               # Reset the messages list
 
-class AMIDialog(QDialog):
+class AMIDialog(QDialog, LogBase):
     """Popup dialog for AMI interaction"""
     def __init__(self, parent=None, timeout_callback: Optional[Callable]=None):
-        super().__init__(parent)
+        QDialog.__init__(self, parent)
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint |
             Qt.WindowType.WindowStaysOnTopHint |
@@ -278,6 +288,12 @@ class AMIDialog(QDialog):
         self.progress_bar.setMaximum(10000)
         self.progress_bar.setValue(10000)
         self.close_timer.start()
+
+    def append_widget_inline(self, w: QWidget):
+        if self.state == ConversationState.AI_RESPONDING:
+            self.conversation.inject_inline_widget(w)
+        else:
+            self.logs.error(f"Failure trying to append widget[{w}] to the popup conversation")
 
     def closeEvent(self, event):
         """Handle cleanup on close"""

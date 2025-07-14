@@ -11,10 +11,10 @@ from PyQt6.QtWidgets import QApplication
 from watchdog.observers import Observer
 
 from .core import Config, ConfigMetadataPluginWatcher
-from .ipc import IPCManager, ProcessType
+from .ipc import IPCManager, ProcessType, EventType, IPCEvent
 from .ai import AI
 from .gui import MainWindow as GUI
-from .ipc import EventType, IPCEvent
+from .flask import FlaskManager
 
 should_exit = mp.Event()
 
@@ -28,25 +28,6 @@ def signal_handler(signum, frame):
     print("Stack trace:")
     traceback.print_stack(frame)
     should_exit.set()
-
-def cleanup():
-    """Clean up all processes and observers"""
-    should_exit.set()
-
-    # Stop file system observer if it exists
-    if 'observer' in globals() and observer.is_alive():
-        observer.stop()
-        observer.join(timeout=2)
-        print("File system observer stopped")
-
-    if ai:
-        ai.join(timeout=5)
-        print("AI process classed to join, 5 sec timeout")
-        if ai.is_alive():
-            ai.terminate()
-            print("AI process terminated")
-        print("AI process closed")
-        print( " - - - - - - - - - - - - -")
 
 def assign_file_watchers(ipc_manager: IPCManager):
     """ Create the Watcher Handler and schedule callbacks with an Observer """
@@ -92,23 +73,26 @@ def parse_args() -> Tuple[bool, bool, bool, bool]:
     Turn on only the command line args
     """
     parser = argparse.ArgumentParser(description="Command-line argument parser for script configuration")
-    parser.add_argument('--ai', action='store_true', help='Enable AI mode')
-    parser.add_argument('--gui', action='store_true', help='Enable GUI mode')
-    parser.add_argument('--backend', action='store_true', help='Enable backend mode')
-    parser.add_argument('--debug', action='store_true', help='Enable debug mode')
-    args = parser.parse_args()
+    parser.add_argument('--ai', action='store_true', help='Enable AI')
+    parser.add_argument('--gui', action='store_true', help='Enable GUI')
+    parser.add_argument('--server', action='store_true', help='Enable Flask server')
+    parser.add_argument('--debug', action='store_true', help='Enable debugging')
+    try:
+        args = parser.parse_args()
+    except:
+        raise ValueError("Unknown arguement passed, the only acceptable arguements are: --ai --gui --server --debug")
     
-    ai, gui, backend = True, True, True
+    ai, gui, server = True, True, True
     debug = args.debug
     
-    if sum([args.gui, args.ai, args.backend]) in [1, 2]:
+    if sum([args.gui, args.ai, args.server]) in [1, 2]:
         gui = args.gui
         ai = args.ai
-        backend = args.backend
+        server = args.server
     
-    return gui, ai, backend, debug
+    return gui, ai, server, debug
 
-def run_dev():
+if __name__ == '__main__':
     print(" --- DEV SCRIPT ---")
 
     signal.signal(signal.SIGINT, signal_handler)
@@ -119,31 +103,25 @@ def run_dev():
 #   assign_file_watchers(ipc_manager)
 
     # ---   Booleen flag for dev running
-    run_gui, run_ai, run_backend, sequential_debuging = parse_args()
-
-    # ---   TODO: Depricate the manual boolean flags
-    run_backend = False
-#   run_ai = False
-#   run_gui = False
+    run_gui, run_ai, run_server, sequential_debuging = parse_args()
 
     # ---   ARTIFICIAL INTELLIGENCE
     if run_ai:
         ai: AI = AI(ipc_manager)
-        if any([run_backend, run_gui]):
+        if any([run_server, run_gui]):
             ai.start()
 
-
     # ---   BACKEND FASTAPI
-    if run_backend:
-        backend: Backend = Backend(ipc_manager)
+    if run_server:
+        server: FlaskManager = FlaskManager(ipc_manager)
         if any([run_ai, run_gui]):
-            backend.start()
+            server.start()
 
     # ---   MAIN PROCESS GUI
     if run_gui:
         app = QApplication(sys.argv)
         gui: GUI = GUI(ipc_manager)
-        if any([run_backend, run_ai]):
+        if any([run_server, run_ai]):
             gui.run()
             sys.exit(app.exec())
         
@@ -180,8 +158,8 @@ def run_dev():
 #       md = ai.brain['markdown'].markdown
 
 
+        flap = server.flask_app
+        mdb = flap.blueprints['Markdown']
+
+
         print("Sequential debugging. Don't fuck it up.")
-
-
-if __name__ == '__main__':
-    run_dev()

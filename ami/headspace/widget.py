@@ -20,7 +20,7 @@ from typing import Dict, Any, Optional
 from PyQt6.QtCore import QRect
 from PyQt6.QtWidgets import QWidget
 
-from ami.headspace import Primitive
+from ..headspace import Primitive
 
 ANCHOR_OFFSETS = {
         'nw': (0, 0),           # Top-left (default)

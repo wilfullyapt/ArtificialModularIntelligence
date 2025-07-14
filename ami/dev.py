@@ -2,20 +2,19 @@ import os
 import sys
 import signal
 import traceback
-from typing import Any, Optional
+from typing import Any, Tuple
+import argparse
 import multiprocessing as mp
 from pprint import pprint as pp
 
 from PyQt6.QtWidgets import QApplication
 from watchdog.observers import Observer
 
-from ami.core import Config, ConfigMetadataPluginWatcher, Conversation
-from ami.core.registry import PluginVertical
-from ami.ipc import IPCManager, ProcessType
-from ami.ai import AI
-from ami.gui import MainWindow as GUI
-from ami.ipc import EventType, IPCEvent
-from ami.llm.provider import LLMProvider
+from .core import Config, ConfigMetadataPluginWatcher
+from .ipc import IPCManager, ProcessType
+from .ai import AI
+from .gui import MainWindow as GUI
+from .ipc import EventType, IPCEvent
 
 should_exit = mp.Event()
 
@@ -86,7 +85,30 @@ def search(obj: Any, srch_str: str):
         if srch_str in item:
             print(f":::  '{item}'  :::  TYPE {type(getattr(obj, item))}")
 
-if __name__ == '__main__':
+def parse_args() -> Tuple[bool, bool, bool, bool]:
+    """
+    Three process test problem: Turn on one or two with the other[s] off.
+    All processes default on, unless process specific command line args exists
+    Turn on only the command line args
+    """
+    parser = argparse.ArgumentParser(description="Command-line argument parser for script configuration")
+    parser.add_argument('--ai', action='store_true', help='Enable AI mode')
+    parser.add_argument('--gui', action='store_true', help='Enable GUI mode')
+    parser.add_argument('--backend', action='store_true', help='Enable backend mode')
+    parser.add_argument('--debug', action='store_true', help='Enable debug mode')
+    args = parser.parse_args()
+    
+    ai, gui, backend = True, True, True
+    debug = args.debug
+    
+    if sum([args.gui, args.ai, args.backend]) in [1, 2]:
+        gui = args.gui
+        ai = args.ai
+        backend = args.backend
+    
+    return gui, ai, backend, debug
+
+def run_dev():
     print(" --- DEV SCRIPT ---")
 
     signal.signal(signal.SIGINT, signal_handler)
@@ -96,13 +118,13 @@ if __name__ == '__main__':
     ipc_manager = IPCManager(stop_flag=should_exit)
 #   assign_file_watchers(ipc_manager)
 
-    run_ai = False
-    run_gui = False
-    run_backend = False
+    # ---   Booleen flag for dev running
+    run_gui, run_ai, run_backend, sequential_debuging = parse_args()
 
-    run_ai = True
-    run_gui = True
-#   run_backend = True
+    # ---   TODO: Depricate the manual boolean flags
+    run_backend = False
+#   run_ai = False
+#   run_gui = False
 
     # ---   ARTIFICIAL INTELLIGENCE
     if run_ai:
@@ -114,7 +136,8 @@ if __name__ == '__main__':
     # ---   BACKEND FASTAPI
     if run_backend:
         backend: Backend = Backend(ipc_manager)
-        backend.start()
+        if any([run_ai, run_gui]):
+            backend.start()
 
     # ---   MAIN PROCESS GUI
     if run_gui:
@@ -125,8 +148,6 @@ if __name__ == '__main__':
             sys.exit(app.exec())
         
 
-    sequential_debuging = False
-#   sequential_debuging = True
     if sequential_debuging:
 
         # function for testing Event and Data combos to the AI
@@ -156,7 +177,11 @@ if __name__ == '__main__':
 #       ai.check_and_handle_incoming_ipc_event()
 
         # Markdown specific testing
-        md = ai.brain['markdown'].markdown
+#       md = ai.brain['markdown'].markdown
 
 
         print("Sequential debugging. Don't fuck it up.")
+
+
+if __name__ == '__main__':
+    run_dev()

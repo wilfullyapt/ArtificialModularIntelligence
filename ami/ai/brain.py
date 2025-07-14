@@ -3,9 +3,9 @@
 from typing import Dict, List, Any, Tuple
 from functools import cached_property
 
-from ami.core import LogBase, Config, PluginRegistry, PluginVertical
-from ami.headspace import Headspace, HeadspaceInstruction
-from ami.llm import LLMProvider
+from ..core import LogBase, Config, PluginRegistry, PluginVertical
+from ..headspace import Headspace, HeadspaceInstruction
+from ..llm import LLMProvider
 
 HEADSPACE_ROUTER = """You are an AI router designed to responde with the approprate Headspace
 to use to fulfill a user request. The HUMAN query will be passed to the approprate Headspace,

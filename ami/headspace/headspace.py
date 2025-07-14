@@ -10,8 +10,8 @@ from functools import cached_property, wraps
 
 import qrcode
 
-from ami.core import Config
-from ami.llm import LLMProvider
+from ..core import Config
+from ..llm import LLMProvider
 
 from .base import Primitive
 from .headspace_instructions import HeadspaceInstruction

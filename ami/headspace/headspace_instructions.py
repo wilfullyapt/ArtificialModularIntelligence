@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import Optional, List, Dict, Union
 
-from ami.core import LogBase
+from ..core import LogBase
 
 class InstructionType(Enum):
     RELOAD_GUI = "RELOAD_GUI"

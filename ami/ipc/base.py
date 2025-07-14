@@ -6,7 +6,7 @@ from functools import cached_property
 from typing import Dict, Callable
 from queue import Empty
 
-from ami.core import LogBase, Config, Logger
+from ..core import LogBase, Config, Logger
 from .constants import ProcessType, EventType
 from .manager import IPCEvent, IPCManager
 

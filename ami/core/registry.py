@@ -6,13 +6,13 @@ import json
 from enum import Enum
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple
 from dataclasses import dataclass
-from importlib import import_module
 
 import git
 
-from ami.core import LogBase, Config
+from ..core import LogBase, Config
+
 from .headspace_importer import import_plugin
 
 def validate_plugin_directory(plugin_dirpath: Path) -> bool:

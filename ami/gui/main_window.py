@@ -5,8 +5,8 @@ import traceback
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import QApplication
 
-from ami.core import PluginRegistry, PluginVertical
-from ami.ipc import IPCManager, ProcessType, EventType, IPCQWidget, IPCEvent, on_event
+from ..core import PluginRegistry, PluginVertical
+from ..ipc import IPCManager, ProcessType, EventType, IPCQWidget, IPCEvent, on_event
 
 from .popup import AMIDialog
 from .layouts import ManagedFlexiblePositioningLayout

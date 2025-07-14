@@ -4,7 +4,7 @@ from typing import Callable, Optional
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QProgressBar, QWidget, QScrollArea
 
-from ami.core import LogBase
+from ..core import LogBase
 
 class ConversationState(Enum):
     """States for the conversation popup"""

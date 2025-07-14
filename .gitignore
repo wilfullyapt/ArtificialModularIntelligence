@@ -1,24 +1,15 @@
-**/__pycache__/
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
 
-venv
+# Virtual environments
+.venv
+
 .git
-
-/config.yaml
-**/config.yaml
-
-/setup.py
-
-/private
-/logs
-
-/ami/flask/static/images/
-
-/filespace/*
-!/filespace/.gitkeep
-
-/modules/*
-!/modules/.gitkeep
-
-# Generated gRPC files
-/ami/protos/generated/*
-!/ami/protos/generated/__init__.py
+bin
+cli/target/
+config.yaml

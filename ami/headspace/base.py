@@ -9,7 +9,7 @@ from typing import Any, Type
 
 from pydantic import ValidationError
 
-from ami.core import LogBase, Config
+from ..core import LogBase, Config
 from .settings import BaseWidgetSettings
 
 class Primitive(LogBase):

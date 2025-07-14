@@ -2,11 +2,11 @@
 
 import time
 from functools import cached_property
-from typing import Any, List
+from typing import Any
 
-from ami.core import Config, Conversation
-from ami.headspace.headspace_instructions import HeadspaceInstruction, InstructionType
-from ami.ipc import ProcessIPC, IPCManager, ProcessType, EventType, StateType, IPCEvent, on_event
+from ..core import Conversation
+from ..headspace.headspace_instructions import HeadspaceInstruction, InstructionType
+from ..ipc import ProcessIPC, IPCManager, ProcessType, EventType, StateType, IPCEvent, on_event
 
 from .brain import Brain
 from .listener import Listener

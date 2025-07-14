@@ -1,8 +1,8 @@
 from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QApplication, QWidget
 
-from ami.ipc.constants import EventType, ProcessType
-from ami.ipc.manager import IPCEvent, IPCManager
+from ..ipc.constants import EventType, ProcessType
+from ..ipc.manager import IPCEvent, IPCManager
 
 from .base import BaseIPC, on_event
 

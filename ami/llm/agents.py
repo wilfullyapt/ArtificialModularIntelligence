@@ -1,13 +1,12 @@
 import re
 import json
 import traceback
-from enum import Enum
 from datetime import datetime
 from functools import cached_property
 from typing import Dict, List, Any, Optional, Tuple
 
-from ami.core import LogBase, Config
-from ami.headspace import HeadspaceInstruction
+from ..core import LogBase, Config
+from ..headspace import HeadspaceInstruction
 
 FUNCTION_CALLING_TAO_AGENT_SYSTEM_PROMPT = """
 You are an AI tool calling agent. You run in a cognitive loop to accomplish tasks at the user's behest.
@@ -82,12 +81,10 @@ def parse_llm_output(output: str) -> Tuple[str, Dict[str, Any]]:
         json_str = action_match.group(1)
     else:
         action_match = re.search(r'Action:\s*(\{.*\})', output, re.DOTALL | re.IGNORECASE)
-#       action_match = re.search(r'Action:\s*(\{.*?\})(?=\n|$)', output, re.DOTALL | re.IGNORECASE)     # DEPRICATE for non-greedy capture
         if not action_match:
             raise ValueError("No Action section found in output")
         json_str = action_match.group(1)
     json_str_cleaned = remove_trailing_commas(json_str)
-#   json_str_cleaned = json_str
     try:
         action_dict = json.loads(json_str_cleaned)
     except json.JSONDecodeError as e:

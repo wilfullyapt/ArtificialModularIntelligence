@@ -15,8 +15,8 @@ from openwakeword.utils import download_models
 from openwakeword.model import Model
 import soundfile as sf
 
-from ami.core import Config, LogBase
-from ami.ipc import EventType
+from ..core import Config, LogBase
+from ..ipc import EventType
 
 SENSITIVITY = 0.3
 

@@ -3,8 +3,8 @@ from typing import Dict, Any, List, Type
 from PyQt6.QtCore import QRect, QSize, Qt
 from PyQt6.QtWidgets import QApplication, QLayout, QWidgetItem
 
-from ami.core import LogBase
-from ami.headspace.widget import BaseWidget
+from ..core import LogBase
+from ..headspace.widget import BaseWidget
 
 class ManagedFlexiblePositioningLayout(QLayout, LogBase):
     """

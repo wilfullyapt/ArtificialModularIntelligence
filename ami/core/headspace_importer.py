@@ -5,7 +5,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import Optional
 
-from ami.core import Config, Logger
+from ..core import Config, Logger
 
 logs = Logger(Config().log_config)("ami.core.headspace_importer")
 

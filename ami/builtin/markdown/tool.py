@@ -182,16 +182,5 @@ class Markdown(LogBase):
         
         new_lines = lines[:md_list.lineno+1] + [ f" - {list_item}\n" for list_item in md_list.contents ] + lines[len(md_list)+2:]
 
-#       list_start = md_list.lineno + 1
-#       while list_start < len(lines) and not lines[list_start].strip().startswith('-'):
-#           list_start += 1
-#       list_end = list_start
-#       while list_end < len(lines) and lines[list_end].strip().startswith('-'):
-#           list_end += 1
-        
-#       new_list_lines = [f"- {item}\n" for item in md_list.contents]
-#       lines = lines[:list_start] + new_list_lines + lines[list_end:]
-        
         with md_list.markdown_file.filepath.open('w', encoding='utf-8') as f:
-#           f.writelines(lines)
             f.writelines(new_lines)

@@ -8,7 +8,7 @@ import pickle
 from flask import Blueprint as FlaskBlueprint, render_template as flask_render_template
 from pydantic import BaseModel
 
-from ami.headspace import Primitive
+from ..headspace import Primitive
 
 def get_path_from_class_module(class_module: str) -> Path:
     """ Returns the parent module path for a child module """

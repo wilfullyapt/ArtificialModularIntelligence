@@ -1,6 +1,5 @@
 """ Enhanced logging module for AMI with script-specific log files using loguru """
 
-import sys
 from pathlib import Path
 from typing import Optional, Literal, Dict, Any
 
@@ -9,7 +8,7 @@ from rich.console import Console
 from rich.theme import Theme
 from loguru import logger
 
-from ami.core.config import Config
+from ..core.config import Config
 
 class LoggerConfig(BaseModel):
     """Enhanced Logging Configuration as a Pydantic dataclass"""

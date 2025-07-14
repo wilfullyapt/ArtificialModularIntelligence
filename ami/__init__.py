@@ -1,18 +1,19 @@
-"""
-__init__.py
-"""
+""" __init__.py """
 
 import pytz
 
-from ami.headspace import Headspace
-from ami.ai import AI
+from . import core
+from .headspace import Headspace
+from .ai import AI
 
 def timezones():
     """ Get all pytz timezones """
     return pytz.all_timezones
 
+__version__ = "0.1.0"
 
 __all__ = [
+    "core",
     "AI",
     "Headspace",
     "timezones"

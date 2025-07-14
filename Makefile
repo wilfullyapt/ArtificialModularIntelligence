@@ -1,11 +1,6 @@
-.PHONY: help install dev prod clean test lint format typecheck grpc-gen docs all activate
+.PHONY: help run dev idev clean test lint docs
 
-# Variables
-PYTHON ?= python3
-VENV = venv
-PROTO_DIR ?= ami/protos
-GENERATED_DIR ?= ami/protos/generated
-PORT ?= 54996
+ARGS ?=
 
 # Check for Linux
 UNAME := $(shell uname -s)
@@ -25,8 +20,8 @@ help:
 	@echo "  activate     - Show instructions to activate the virtual environment"
 	@echo ""
 	@echo "Running the App:"
-	@echo "  dev          - Run the app in development mode (port: $(PORT))"
-	@echo "  prod         - Run the app in production mode (port: $(PORT))"
+	@echo "  dev          - Run the app in development mode"
+	@echo "  prod         - Run the app in production mode"
 	@echo ""
 	@echo "Development:"
 	@echo "  test         - Run tests with coverage"
@@ -37,60 +32,24 @@ help:
 	@echo "  docs         - Build Sphinx documentation"
 	@echo "  clean        - Remove temporary files and caches"
 
-# Full installation and setup
-all: install grpc-gen
-
-# Show activation instructions
-activate:
-	@echo "To activate the virtual environment, run:"
-	@echo "  source ./activate.sh"
-	@echo ""
-	@echo "Or manually with:"
-	@echo "  source venv/bin/activate"
-	@echo ""
-	@echo "You can deactivate it anytime by running 'deactivate'"
-
-# Install project in development mode
-install:
-	@echo "Running install.sh script..."
-	@bash install.sh
-
-
-# Production mode
-prod:
-	. $(VENV)/bin/activate && gunicorn -w 4 -b 0.0.0.0:$(PORT) ami.main:app
-
 run:
-	venv/bin/python -m ami.main --verbose
+	uv run python -m ami.main --verbose
+dev:									# `make dev ARGS="--ai --gui"`
+	uv run python -m ami.dev $(ARGS)
+idev:									# `make idev ARGS="--backend"`
+	uv run python -i -m ami.dev $(ARGS)
 
-dev:
-	venv/bin/python -m ami.dev
-idev:
-	venv/bin/python -i -m ami.dev
-
-# Clean up
-clean:
+clean:				# Clean up
 	find . -type d -name "__pycache__" -exec rm -r {} + || true
 	find . -type f -name "*.pyc" -delete || true
-	rm -rf .pytest_cache .coverage *.egg-info dist build $(VENV)
+	rm -rf .pytest_cache .coverage *.egg-info dist build .venv
 	rm -rf docs/_build
 
-# Run tests
-test:
-	. $(VENV)/bin/activate && pytest --cov=ami --cov-report=term-missing -v
+test:				# Run tests
+	uv run pytest --cov=ami --cov-report=term-missing -v
 
-# Lint code
-lint:
-	. $(VENV)/bin/activate && flake8 ami tests
+lint:				# Lint code
+	uv run flake8 ami tests
 
-# Format code
-format:
-	. $(VENV)/bin/activate && black ami tests
-
-# Type checking
-typecheck:
-	. $(VENV)/bin/activate && mypy ami
-
-# Build documentation
-docs:
-	. $(VENV)/bin/activate && sphinx-build -b html docs docs/_build
+docs:				# Build documentation
+	uv run sphinx-build -b html docs docs/_build

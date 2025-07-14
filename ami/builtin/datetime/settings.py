@@ -1,8 +1,4 @@
-
-
-
 from ami.headspace import BaseWidgetSettings
-
 
 class DateTimeDefaultSettings(BaseWidgetSettings):
     x: int = 1

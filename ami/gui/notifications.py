@@ -5,8 +5,6 @@ from PyQt6.QtGui import QPixmap, QFont, QColor, QPainter
 from PyQt6.QtSvgWidgets import QSvgWidget
 from PyQt6.QtCore import Qt, QTimer
 
-from ami.interfaces.gui.widgets import BuildtinWidget
-
 DEFAULT_ICONS = [ 'hourglass', 'automations', 'ai', 'wifi' ]
 
 class NotificationIcon(QWidget):

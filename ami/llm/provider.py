@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from openai import OpenAI
 from anthropic import Anthropic
 
-from ami.core import Config, LogBase
+from ..core import Config, LogBase
 
 from .agents import FunctionCallingThoughActionObservation, ReActAgent, ThinkAndPlanAgent
 from .prompts import ZeroShot
@@ -64,7 +64,6 @@ class XAIClient(LLMClient, LogBase):
         result = self.get_completion(prompt, **kwargs).choices[0].message
         self.logs.debug(f"XAI generate completion called. Raw output: {result}")
         return result.content.strip()
-#       return self.get_completion(prompt, **kwargs).choices[0].message.content.strip()
 
 class AnthropicClient(LLMClient, LogBase):
     def __init__(self, api_key: str):

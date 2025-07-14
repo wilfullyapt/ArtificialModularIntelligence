@@ -8,8 +8,8 @@ from queue import Empty
 from multiprocessing import Event, Queue, Manager
 from multiprocessing.synchronize import Event as mpEventType
 
-from ami.core import LogBase, Config
-from ami.core import PluginRegistry
+from ..core import LogBase, Config
+from ..core import PluginRegistry
 
 from .constants import ProcessType, EventType, StateType
 

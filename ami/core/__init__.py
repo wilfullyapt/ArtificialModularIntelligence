@@ -13,6 +13,7 @@ __all__ = [
     "LogBase",
     "PluginRegistry",
     "PluginVertical",
+    "Plugin",
     "ConfigMetadataPluginWatcher",
     "Conversation"
 ]

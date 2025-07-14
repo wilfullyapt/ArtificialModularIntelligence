@@ -52,33 +52,43 @@ class BaseIPC(LogBase):
                     pass
         return handlers
 
-    def check_and_handle_incoming_ipc_event(self):
-        """
-        Handle the incoming events in the process-specific multiprocessing Queue
-
-        Events handling is specific to the `@on_event` decorator, which you can see in use in the ProcessIPC.run Keep Alive loop.
-        """
-        try:
-            event = self.get_queue(self.process_type).get_nowait()
-            assert isinstance(event, IPCEvent)
-
-            if event.type in self.event_handlers:
+    def start_event_handler(self):
+        """Start the event handling thread for true event-driven processing."""
+        import threading
+        
+        def event_loop():
+            while self._running:
                 try:
-                    callback = self.event_handlers[event.type]
-                    self.ipc_logs.info(f"BaseIPC Event Handling {event.type}: {callback}")
-                    self.event_handlers[event.type](event)
+                    # Blocking wait for events - truly event-driven!
+                    event = self.get_queue(self.process_type).get(timeout=1.0)
+                    if isinstance(event, IPCEvent):
+                        self._handle_event(event)
+                except Empty:
+                    continue  # Timeout, check if still running
                 except Exception as e:
                     tb_str = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
-                    self.ipc_logs.error(f"Error handling event {event.type}: {e}\nFull traceback:\n{tb_str}")
+                    self.ipc_logs.error(f"Error in event loop: {e}\nFull traceback:\n{tb_str}")
+        
+        self._event_thread = threading.Thread(target=event_loop, daemon=True)
+        self._event_thread.start()
+        self.ipc_logs.info("Event handler thread started")
 
-            else:
-                self.ipc_logs.warning(f"Unhandled event type: {event.type}")
+    def _handle_event(self, event: IPCEvent):
+        """Handle a single event with proper error isolation."""
+        if event.type in self.event_handlers:
+            try:
+                callback = self.event_handlers[event.type]
+                self.ipc_logs.debug(f"Handling {event.type} with {callback.__name__}")
+                callback(event)
+            except Exception as e:
+                tb_str = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
+                self.ipc_logs.error(f"Error handling event {event.type}: {e}\nFull traceback:\n{tb_str}")
+        else:
+            self.ipc_logs.warning(f"Unhandled event type: {event.type}")
 
-        except (AssertionError, Empty):
-            pass
-        except Exception as e:
-            tb_str = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
-            self.ipc_logs.error(f"Error in event loop: {e}\nFull traceback:\n{tb_str}")
+    def check_and_handle_incoming_ipc_event(self):
+        """Legacy method - replaced by event thread. Remove when all processes updated."""
+        pass
 
     def update_cache(self):
         """ Update local cache from shared data."""
@@ -104,17 +114,25 @@ class ProcessIPC(BaseIPC, Process):
 
     def run(self):
         """
-        When the Process.start() function is called, this run function is what happens in the forked process in the main thread, which we intend to keep alive.
-        We loop check the process specific queue and handle the event.
+        Event-driven process main loop - no more wasteful polling!
         """
-        self.setup()
-        self._running = True
-
-        # Keep Alive loop
-        while self._running:
-            self.check_and_handle_incoming_ipc_event()
-            self.loop()         # Run the subclassed loop function
-            time.sleep(0.01)
+        try:
+            self.setup()
+            self._running = True
+            
+            # Start dedicated event handling thread
+            self.start_event_handler()
+            
+            # Main thread handles business logic
+            while self._running:
+                self.loop()  # Business logic loop
+                time.sleep(0.1)  # Much less frequent for business logic
+                
+        except Exception as e:
+            self.ipc_logs.error(f"Process run loop failed: {e}")
+            self._running = False
+        finally:
+            self.cleanup()
 
     @on_event(EventType.GLOBAL_STOP)
     def stop(self, event: IPCEvent):

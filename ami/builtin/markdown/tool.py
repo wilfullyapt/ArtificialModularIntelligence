@@ -2,6 +2,12 @@ from pathlib import Path
 from typing import Any, List, Tuple
 
 import markdown
+import tempfile
+import shutil
+from pathlib import Path
+from typing import Any, List, Tuple, Dict
+from threading import Lock
+
 from pydantic import BaseModel
 
 from ami.core import LogBase
@@ -77,6 +83,10 @@ class MarkdownFile:
         return self.filepath.is_file()
 
     @property
+    def name(self) -> str:
+        return self._filepath.name
+
+    @property
     def lists(self) -> List[str]:
         """ Returns a list of all headers that are in place as list names """
         if not self.exists:
@@ -107,7 +117,38 @@ class Markdown(LogBase):
     def __init__(self, base_path: Path, markdown_files: List[str]):
         self._filesystem: Path = base_path
         self._md_files: List[str] = markdown_files
+        self._file_cache: Dict[str, List[str]] = {}
+        self._cache_lock = Lock()
         self.logs.debug(f"Markdown Files for MarkdownTool: {self._md_files}")
+    
+    def _get_file_lines(self, filepath: Path) -> List[str]:
+        """Get file lines with caching"""
+        with self._cache_lock:
+            cache_key = str(filepath)
+            if cache_key not in self._file_cache:
+                try:
+                    with filepath.open('r', encoding='utf-8') as f:
+                        self._file_cache[cache_key] = f.readlines()
+                except FileNotFoundError:
+                    return []
+            return self._file_cache[cache_key].copy()
+    
+    def _write_file_atomic(self, filepath: Path, lines: List[str]):
+        """Write file atomically and update cache"""
+        with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', 
+                                       dir=filepath.parent, delete=False) as tmp:
+            tmp.writelines(lines)
+            tmp_path = Path(tmp.name)
+        
+        shutil.move(str(tmp_path), str(filepath))
+        
+        with self._cache_lock:
+            self._file_cache[str(filepath)] = lines.copy()
+    
+    def _invalidate_cache(self, filepath: Path):
+        """Remove file from cache"""
+        with self._cache_lock:
+            self._file_cache.pop(str(filepath), None)
 
     @property
     def filesystem(self) -> Path:
@@ -148,39 +189,83 @@ class Markdown(LogBase):
     def add_to_list(self, list_name: str, item: str, index: int = -1):
         """Adds an item to the specified list in a Markdown file at the given index."""
         md_list = self.get_list(list_name)
+        
+        # Add item to contents (don't force lowercase)
         if index == -1:
-            md_list.contents.append(item.lower())
+            md_list.contents.append(item)
         else:
-            md_list.contents.insert(index.lower(), item)
+            md_list.contents.insert(index, item)
         
-        with md_list.markdown_file.filepath.open('r', encoding='utf-8') as f:
-            lines = f.readlines()
+        lines = self._get_file_lines(md_list.markdown_file.filepath)
         
+        # Find list boundaries more reliably
         list_start = md_list.lineno + 1
-        while list_start < len(lines) and not lines[list_start].strip().startswith('-'):
-            list_start += 1
+        while list_start < len(lines):
+            line = lines[list_start].strip()
+            if line.startswith('-') or line.startswith('*'):
+                break
+            elif line and not line.startswith('#'):
+                list_start += 1
+            else:
+                break
+        
         list_end = list_start
-        while list_end < len(lines) and lines[list_end].strip().startswith('-'):
-            list_end += 1
+        while list_end < len(lines):
+            line = lines[list_end].strip()
+            if line.startswith('-') or line.startswith('*'):
+                list_end += 1
+            elif not line:  # Empty line continues list
+                list_end += 1
+            else:
+                break
         
-        new_list_lines = [f"- {item}\n" for item in md_list.contents]
-        lines = lines[:list_start] + new_list_lines + lines[list_end:]
+        # Reconstruct list with proper formatting
+        new_list_lines = [f"- {content}\n" for content in md_list.contents]
+        new_lines = lines[:list_start] + new_list_lines + lines[list_end:]
         
-        with md_list.markdown_file.filepath.open('w', encoding='utf-8') as f:
-            f.writelines(lines)
+        self._write_file_atomic(md_list.markdown_file.filepath, new_lines)
 
     def remove_from_list(self, list_name: str, item: str):
         """Removes a specified item from the list in a Markdown file."""
         md_list = self.get_list(list_name)
-        if item.lower() in md_list:
-            md_list.contents.remove(item.lower())
-        else:
+        
+        # Case-insensitive search for item
+        item_to_remove = None
+        for content in md_list.contents:
+            if content.lower() == item.lower():
+                item_to_remove = content
+                break
+        
+        if item_to_remove is None:
             raise ValueError(f"Item '{item}' not found in list '{list_name}'")
         
-        with md_list.markdown_file.filepath.open('r', encoding='utf-8') as f:
-            lines = f.readlines()
+        md_list.contents.remove(item_to_remove)
         
-        new_lines = lines[:md_list.lineno+1] + [ f" - {list_item}\n" for list_item in md_list.contents ] + lines[len(md_list)+2:]
-
-        with md_list.markdown_file.filepath.open('w', encoding='utf-8') as f:
-            f.writelines(new_lines)
+        lines = self._get_file_lines(md_list.markdown_file.filepath)
+        
+        # Find list boundaries (same logic as add_to_list)
+        list_start = md_list.lineno + 1
+        while list_start < len(lines):
+            line = lines[list_start].strip()
+            if line.startswith('-') or line.startswith('*'):
+                break
+            elif line and not line.startswith('#'):
+                list_start += 1
+            else:
+                break
+        
+        list_end = list_start
+        while list_end < len(lines):
+            line = lines[list_end].strip()
+            if line.startswith('-') or line.startswith('*'):
+                list_end += 1
+            elif not line:
+                list_end += 1
+            else:
+                break
+        
+        # Reconstruct list
+        new_list_lines = [f"- {content}\n" for content in md_list.contents]
+        new_lines = lines[:list_start] + new_list_lines + lines[list_end:]
+        
+        self._write_file_atomic(md_list.markdown_file.filepath, new_lines)

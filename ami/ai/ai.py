@@ -92,26 +92,44 @@ class AI(ProcessIPC):
 
     @on_event(EventType.TRANSCRIPTION_READY)
     def _on_transcription_ready(self, event: IPCEvent):
-        """Handle transcription completion."""
-        self.route_event(event.forward(ProcessType.GUI))
-        self.logs.info(f"Transcription ready: {event.data}")
-
-        self.convo.add_message(event.data, role="human")                    # Add the Human message
-        result, response = self.brain.query(self.convo.transcript)          # Query the brain against the convo
-        self.handle_headspace_instruction(result)
-        self.q = result
-        self.convo.add_message(response, role="ai", agent=result.as_steps)  # Add the AI response to the convo
-        self.process_manager.set_conversation(self.convo.to_dict())         # Update the ipc shared convo
-
-        self.route_event(IPCEvent(
-            EventType.RESPONSE_READY, 
-            ProcessType.AI, 
-            ProcessType.GUI, 
-            response
-        ))
-        self.logs.info(f"Response ready: {response}")
-
-#       self.listener.capture_audio()
+        """Handle transcription completion with async processing."""
+        import threading
+        
+        def process_transcription():
+            try:
+                # Forward to GUI immediately for responsiveness
+                self.route_event(event.forward(ProcessType.GUI))
+                
+                # Process AI query
+                self.convo.add_message(event.data, role="human")
+                result, response = self.brain.query(self.convo.transcript)
+                
+                # Handle headspace instructions
+                self.handle_headspace_instruction(result)
+                
+                # Update conversation state
+                self.convo.add_message(response, role="ai", agent=result.as_steps)
+                self.process_manager.set_conversation(self.convo.to_dict())
+                
+                # Send response
+                self.route_event(IPCEvent(
+                    EventType.RESPONSE_READY, 
+                    ProcessType.AI, 
+                    ProcessType.GUI, 
+                    response
+                ))
+                
+            except Exception as e:
+                self.logs.error(f"Error processing transcription: {e}")
+                self.route_event(IPCEvent(
+                    EventType.ERROR,
+                    ProcessType.AI,
+                    ProcessType.GUI,
+                    str(e)
+                ))
+        
+        # Process in background thread to avoid blocking event loop
+        threading.Thread(target=process_transcription, daemon=True).start()
 
     @on_event(EventType.INTERACTION_COMPLETED)
     def restart_hotword_detection(self, event: IPCEvent):

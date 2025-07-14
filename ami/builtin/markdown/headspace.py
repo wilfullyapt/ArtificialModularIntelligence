@@ -17,12 +17,24 @@ class Markdown(Headspace):
     @ami_tool
     def list_md_files(self):
         """ Use this tool to list out the known markdown files """
-        return str(self.markdown.md_files)
+        try:
+            files = self.markdown.md_files
+            if not files:
+                return "No markdown files are currently configured. Check your settings."
+            return f"Available markdown files: {', '.join(files)}"
+        except Exception as e:
+            return f"Error listing markdown files: {e}"
 
     @ami_tool
     def list_lists(self):
         """ Use this tool to list out the known lists in the markdown files """
-        return str(self.markdown.lists)
+        try:
+            lists = self.markdown.lists
+            if not lists:
+                return "No lists found in markdown files. Create a list by adding a header (# List Name) followed by items (- item)."
+            return f"Available lists: {', '.join(lists)}"
+        except Exception as e:
+            return f"Error listing available lists: {e}"
 
     @ami_tool
     def add_to_list(self, list_name:str, item:str, index:int=-1):
@@ -38,7 +50,7 @@ class Markdown(Headspace):
         """ Use this tool to remove an item to a list. Ensure to spell the list_name correctly. """
         try:
             self.markdown.remove_from_list(list_name, item)
-            return HeadspaceInstruction.reload_gui(f"'{item}' successfully removed to the '{list_name}' list!")
+            return HeadspaceInstruction.reload_gui(f"'{item}' successfully removed from the '{list_name}' list!")
         except Exception as e:
             return f"Error in remove_from_list! Use the `list_lists` tool to identify the right list. Error: {e}"
 
@@ -61,15 +73,13 @@ class Markdown(Headspace):
 
         markdown_file = self.markdown.get_markdown_file(file)
 
-        if not markdown_file.exists():
-            raise FileNotFoundError(f"HAI_TOOL@Markdown.edit_file(file='{file}'); file is not a file!")
+        if not markdown_file.exists:
+            raise FileNotFoundError(f"AMI_TOOL@Markdown.edit_file(file='{file}'); file is not a file!")
 
-        qr_code_url = f"http://{get_network_url()}/editor/{markdown_file.headspace_location}"
+        qr_code_url = f"http://{get_network_url()}/markdown/editor/{markdown_file.name}"
         qr_path = generate_qr_image(qr_code_url)
-        self.append_visual(qr_path)
 
-#       return f"Finished! Here is a QR code to use to edit the file. The URL is {qr_code_url}"
-        return f"Finished! Here is a QR code to use to edit the file. The URL is {qr_code_url}"
+        return HeadspaceInstruction.provide_image_path("Use this QR code to edit the file", qr_path)
 
     @ami_tool
     def dowload_list(self, list_name:str):

@@ -137,7 +137,7 @@ if __name__ == '__main__':
 #       hs = ai.brain.headspace_router("Set a reminder to take a out the trash every sunday at 6pm.")
 
         # Query the headspace directly and return `steps` to be summarized and added to the convo
-#       steps = ai.brain['DATETIME'].query("Set a reminder to take out the trash every Sunday night at 5pm.")
+        steps = ai.brain['CORESPACE'].query("Set a reminder to take out the trash every Sunday night at 5pm.")
 
         # Query the brain, route to a headspace and return the `steps` and `summary`
 #       steps, summ = ai.brain.query("Set a reminder to take out the trash every Sunday night at 5pm.")
@@ -157,9 +157,9 @@ if __name__ == '__main__':
         # Markdown specific testing
 #       md = ai.brain['markdown'].markdown
 
-
-        flap = server.flask_app
-        mdb = flap.blueprints['Markdown']
+        # Markdown Blueprint access
+#       flap = server.flask_app
+#       mdb = flap.blueprints['Markdown']
 
 
         print("Sequential debugging. Don't fuck it up.")

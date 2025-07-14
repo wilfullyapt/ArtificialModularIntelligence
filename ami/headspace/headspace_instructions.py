@@ -1,4 +1,5 @@
 from enum import Enum
+from pathlib import Path
 from typing import Optional, List, Dict, Union
 
 from ..core import LogBase
@@ -132,7 +133,7 @@ class HeadspaceInstruction(LogBase):
         return cls(instructions=[InstructionType.ASK_USER_INPUT], observation=observation, should_continue=True, question=question)
 
     @classmethod
-    def provide_image_path(cls, observation: str, image_path: str) -> 'HeadspaceInstruction':
+    def provide_image_path(cls, observation: str, image_path:  Path) -> 'HeadspaceInstruction':
         """Instruct to handle an image path."""
         return cls(instructions=[InstructionType.PROVIDE_IMAGE_PATH], observation=observation, should_continue=True, image_path=image_path)
 

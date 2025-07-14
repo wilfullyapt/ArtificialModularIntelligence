@@ -12,7 +12,7 @@ class Base:
         if cls is Base:
             raise TypeError("Base class cannot be instantiated directly.")
         return super().__new__(cls)
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
         """
         Initializes the logger instance for the package.
         """

@@ -55,8 +55,6 @@ class TemporalCommunications:
                 else:
                     callback(data)
 
-
-
 class AI(Base):
     """
     The AI class represents the core Artificial Modular Intelligence system.

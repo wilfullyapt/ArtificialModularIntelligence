@@ -68,6 +68,7 @@ class ManagedFlexiblePositioningLayout(QLayout, LogBase):
         if new_widget.name in self._managed_children:
             self.logs.warning(f"Widget {new_widget.name} already exists, skipping.")
         else:
+            new_widget.setObjectName(new_widget.name)
             self._managed_children[new_widget.name] = new_widget
             self.addWidget(new_widget, **new_widget.placement)
             new_widget.show()

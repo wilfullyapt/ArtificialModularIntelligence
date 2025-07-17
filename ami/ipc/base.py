@@ -1,6 +1,7 @@
 from logging import warning
 import time
 import traceback
+from threading import Thread
 from multiprocessing import Process, Queue
 from functools import cached_property
 from typing import Dict, Callable
@@ -30,6 +31,7 @@ class BaseIPC(LogBase):
         self.process_type: ProcessType = process_type
         ipc_logs_name = f"{self.__module__}.{self.__class__.__name__}:BaseIPC"
         self.ipc_logs: Logger = Logger(Config().log_config)(ipc_logs_name)
+        self._running = False
 
     def get_queue(self, process_type: ProcessType) -> Queue:
         """ Route an IPC event to its target process's event queue """
@@ -54,22 +56,21 @@ class BaseIPC(LogBase):
 
     def start_event_handler(self):
         """Start the event handling thread for true event-driven processing."""
-        import threading
         
         def event_loop():
             while self._running:
                 try:
-                    # Blocking wait for events - truly event-driven!
-                    event = self.get_queue(self.process_type).get(timeout=1.0)
+                    event = self.get_queue(self.process_type).get(timeout=1.0)      # Thread blocking for event driven
                     if isinstance(event, IPCEvent):
                         self._handle_event(event)
                 except Empty:
-                    continue  # Timeout, check if still running
+                    continue
                 except Exception as e:
                     tb_str = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
                     self.ipc_logs.error(f"Error in event loop: {e}\nFull traceback:\n{tb_str}")
         
-        self._event_thread = threading.Thread(target=event_loop, daemon=True)
+        self._running = True
+        self._event_thread = Thread(target=event_loop, daemon=True)
         self._event_thread.start()
         self.ipc_logs.info("Event handler thread started")
 
@@ -113,9 +114,7 @@ class ProcessIPC(BaseIPC, Process):
         pass
 
     def run(self):
-        """
-        Event-driven process main loop - no more wasteful polling!
-        """
+        """ Event-driven process main loop """
         try:
             self.setup()
             self._running = True
@@ -137,6 +136,9 @@ class ProcessIPC(BaseIPC, Process):
     @on_event(EventType.GLOBAL_STOP)
     def stop(self, event: IPCEvent):
         self._running = False
+
+    def cleanup(self):
+        pass
 
 
 

@@ -2,7 +2,7 @@
 
 import time
 from functools import cached_property
-from typing import Any
+from typing import Any, Optional
 
 from ..core import Conversation
 from ..headspace.headspace_instructions import HeadspaceInstruction, InstructionType
@@ -144,7 +144,7 @@ class AI(ProcessIPC):
         self.process_manager.set_state(StateType.ERROR)
 
     @on_event(EventType.GLOBAL_STOP)
-    def cleanup(self, event: IPCEvent):
+    def cleanup(self, event: Optional[IPCEvent]=None):
         """Clean up AI resources."""
         self.logs.debug("Cleaning up AI resources")
         try:

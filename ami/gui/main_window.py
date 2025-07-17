@@ -4,6 +4,7 @@ import re
 import traceback
 from typing import Any, Dict, Tuple
 
+from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
 from PyQt6.QtWidgets import QApplication
 
 from ..core import PluginRegistry, PluginVertical
@@ -12,11 +13,26 @@ from ..ipc import IPCManager, ProcessType, EventType, IPCQWidget, IPCEvent, on_e
 from .popup import AMIDialog
 from .layouts import ManagedFlexiblePositioningLayout
 
+def parse_colon_string(input_string: str) -> Tuple[str, str]:
+    pattern = r'^([a-zA-Z]+):([a-zA-Z]+)$'
+    match = re.match(pattern, input_string)
+    if not match:
+        raise ValueError(f"Input string '{input_string}' does not match the required pattern [a-zA-Z]:[a-zA-Z]")
+    left_string = match.group(1)
+    right_string = match.group(2)
+    return (left_string, right_string)
+
+class EventEmitter(QObject):
+    event_signal = pyqtSignal(IPCEvent)
+
 class MainWindow(IPCQWidget):
 
     def __init__(self, ipc_manager: IPCManager):
         IPCQWidget.__init__(self, ipc_manager, ProcessType.GUI)
         self.logs.info("Starting MainWindow initialization")
+
+        self.emitter = EventEmitter()
+        self.emitter.event_signal.connect(self._dispatch_event)
 
         self.registry = PluginRegistry(ipc_manager)
         self.headspaces: Dict[str, Any] = {}
@@ -31,6 +47,7 @@ class MainWindow(IPCQWidget):
                     )
             )
         self.popup = AMIDialog(self, popup_callback)
+        self.popup.setObjectName("convo_popup")
 
         try:
             screen = QApplication.primaryScreen()
@@ -50,17 +67,34 @@ class MainWindow(IPCQWidget):
 
     def run(self):
         self.logs.debug("MainWindow.run() called! -> This is the show event")
+        self.start_event_handler()
         self.managed_layout.setGeometry(self.managed_layout.screen_geometry)
         self.showFullScreen()
-        
-    def parse_colon_string(self, input_string: str) -> Tuple[str, str]:
-        pattern = r'^([a-zA-Z]+):([a-zA-Z]+)$'
-        match = re.match(pattern, input_string)
-        if not match:
-            raise ValueError(f"Input string '{input_string}' does not match the required pattern [a-zA-Z]:[a-zA-Z]")
-        left_string = match.group(1)
-        right_string = match.group(2)
-        return (left_string, right_string)
+
+    def _handle_event(self, event: IPCEvent):
+        """Handle a single event with proper error isolation."""
+        if event.type in self.event_handlers:
+            try:
+                self.ipc_logs.debug(f"Handling {event.type}, inside thread")
+                self.emitter.event_signal.emit(event)
+
+            except Exception as e:
+                tb_str = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
+                self.ipc_logs.error(f"Error handling event {event.type}: {e}\nFull traceback:\n{tb_str}")
+        else:
+            self.ipc_logs.warning(f"Unhandled event type: {event.type}")
+
+    @pyqtSlot(IPCEvent)
+    def _dispatch_event(self, event: IPCEvent):
+        """Dispatch the event to the appropriate callback in the main thread."""
+        if event.type in self.event_handlers:
+            try:
+                callback = self.event_handlers[event.type]
+                self.ipc_logs.debug(f"Handling {event.type} with {callback.__name__}, in main thread")
+                callback(event)
+            except Exception as e:
+                tb_str = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
+                self.ipc_logs.error(f"Error handling event {event.type}: {e}\nFull traceback:\n{tb_str}")
 
     @on_event(EventType.HOTWORD_DETECTED)
     def on_hotword_detection(self, event: IPCEvent):
@@ -89,7 +123,7 @@ class MainWindow(IPCQWidget):
         """Reload plugin widgets specified in the event data."""
         self.logs.info(f"Reload GUI triggered for {str(event.data)}")
         try:
-            headspace, method = self.parse_colon_string(event.data)
+            headspace, method = parse_colon_string(event.data)
             headspace = self.managed_layout[headspace]
 #           headspace = self.managed_layout.get_headspace(headspace)
             popup_inline_widget_getter = getattr(headspace, method)

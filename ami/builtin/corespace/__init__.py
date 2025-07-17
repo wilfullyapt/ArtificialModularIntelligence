@@ -18,7 +18,7 @@ EXAMPLES = [
     "Set a reoccurring reminder to <do something>. Every three months starting tomorrow.",
     "Can you tell me about ...",
     "Can you explain to me ...",
-
+    "Perform an update",
 ]
 
 __version__ = "0.1.0"

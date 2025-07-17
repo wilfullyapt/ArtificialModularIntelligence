@@ -30,7 +30,7 @@ class HeadspaceInstruction(LogBase):
         self.name = name
         self.should_continue = should_continue
         self.steps = steps or []
-        self.data = kwargs
+        self.data = kwargs                                  # any kwargs are captured in the data transmiseded
         self.logs.debug(f"HeadspaceInstruction: {self}")
 
     @property

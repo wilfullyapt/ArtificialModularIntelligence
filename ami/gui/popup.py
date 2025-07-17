@@ -6,17 +6,6 @@ from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QProgress
 
 from ..core import LogBase
 
-class ConversationState(Enum):
-    """States for the conversation popup"""
-    IDLE = "IDE"
-    LISTENING = "LISTENING"
-    HUMAN_SPEAKING = "HUMAN_SPEAKING"
-    AI_THINKING = "AI_THINKING"
-    AI_RESPONDING = "AI_RESPONDING"
-
-class LoadingSpinner:
-    spinner_sprites = ("⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏")
-
 class Dialog(QWidget, LogBase):
     """Widget representing a single message in the conversation"""
     def __init__(self, parent, speaker: str, message: str, loading: bool=False):
@@ -31,7 +20,6 @@ class Dialog(QWidget, LogBase):
         self._id = id(self)
         self.destroyed.connect(self._on_destroyed)
 
-        # Horizontal layout for speaker and message
         self.message_layout = QHBoxLayout()
         self.message_layout.setContentsMargins(0, 5, 0, 5)
 
@@ -44,8 +32,10 @@ class Dialog(QWidget, LogBase):
         self.message_label.setStyleSheet("color: white;")
 
         # Main vertical layout
-        self.main_layout = QVBoxLayout()
+        self.main_layout = QHBoxLayout()
         self.main_layout.addLayout(self.message_layout)
+        self.main_layout.addWidget(self.speaker_label)
+        self.main_layout.addWidget(self.message_label, stretch=1)
         self.setLayout(self.main_layout)
 
         self._spinner_timer = QTimer()
@@ -102,23 +92,24 @@ class ConversationView(QScrollArea, LogBase):
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
-        self._layout = QVBoxLayout()
-        self._layout.setSpacing(0)
-        self._layout.setContentsMargins(10, 10, 10, 10)
-        self._layout.addStretch()
+        self.messages_layout = QVBoxLayout()
+        self.messages_layout.setSpacing(0)
+        self.messages_layout.setContentsMargins(10, 10, 10, 10)
+        self.messages_layout.addStretch()
 
         content_widget = QWidget()
-        content_widget.setLayout(self._layout)
+        content_widget.setLayout(self.messages_layout)
         self.setWidget(content_widget)
         self.setWidgetResizable(True)
 
         self.setStyleSheet("""
             QScrollArea {
-                border: none;
+                border: 1px solid red;
                 background: transparent;
             }
             QWidget {
                 background: transparent;
+                border: none;
             }
         """)
 
@@ -134,7 +125,8 @@ class ConversationView(QScrollArea, LogBase):
         """Add a new message to the conversation"""
         msg_widget = Dialog(self, speaker, message, loading=with_loading)
         self.messages.append(msg_widget)
-        self._layout.insertWidget(self._layout.count() - 1, msg_widget)
+        self.messages_layout.insertWidget(self.messages_layout.count() - 1, msg_widget)
+        self.logs.debug(f"Added Message: {speaker}: {message}")
         self.verticalScrollBar().setValue(self.verticalScrollBar().maximum())
 
     def update_last_message(self, speaker: str, new_text: str) -> bool:
@@ -146,6 +138,7 @@ class ConversationView(QScrollArea, LogBase):
         if isinstance(dialog, Dialog):
             if dialog.get_speaker() == speaker:
                 dialog.update_message(new_text)
+                self.logs.debug(f"Message Updated: {speaker}: {new_text}")
                 return True
             else:
                 self.logs.error(f"Incorrect speaker passed to ConversationView(). {speaker} instead of {dialog.get_speaker()}")
@@ -162,8 +155,8 @@ class ConversationView(QScrollArea, LogBase):
     def reset(self):
         """Reset the conversation by clearing all messages and widgets"""
 
-        while self._layout.count() > 1:         # Leave the stretch item
-            item = self._layout.takeAt(0)       # Remove from top (before stretch)
+        while self.messages_layout.count() > 1:         # Leave the stretch item
+            item = self.messages_layout.takeAt(0)       # Remove from top (before stretch)
             widget = item.widget()              # item.widget() returns a QWidget (if the item is a widget)
             if widget:                          #   or None if it isn't a QWidget
                 if isinstance(widget, Dialog):  # Check if the widget is a Dialog object
@@ -178,6 +171,18 @@ class ConversationView(QScrollArea, LogBase):
                 self.logs.error("Unexpected non-widget item found in layout before stretch")
 
         self.messages.clear()               # Reset the messages list
+
+class DialogSize(Enum):
+    MAX = "MAX"
+    MIN = "MIN"
+
+class ConversationState(Enum):
+    """States for the conversation popup"""
+    IDLE = "IDE"
+    LISTENING = "LISTENING"
+    HUMAN_SPEAKING = "HUMAN_SPEAKING"
+    AI_THINKING = "AI_THINKING"
+    AI_RESPONDING = "AI_RESPONDING"
 
 class AMIDialog(QDialog, LogBase):
     """Popup dialog for AMI interaction"""
@@ -211,17 +216,18 @@ class AMIDialog(QDialog, LogBase):
             QDialog {
                 background-color: black;
                 border: 2px solid white;
-                border-radius: 5px;
+                border-radius: 3px;
             }
             QProgressBar {
                 border: none;
                 background: #333333;
-                height: 4px;
+                height: 9px;
                 margin: 2px;
             }
             QProgressBar::chunk {
                 background: #666666;
             }
+#           QWidget { border: 1px solid red; }
         """)
 
         layout = QVBoxLayout(self)
@@ -262,6 +268,8 @@ class AMIDialog(QDialog, LogBase):
         """Show listening state"""
         assert self.state is ConversationState.IDLE
 
+        self.logs.debug("Listening started!")
+
         self.state = ConversationState.LISTENING
         self.progress_bar.setValue(0)
         self.conversation.append_message("HUMAN", "Listening")
@@ -272,11 +280,10 @@ class AMIDialog(QDialog, LogBase):
         """Show transcription and AI thinking state"""
         assert self.state is ConversationState.LISTENING
 
-        self.state = ConversationState.HUMAN_SPEAKING
         self.conversation.update_last_message("HUMAN", text)
+        self.conversation.append_message("AI", "Thinking")
 
         self.state = ConversationState.AI_THINKING
-        self.conversation.append_message("AI", "Thinking")
 
     def show_response(self, text: str):
         """Show AI response and start auto-close timer"""

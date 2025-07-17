@@ -20,3 +20,8 @@ class CorespaceHeadspace(Headspace):
     def set_timer(self, number: int, unit: Literal["minutes", "hours"], name: Optional[str]):
         """ Set a timer for something. Only name it if explicitly named by the user. 5 minutes => (5,"minutes"), 2 hours => (2, "hours") """
         return "Timer successfully set!"
+
+    @ami_tool
+    def update(self):
+        """ Perform an update on your software """
+        pass

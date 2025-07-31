@@ -6,9 +6,13 @@
     <style>p { margin: 4px 0px; }</style>
 {% endblock %}
 
-{% block page_heading %}Logs{% endblock %}
+{% block page_heading %}Logs (Raw View){% endblock %}
 
 {% block contents %}
+<div style="margin-bottom: 20px;">
+    <a href="{{ url_for('logs') }}" style="padding: 8px 15px; background: #007bff; color: white; text-decoration: none; border-radius: 4px;">← Back to Enhanced Logs</a>
+    <a href="{{ url_for('render_logfile', logfile=logfile) }}" style="padding: 8px 15px; background: #28a745; color: white; text-decoration: none; border-radius: 4px; margin-left: 10px;">📋 Parsed View</a>
+</div>
 <h2>Log File: {{ logfile }}</h2>
 
 {% for line in log_content %}

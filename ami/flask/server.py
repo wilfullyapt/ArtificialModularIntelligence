@@ -3,14 +3,14 @@
 from functools import cached_property
 from pathlib import Path
 from typing import Any, List
+from pprint import pprint as pp
 
-from flask import Flask, render_template,  redirect, url_for, make_response, send_file, abort
+from flask import Flask, flash, render_template,  redirect, request, url_for, make_response, send_file, abort
 
-from ami.ipc.manager import IPCManager
+from ..core import Config, ConfigUpdater
+from ..ipc.manager import IPCManager
 
-from ..core import Config
-
-headspaces_dir = Config().headspaces_dir
+headspaces_dir = Config().plugins_dir
 
 AI_DIR = Config().data_dir
 TEMPLATE_FOLDER = str(Path(__file__).parent / "templates")
@@ -22,6 +22,75 @@ def logs_dir():
     if not log_dir.exists():
         log_dir.mkdir(parents=True)
     return log_dir
+
+def parse_log_line(line):
+    """ Parse a log line and extract components """
+    import re
+    # Match the log format: {time} | {level} | {name}:{function}:{line} - {message}
+    pattern = r'(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) \| (\w+)\s* \| ([^-]+) - (.+)'
+    match = re.match(pattern, line.strip())
+    if match:
+        return {
+            'timestamp': match.group(1),
+            'level': match.group(2).strip(),
+            'source': match.group(3).strip(),
+            'message': match.group(4).strip(),
+            'raw': line.strip()
+        }
+    return {
+        'timestamp': '',
+        'level': 'UNKNOWN',
+        'source': '',
+        'message': line.strip(),
+        'raw': line.strip()
+    }
+
+def get_all_log_files():
+    """ Get all log files in the logs directory """
+    log_files = []
+    logs_path = logs_dir()
+    for file_path in logs_path.rglob('*.log'):
+        if file_path.is_file():
+            relative_path = file_path.relative_to(logs_path)
+            log_files.append({
+                'name': str(relative_path),
+                'path': file_path,
+                'size': file_path.stat().st_size,
+                'modified': file_path.stat().st_mtime
+            })
+    return sorted(log_files, key=lambda x: x['modified'], reverse=True)
+
+def get_aggregated_logs(selected_files=None, level_filter=None, limit=1000):
+    """ Get aggregated logs from selected files with optional level filtering """
+    all_logs = []
+    log_files = get_all_log_files()
+    
+    # Filter files if specific ones are selected
+    if selected_files:
+        log_files = [f for f in log_files if f['name'] in selected_files]
+    
+    for log_file in log_files:
+        try:
+            with log_file['path'].open('r', encoding='utf-8') as f:
+                for line_num, line in enumerate(f, 1):
+                    if line.strip():
+                        parsed = parse_log_line(line)
+                        parsed['file'] = log_file['name']
+                        parsed['line_number'] = line_num
+                        
+                        # Apply level filter if specified
+                        if level_filter and parsed['level'] != level_filter:
+                            continue
+                            
+                        all_logs.append(parsed)
+        except Exception as e:
+            print(f"Error reading log file {log_file['name']}: {e}")
+    
+    # Sort by timestamp (most recent first)
+    all_logs.sort(key=lambda x: x['timestamp'], reverse=True)
+    
+    # Limit results
+    return all_logs[:limit]
 
 def get_app():
     """ Create and return the app """
@@ -65,6 +134,56 @@ def get_app():
             return  { entry.name: get_directory_tree(entry) for entry in path.iterdir() }
         return None
 
+
+    @app.route('/settings', methods=['GET', 'POST'])
+    def settings():
+
+        conf_updtr = ConfigUpdater()
+        if request.method == 'POST':
+            try:
+
+                if 'ami_config_submit' in request.form:
+                    if conf_updtr.save_ami_config(request.form):
+                        flash('AMI configuration saved successfully!', 'success')
+
+                if 'env_submit' in request.form:
+                    if conf_updtr.save_env_file(request.form):
+                        flash('Environment variables saved successfully!', 'success')
+                
+                conf_updtr.update_headspace_setting(request.form)
+
+            except Exception as e:
+                flash(f'Error saving settings: {str(e)}', 'error')
+
+            return redirect(url_for('settings'))
+
+        ami_config = conf_updtr.load_ami_config()
+        env_vars = conf_updtr.load_env_file()
+
+        headspace_settings = {}
+        settings_files = conf_updtr.get_headspace_settings_files()
+        print(f"settings file: {settings_files}")
+        for name, file_path in settings_files.items():
+            print(f"settings_file[{name}] = {file_path}")
+            headspace_settings[name] = conf_updtr.load_headspace_settings(file_path)
+
+#       template_settings = self.tempsets.augment(header="System Settings", buttons=[])
+#       return render_template('settings_manager.html', ami_config=ami_config, env_vars=env_vars, headspace_settings=headspace_settings, tempsets=template_settings)
+
+        print("setting.html file rendered")
+
+        print("ami_config")
+        pp(ami_config)
+
+        print("env_vars")
+        pp(env_vars)
+
+        print("headspace_settings")
+        pp(headspace_settings)
+
+        return render_template('settings.html', ami_config=ami_config, env_vars=env_vars, headspace_settings=headspace_settings)
+#       return render_template('settings.html')
+
     @app.route('/tree')
     def tree():
         tree_dict = get_directory_tree(headspaces_dir)
@@ -72,8 +191,29 @@ def get_app():
 
     @app.route('/logs')
     def logs():
-        tree_dict = get_directory_tree(logs_dir())
-        return render_template('tree.html', tree=tree_dict)
+        # Get query parameters
+        selected_files = request.args.getlist('files')
+        level_filter = request.args.get('level')
+        view_mode = request.args.get('view', 'aggregated')  # 'aggregated' or 'tree'
+        
+        if view_mode == 'tree':
+            tree_dict = get_directory_tree(logs_dir())
+            return render_template('tree.html', tree=tree_dict)
+        
+        # Get available log files and levels
+        available_files = get_all_log_files()
+        available_levels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
+        
+        # Get aggregated logs
+        logs_data = get_aggregated_logs(selected_files, level_filter, limit=1000)
+        
+        return render_template('logs_aggregated.html', 
+                             logs=logs_data,
+                             available_files=available_files,
+                             selected_files=selected_files,
+                             available_levels=available_levels,
+                             selected_level=level_filter,
+                             total_logs=len(logs_data))
 
     @app.route('/logs/<path:logfile>', methods=['GET'])
     def render_logfile(logfile):
@@ -82,10 +222,34 @@ def get_app():
         if not logfile_path.is_file():
             return f"File '{logfile}' not found in {logfile_path}", 404
 
-        with logfile_path.open('r') as f:
-            content = f.readlines()
+        # Get query parameters for filtering
+        level_filter = request.args.get('level')
+        raw_view = request.args.get('raw', 'false').lower() == 'true'
 
-        return render_template('logs.html', logfile=logfile, log_content=content)
+        parsed_logs = []
+        raw_content = []
+        
+        with logfile_path.open('r', encoding='utf-8') as f:
+            for line_num, line in enumerate(f, 1):
+                raw_content.append(line.rstrip())
+                if line.strip():
+                    parsed = parse_log_line(line)
+                    parsed['line_number'] = line_num
+                    
+                    # Apply level filter if specified
+                    if not level_filter or parsed['level'] == level_filter:
+                        parsed_logs.append(parsed)
+
+        if raw_view:
+            return render_template('logs.html', logfile=logfile, log_content=raw_content)
+        else:
+            available_levels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
+            return render_template('logs_single.html', 
+                                 logfile=logfile, 
+                                 logs=parsed_logs,
+                                 available_levels=available_levels,
+                                 selected_level=level_filter,
+                                 total_logs=len(parsed_logs))
 
 # ------------------------------------------------------------------------------
 #                       TREE ROUTING

@@ -1,4 +1,4 @@
-.PHONY: help run dev idev clean test lint docs
+.PHONY: help run dev idev clean test lint docs cli
 
 SOURCE_DIR := $(shell pwd)
 ARGS ?=
@@ -7,6 +7,15 @@ UNAME := $(shell uname -s)
 ifneq ($(UNAME),Linux)
 	$(error This Makefile only supports Linux. Windows and MacOS are not supported.)
 endif
+
+RED    = \033[31m
+GREEN  = \033[32m
+YELLOW = \033[33m
+BLUE   = \033[34m
+PURPLE = \033[35m
+CYAN   = \033[36m
+WHITE  = \033[37m
+RESET  = \033[0m
 
 help:
 	@echo "Usage: make <target>"
@@ -23,23 +32,23 @@ help:
 	@echo "                 example: make dev ARGS='--ai / --gui / --backend / --debug'"
 	@echo ""
 	@echo "Development functions:"
-	@echo "  test         - Run tests with coverage."
+	@echo "  test         - Run all tests with coverage."
+	@echo "  test-cli     - Run CLI-specific tests."
 	@echo "  lint         - Run linting checks."
 	@echo "  docs         - Build documentation."
 	@echo "  clean        - Remove temporary files and caches."
 
-cli: cli/ami		# Compile and install the AMI cli
-	cp cli/ami $(HOME)/.local/bin/ami
-
-cli/ami: cli/main.c
-	gcc -Wall -Wextra -o cli/ami cli/main.c -DSOURCE_DIR=\"$(SOURCE_DIR)\"
-
-install: cli cli/ami
-	@echo "Syncing UV environment..."
-	uv sync
-	@echo "Installing AMI CLI binary..."
+cli:
+	@echo "$(YELLOW)Building the AMI binary from source...$(RESET)"
+	$(MAKE) -C cli SOURCE_DIR="$(SOURCE_DIR)"
+	@echo "$(YELLOW)Installing AMI CLI binary...$(RESET)"
 	mkdir -p $(HOME)/.local/bin
 	cp cli/ami $(HOME)/.local/bin/ami
+	@echo "$(GREEN)  --==  DONE  ==--$(RESET)"
+
+install: cli
+	@echo "Syncing UV environment..."
+	uv sync
 	@echo "Installation complete. Run 'ami' to use the CLI."
 
 dev:									# `make dev ARGS="--ai --gui"`
@@ -47,8 +56,11 @@ dev:									# `make dev ARGS="--ai --gui"`
 idev:									# `make idev ARGS="--backend"`
 	uv run python -i -m ami.dev $(ARGS)
 
-test:				# Run tests
+test:				# Run all tests
 	uv run pytest --cov=ami --cov-report=term-missing -v
+
+test-cli:			# Run CLI tests specifically
+	uv run python cli/test_cli.py
 
 lint:				# Lint code
 	uv run flake8 ami tests
@@ -61,4 +73,4 @@ clean:				# Clean up
 	find . -type f -name "*.pyc" -delete || true
 	rm -rf .pytest_cache .coverage *.egg-info dist build .venv
 	rm -rf docs/_build
-	rm -f cli/ami
+	$(MAKE) -C cli clean

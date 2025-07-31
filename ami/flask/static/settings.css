@@ -1,0 +1,157 @@
+.settings-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.settings-section {
+    background: #2a2a2a;
+    border-radius: 8px;
+    margin-bottom: 30px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.settings-section h2 {
+    color: #C3C3C3;
+    border-bottom: 2px solid #444;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+    font-size: 1.5em;
+}
+
+.settings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.setting-field {
+    display: flex;
+    flex-direction: column;
+}
+
+.setting-field label {
+    color: #C3C3C3;
+    font-weight: bold;
+    margin-bottom: 5px;
+    font-size: 0.9em;
+}
+
+.setting-field input,
+.setting-field textarea,
+.setting-field select {
+    background: #1a1a1a;
+    border: 1px solid #444;
+    border-radius: 4px;
+    color: #C3C3C3;
+    padding: 8px 10px;
+    font-size: 0.9em;
+}
+
+.setting-field input:focus,
+.setting-field textarea:focus,
+.setting-field select:focus {
+    outline: none;
+    border-color: #007acc;
+    box-shadow: 0 0 5px rgba(0, 122, 204, 0.3);
+}
+
+.setting-field textarea {
+    min-height: 60px;
+    resize: vertical;
+}
+
+.setting-field input[type="checkbox"] {
+    width: auto;
+    margin-right: 8px;
+    transform: scale(1.2);
+}
+
+.checkbox-wrapper {
+    display: flex;
+    align-items: center;
+    margin-top: 5px;
+}
+
+.checkbox-wrapper label {
+    margin: 0;
+    margin-left: 5px;
+}
+
+.save-button {
+    background: #007acc;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 10px 20px;
+    font-size: 1em;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.save-button:hover {
+    background: #005a99;
+}
+
+.save-button:active {
+    background: #004477;
+}
+
+.button-container {
+    text-align: right;
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #444;
+}
+
+.flash-messages {
+    margin-bottom: 20px;
+}
+
+.flash-message {
+    padding: 10px 15px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+}
+
+.flash-message.success {
+    background: #2d5a2d;
+    color: #90ee90;
+    border: 1px solid #4a7c59;
+}
+
+.flash-message.error {
+    background: #5a2d2d;
+    color: #ff6b6b;
+    border: 1px solid #7c4a4a;
+}
+
+.headspace-name {
+    color: #007acc;
+    font-size: 1.1em;
+    margin-bottom: 10px;
+}
+
+.setting-description {
+    font-size: 0.8em;
+    color: #888;
+    margin-top: 3px;
+    font-style: italic;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .settings-container {
+        padding: 10px;
+    }
+    
+    .settings-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .settings-section {
+        padding: 15px;
+    }
+}

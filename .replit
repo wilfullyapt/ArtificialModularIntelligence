@@ -1,9 +1,0 @@
-modules = ["python-3.12", "web", "bash"]
-run = "python undefined"
-
-[nix]
-channel = "stable-24_05"
-packages = ["libsndfile", "libxcrypt", "libyaml", "portaudio"]
-
-[deployment]
-run = ["sh", "-c", "python undefined"]

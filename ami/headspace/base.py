@@ -39,7 +39,7 @@ class Primitive(LogBase):
 
     @cached_property
     def filespace(self) -> Path:
-        filespace = Config().plugin_data_dir / self.__class__._hs_name
+        filespace = Config().headspace_data_dir / self.__class__._hs_name
         filespace.mkdir(parents=True, exist_ok=True)
         return filespace
 

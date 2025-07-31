@@ -1,0 +1,112 @@
+
+{% extends "base.html" %}
+
+{% block page_title %}AMI | {{ logfile }}{% endblock %}
+
+{% block extra_styles %}
+<style>
+    .log-file-header { 
+        background: #f8f9fa; 
+        padding: 20px; 
+        border-radius: 8px; 
+        margin-bottom: 20px; 
+        border: 1px solid #dee2e6;
+    }
+    .log-entry { 
+        border-left: 4px solid #dee2e6; 
+        padding: 12px; 
+        margin-bottom: 8px; 
+        background: #fff;
+        border-radius: 0 4px 4px 0;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        font-family: 'Courier New', monospace;
+        font-size: 0.9em;
+    }
+    .log-entry.DEBUG { border-left-color: #6c757d; }
+    .log-entry.INFO { border-left-color: #28a745; }
+    .log-entry.WARNING { border-left-color: #ffc107; }
+    .log-entry.ERROR { border-left-color: #dc3545; }
+    .log-entry.CRITICAL { border-left-color: #800020; background: #ffe6e6; }
+    
+    .log-header { 
+        display: flex; 
+        justify-content: space-between; 
+        margin-bottom: 8px; 
+        font-size: 0.85em;
+    }
+    .log-level { 
+        font-weight: bold; 
+        padding: 2px 8px; 
+        border-radius: 4px; 
+        color: white;
+        font-size: 0.8em;
+    }
+    .log-level.DEBUG { background: #6c757d; }
+    .log-level.INFO { background: #28a745; }
+    .log-level.WARNING { background: #ffc107; color: #000; }
+    .log-level.ERROR { background: #dc3545; }
+    .log-level.CRITICAL { background: #800020; }
+    
+    .log-meta { color: #6c757d; }
+    .log-message { margin-top: 8px; }
+    .filter-form { display: inline-block; margin-left: 20px; }
+    .view-toggle a { 
+        padding: 8px 15px; 
+        background: #007bff; 
+        color: white; 
+        text-decoration: none; 
+        border-radius: 4px; 
+        margin-left: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block page_heading %}Log File: {{ logfile }}{% endblock %}
+
+{% block contents %}
+<div class="log-file-header">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            <h3>{{ logfile }}</h3>
+            <p><strong>{{ total_logs }}</strong> entries
+            {% if selected_level %} | Filtered by: <strong>{{ selected_level }}</strong>{% endif %}</p>
+        </div>
+        <div>
+            <form method="GET" class="filter-form" style="display: inline;">
+                <select name="level" onchange="this.form.submit()">
+                    <option value="">All Levels</option>
+                    {% for level in available_levels %}
+                    <option value="{{ level }}" {% if level == selected_level %}selected{% endif %}>
+                        {{ level }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </form>
+            <div class="view-toggle">
+                <a href="{{ url_for('logs') }}">← Back to Logs</a>
+                <a href="{{ url_for('render_logfile', logfile=logfile, raw='true') }}">Raw View</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% for log in logs %}
+<div class="log-entry {{ log.level }}">
+    <div class="log-header">
+        <div>
+            <span class="log-level {{ log.level }}">{{ log.level }}</span>
+            <span class="log-meta">Line {{ log.line_number }} | {{ log.timestamp }} | {{ log.source }}</span>
+        </div>
+    </div>
+    <div class="log-message">{{ log.message }}</div>
+</div>
+{% endfor %}
+
+{% if not logs %}
+<div style="text-align: center; padding: 40px; color: #6c757d;">
+    <h3>No logs found</h3>
+    <p>No entries match the current filter criteria.</p>
+</div>
+{% endif %}
+
+{% endblock %}

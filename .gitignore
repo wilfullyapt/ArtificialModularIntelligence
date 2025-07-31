@@ -11,5 +11,6 @@ wheels/
 
 .git
 cli/ami
+cli/source/*.o
 
 config.yaml

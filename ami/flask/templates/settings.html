@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+
+{% block page_header %}System Settings{% endblock %}
+
+{% block contents %}
+<div class="settings-container">
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-messages">
+                {% for category, message in messages %}
+                    <div class="flash-message {{ category }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <!-- AMI Configuration Section -->
+    <div class="settings-section">
+        <h2>AMI Configuration (ami_config.yaml)</h2>
+        <form method="post">
+            <div class="settings-grid">
+                {% for key, value in ami_config.items() %}
+                    <div class="setting-field">
+                        <label for="ami_config_{{ key }}">{{ key.replace('_', ' ').title() }}</label>
+                        {% if value is boolean %}
+                            <div class="checkbox-wrapper">
+                                <input type="checkbox" 
+                                       id="ami_config_{{ key }}" 
+                                       name="ami_config_{{ key }}" 
+                                       value="true"
+                                       {% if value %}checked{% endif %}>
+                                <label for="ami_config_{{ key }}">Enabled</label>
+                            </div>
+                        {% elif key == 'enabled_headspaces' and value is iterable and value is not string %}
+                            <textarea id="ami_config_{{ key }}" 
+                                    name="ami_config_{{ key }}" 
+                                    placeholder="Comma-separated list of headspaces">{{ value|join(', ') }}</textarea>
+                            <div class="setting-description">Comma-separated list of enabled headspaces</div>
+                        {% elif value is number %}
+                            <input type="number" 
+                                   id="ami_config_{{ key }}" 
+                                   name="ami_config_{{ key }}" 
+                                   value="{{ value }}">
+                        {% else %}
+                            <input type="text" 
+                                   id="ami_config_{{ key }}" 
+                                   name="ami_config_{{ key }}" 
+                                   value="{{ value if value else '' }}">
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+            <div class="button-container">
+                <button type="submit" name="ami_config_submit" class="save-button">
+                    Save AMI Configuration
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Environment Variables Section -->
+    <div class="settings-section">
+        <h2>Environment Variables (.env)</h2>
+        <form method="post">
+            <div class="settings-grid">
+                {% for key, value in env_vars.items() %}
+                    <div class="setting-field">
+                        <label for="env_{{ key }}">{{ key }}</label>
+                        {% if 'password' in key.lower() or 'secret' in key.lower() or 'key' in key.lower() %}
+                            <input type="password" 
+                                   id="env_{{ key }}" 
+                                   name="env_{{ key }}" 
+                                   value="{{ value if value else '' }}">
+                        {% else %}
+                            <input type="text" 
+                                   id="env_{{ key }}" 
+                                   name="env_{{ key }}" 
+                                   value="{{ value if value else '' }}">
+                        {% endif %}
+                    </div>
+                {% endfor %}
+                
+                <!-- Add new environment variable fields -->
+                <div class="setting-field">
+                    <label for="env_NEW_VAR">Add New Variable</label>
+                    <input type="text" 
+                           id="env_NEW_VAR" 
+                           name="env_NEW_VAR" 
+                           placeholder="NEW_VARIABLE_NAME">
+                    <div class="setting-description">Add a new environment variable</div>
+                </div>
+            </div>
+            <div class="button-container">
+                <button type="submit" name="env_submit" class="save-button">
+                    Save Environment Variables
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Headspace Settings Sections -->
+    {% for headspace_name, settings in headspace_settings.items() %}
+        <div class="settings-section">
+            <h2>{{ headspace_name.replace('_', ' ').title() }} Settings</h2>
+            <div class="headspace-name">{{ headspace_name.split('_', 1)[1] if '_' in headspace_name else headspace_name }}</div>
+            
+            <form method="post">
+                <div class="settings-grid">
+                    {% for key, value in settings.items() %}
+                        <div class="setting-field">
+                            <label for="{{ headspace_name }}_{{ key }}">{{ key.replace('_', ' ').title() }}</label>
+                            {% if value is boolean %}
+                                <div class="checkbox-wrapper">
+                                    <input type="checkbox" 
+                                           id="{{ headspace_name }}_{{ key }}" 
+                                           name="{{ headspace_name }}_{{ key }}" 
+                                           value="true"
+                                           {% if value %}checked{% endif %}>
+                                    <label for="{{ headspace_name }}_{{ key }}">Enabled</label>
+                                </div>
+                            {% elif value is number %}
+                                <input type="number" 
+                                       id="{{ headspace_name }}_{{ key }}" 
+                                       name="{{ headspace_name }}_{{ key }}" 
+                                       value="{{ value }}">
+                            {% elif key in ['background_color', 'highlight_color', 'lowlight_color'] %}
+                                <input type="color" 
+                                       id="{{ headspace_name }}_{{ key }}" 
+                                       name="{{ headspace_name }}_{{ key }}" 
+                                       value="{{ value if value else '#000000' }}">
+                            {% elif key == 'anchor' %}
+                                <select id="{{ headspace_name }}_{{ key }}" 
+                                        name="{{ headspace_name }}_{{ key }}">
+                                    {% for anchor in ['nw', 'n', 'ne', 'w', 'center', 'e', 'sw', 's', 'se'] %}
+                                        <option value="{{ anchor }}" 
+                                                {% if value == anchor %}selected{% endif %}>
+                                            {{ anchor.upper() }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            {% else %}
+                                <input type="text" 
+                                       id="{{ headspace_name }}_{{ key }}" 
+                                       name="{{ headspace_name }}_{{ key }}" 
+                                       value="{{ value if value else '' }}">
+                            {% endif %}
+                            
+                            {% if key in ['x', 'y'] %}
+                                <div class="setting-description">Absolute position in pixels</div>
+                            {% elif key in ['relx', 'rely'] %}
+                                <div class="setting-description">Relative position (0.0 - 1.0)</div>
+                            {% elif key in ['width', 'height'] %}
+                                <div class="setting-description">Size in pixels or relative (0.0 - 1.0)</div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+                <div class="button-container">
+                    <button type="submit" name="{{ headspace_name }}_submit" class="save-button">
+                        Save {{ headspace_name.split('_', 1)[1] if '_' in headspace_name else headspace_name }} Settings
+                    </button>
+                </div>
+            </form>
+        </div>
+    {% endfor %}
+</div>
+{% endblock %}

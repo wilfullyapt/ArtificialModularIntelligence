@@ -33,6 +33,5 @@ logging:
 
 # Enabled Headspaces (core and imported)
 enabled_headspaces:
-  - datetime
+  - corespace
   - markdown
-  - calendar

@@ -1,7 +1,7 @@
 """Popup dialog for AMI interaction"""
 from enum import Enum
 from typing import Callable, Optional
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import QEasingCurve, QPropertyAnimation, QSize, Qt, QTimer
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QProgressBar, QWidget, QScrollArea
 
 from ..core import LogBase
@@ -211,6 +211,7 @@ class AMIDialog(QDialog, LogBase):
             self.setMinimumSize(self.initial_width, self.initial_height)
             self.resize(self.initial_width, self.initial_height)
             self.setMaximumSize(self.max_width, self.max_height)
+            self.dialog_size_state = DialogSize.MIN
 
         self.setStyleSheet("""
             QDialog {
@@ -244,6 +245,25 @@ class AMIDialog(QDialog, LogBase):
         self.close_timer = QTimer()
         self.close_timer.timeout.connect(self._update_progress)
         self.close_timer.setInterval(50)
+
+        self.size_anim = QPropertyAnimation(self, b'size')
+        self.size_anim.setDuration(500)
+        self.size_anim.setEasingCurve(QEasingCurve.Type.InOutQuad)
+
+    def switch_sizes(self):
+        """Animate growth to max size. Call from parent events or state changes."""
+        if self.size_anim.state() == QPropertyAnimation.State.Running:
+            self.size_anim.stop()
+
+        self.size_anim.setStartValue(self.size())
+        if self.dialog_size_state == DialogSize.MIN:
+            self.size_anim.setEndValue(self.maximumSize())
+            self.logs.debug("Expansion animation started")
+        elif self.dialog_size_state == DialogSize.MAX:
+            self.size_anim.setEndValue(self.minimumSize())
+            self.logs.debug("Contraction animation started")
+
+        self.size_anim.start()
 
     def _update_progress(self):
         """Update progress bar and check for auto-close"""

@@ -27,6 +27,7 @@
             <a href="{{ url_for('welcome') }}">Welcome!</a>
             <a href="{{ url_for('tree') }}">Tree</a>
             <a href="{{ url_for('logs') }}">Logs</a>
+            <a href="{{ url_for('settings') }}"><i class="fas fa-cog"></i> Settings</a>
             <hr>
             {% if menu_items %}
                 {% for item in menu_items %}

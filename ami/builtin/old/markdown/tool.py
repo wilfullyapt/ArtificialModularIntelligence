@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from ami.headspace.filesystem import Filesystem
 from ami.core import Config
 from ami.headspace.base import SharedTool
+from ami.headspace import 
 
 def convert_md_to_html(md_file):
     with open(md_file, 'r') as f:
@@ -18,7 +19,7 @@ def convert_md_to_html(md_file):
         return html_content
 
 def get_markdown_file(filename):
-    filepath = str(Config().headspaces_dir / "markdown" / filename)
+    filepath = str(Config().plugins_dir / "markdown" / filename)
     return convert_md_to_html(filepath)
 
 class MarkdownFile(BaseModel):

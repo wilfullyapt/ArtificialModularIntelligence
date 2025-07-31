@@ -1,0 +1,19 @@
+#ifndef TYPES_H
+#define TYPES_H
+
+#include <stddef.h>
+
+typedef enum {
+    CMD_RUN,
+    CMD_UPDATE,
+    CMD_GETHEAD,
+    CMD_AUTOSTART_ENABLE,
+    CMD_AUTOSTART_DISABLE,
+    CMD_PLUGIN_LIST,
+    CMD_PLUGIN_ENABLE,
+    CMD_PLUGIN_DISABLE,
+    CMD_HELP,
+    CMD_INVALID
+} Command;
+
+#endif

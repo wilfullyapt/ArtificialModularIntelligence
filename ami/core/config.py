@@ -10,6 +10,8 @@ import yaml
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
+HEADSPACE_DIR_NAME = "headspaces"
+
 def home_ami_dir() -> Path:
     """ This is the device specific directory for AMI files; Config, Plugins, Env Variables, Headspace Data, Logs """
     p = Path.home() / ".ami"
@@ -67,6 +69,8 @@ class Config:
 
     def _load_config(self):
         """Load the configuration from file"""
+        if not self._config_filepath.exists():
+            shutil.copy2(self.repo_root / "config_template.yaml", self._config_filepath)
         with open(self._config_filepath, 'r', encoding='utf-8') as file:
             try:
                 self._config = yaml.safe_load(file)
@@ -145,14 +149,14 @@ class Config:
 #---------------- REPO DIRECTORY PATHS
 
     @cached_property 
-    def root(self) -> Path:
+    def repo_root(self) -> Path:
         """Relative to this config.py file, the AMI root repo dir"""
         return Path(__file__).parent.parent.parent
 
     @cached_property
     def builtin_plugins(self) -> Path:
         """ Return the path where the built-in add-ons are """
-        return self.root / "ami" / "builtin"
+        return self.repo_root / "ami" / "builtin"
 
 #---------------- DATA DIRECTORY PATHS (~/.ami)
 
@@ -170,9 +174,9 @@ class Config:
         return p
 
     @cached_property
-    def plugin_data_dir(self) -> Path:
-        """ This is where Headspace specific data is stored """
-        p = self.data_dir / "filespace"
+    def headspace_data_dir(self) -> Path:
+        """ Any files created/used by the headspace are stored here: ~/.ami/data/{headspace_name} """
+        p = self.data_dir / "data"
         p.mkdir(parents=True, exist_ok=True)
         return p
 
@@ -188,11 +192,6 @@ class Config:
         """ Return the location of the expected .env file """
         return self.data_dir / ".env"
 
-    @property
-    def headspaces_dir(self):
-        """ pretty sure this should be DEPRICATED too """
-        return self.plugins_dir
-
     @cached_property
     def oww_models_dir(self) -> Path:
         """ Get the path for OWW models, create the directory if it doesn't exist """
@@ -205,7 +204,7 @@ class Config:
         """ This is the config file for the AMI system saved locally """
         config_filepath = self.data_dir / "ami_config.yaml"
         if config_filepath.exists() is False:
-            shutil.copy(self.root / "config_template.yaml", config_filepath)
+            shutil.copy(self.repo_root / "config_template.yaml", config_filepath)
         return config_filepath
 
     @property

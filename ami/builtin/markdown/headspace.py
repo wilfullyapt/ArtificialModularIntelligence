@@ -1,7 +1,7 @@
 from urllib.parse import quote_plus
 
 from ami.headspace import Headspace, ami_tool
-from ami.backend.utils import get_network_url
+from ami.core.utils import get_network_url
 from ami.headspace import HeadspaceInstruction, generate_qr_image
 
 from .settings import MarkdownDefaultSettings

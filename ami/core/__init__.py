@@ -5,6 +5,7 @@ from .logger import LoggerConfig, Logger, Base as LogBase
 from .registry import PluginRegistry, PluginVertical, Plugin
 from .watcher import ConfigMetadataPluginWatcher
 from .conversation import Conversation
+from .utils import ConfigUpdater
 
 __all__ = [
     "Config",
@@ -15,5 +16,6 @@ __all__ = [
     "PluginVertical",
     "Plugin",
     "ConfigMetadataPluginWatcher",
-    "Conversation"
+    "Conversation",
+    "ConfigUpdater"
 ]

@@ -1,0 +1,209 @@
+
+{% extends "base.html" %}
+
+{% block page_title %}AMI | Enhanced Logs{% endblock %}
+
+{% block extra_styles %}
+<style>
+    .logs-container { margin: 20px 0; }
+    .filters-section { 
+        background: #f8f9fa; 
+        padding: 20px; 
+        border-radius: 8px; 
+        margin-bottom: 20px; 
+        border: 1px solid #dee2e6;
+    }
+    .filter-group { 
+        display: inline-block; 
+        margin-right: 30px; 
+        vertical-align: top;
+    }
+    .filter-group label { 
+        font-weight: bold; 
+        display: block; 
+        margin-bottom: 8px; 
+        color: #495057;
+    }
+    .log-entry { 
+        border-left: 4px solid #dee2e6; 
+        padding: 12px; 
+        margin-bottom: 8px; 
+        background: #fff;
+        border-radius: 0 4px 4px 0;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .log-entry.DEBUG { border-left-color: #6c757d; }
+    .log-entry.INFO { border-left-color: #28a745; }
+    .log-entry.WARNING { border-left-color: #ffc107; }
+    .log-entry.ERROR { border-left-color: #dc3545; }
+    .log-entry.CRITICAL { border-left-color: #800020; background: #ffe6e6; }
+    
+    .log-header { 
+        display: flex; 
+        justify-content: space-between; 
+        margin-bottom: 8px; 
+        font-size: 0.9em;
+    }
+    .log-level { 
+        font-weight: bold; 
+        padding: 2px 8px; 
+        border-radius: 4px; 
+        color: white;
+        font-size: 0.8em;
+    }
+    .log-level.DEBUG { background: #6c757d; }
+    .log-level.INFO { background: #28a745; }
+    .log-level.WARNING { background: #ffc107; color: #000; }
+    .log-level.ERROR { background: #dc3545; }
+    .log-level.CRITICAL { background: #800020; }
+    
+    .log-meta { color: #6c757d; font-size: 0.85em; }
+    .log-message { 
+        font-family: 'Courier New', monospace; 
+        background: #f8f9fa; 
+        padding: 8px; 
+        border-radius: 4px; 
+        margin-top: 8px;
+        word-break: break-all;
+    }
+    .stats { 
+        background: #e9ecef; 
+        padding: 10px; 
+        border-radius: 4px; 
+        margin-bottom: 20px; 
+        text-align: center;
+    }
+    .file-checkbox { margin-right: 8px; }
+    .select-all-btn, .clear-btn { 
+        background: #007bff; 
+        color: white; 
+        border: none; 
+        padding: 5px 10px; 
+        border-radius: 4px; 
+        cursor: pointer; 
+        margin-right: 10px;
+        font-size: 0.8em;
+    }
+    .clear-btn { background: #6c757d; }
+    .view-toggle { 
+        float: right; 
+        margin-top: 10px;
+    }
+    .view-toggle a { 
+        padding: 8px 15px; 
+        background: #007bff; 
+        color: white; 
+        text-decoration: none; 
+        border-radius: 4px; 
+        margin-left: 10px;
+    }
+    .pagination {
+        text-align: center;
+        margin-top: 20px;
+        color: #6c757d;
+    }
+</style>
+{% endblock %}
+
+{% block page_heading %}Enhanced Logs{% endblock %}
+
+{% block contents %}
+<div class="logs-container">
+    <div class="view-toggle">
+        <a href="{{ url_for('logs', view='tree') }}">📁 Tree View</a>
+        <a href="{{ url_for('logs', view='aggregated') }}">📋 Aggregated View</a>
+    </div>
+    
+    <div class="stats">
+        <strong>{{ total_logs }}</strong> log entries displayed
+        {% if selected_files %}
+        from {{ selected_files|length }} file(s)
+        {% else %}
+        from all log files
+        {% endif %}
+        {% if selected_level %}
+        | Level: <strong>{{ selected_level }}</strong>
+        {% endif %}
+    </div>
+
+    <form method="GET" class="filters-section">
+        <input type="hidden" name="view" value="aggregated">
+        
+        <div class="filter-group">
+            <label>Log Files:</label>
+            <button type="button" class="select-all-btn" onclick="selectAllFiles()">Select All</button>
+            <button type="button" class="clear-btn" onclick="clearAllFiles()">Clear All</button>
+            <div style="max-height: 150px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; margin-top: 8px;">
+                {% for file in available_files %}
+                <div>
+                    <input type="checkbox" name="files" value="{{ file.name }}" 
+                           class="file-checkbox" id="file-{{ loop.index }}"
+                           {% if file.name in selected_files %}checked{% endif %}>
+                    <label for="file-{{ loop.index }}" style="font-weight: normal; display: inline;">
+                        {{ file.name }} 
+                        <small>({{ "%.1f"|format(file.size/1024) }} KB)</small>
+                    </label>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="filter-group">
+            <label>Log Level:</label>
+            <select name="level">
+                <option value="">All Levels</option>
+                {% for level in available_levels %}
+                <option value="{{ level }}" {% if level == selected_level %}selected{% endif %}>
+                    {{ level }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <button type="submit" style="padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                🔍 Apply Filters
+            </button>
+        </div>
+    </form>
+
+    <div class="logs-list">
+        {% for log in logs %}
+        <div class="log-entry {{ log.level }}">
+            <div class="log-header">
+                <div>
+                    <span class="log-level {{ log.level }}">{{ log.level }}</span>
+                    <span class="log-meta">
+                        {{ log.timestamp }} | {{ log.file }}:{{ log.line_number }} | {{ log.source }}
+                    </span>
+                </div>
+            </div>
+            <div class="log-message">{{ log.message }}</div>
+        </div>
+        {% endfor %}
+
+        {% if not logs %}
+        <div style="text-align: center; padding: 40px; color: #6c757d;">
+            <h3>No logs found</h3>
+            <p>Try adjusting your filters or check if log files exist.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if total_logs >= 1000 %}
+    <div class="pagination">
+        <em>Showing first 1000 entries. Use filters to narrow down results.</em>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function selectAllFiles() {
+    document.querySelectorAll('input[name="files"]').forEach(cb => cb.checked = true);
+}
+
+function clearAllFiles() {
+    document.querySelectorAll('input[name="files"]').forEach(cb => cb.checked = false);
+}
+</script>
+{% endblock %}

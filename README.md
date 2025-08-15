@@ -6,7 +6,7 @@
 **AMI** is built with the intention to be put on a Raspberry Pi with a monitor as an in home AI.
 
 **Capabilities:**
-- Timer and Reminder (builtin Datetime Headspace)
+- Timer and Reminder (builtin Coresapce Headspace)
 - Notes and List capabilities, including downloading list for on the go (builtin Markdown Headspace)
 - Finacial Assistant / Advisor (builtin Finance Headspace)
 - Media player for YouTube or Spotify (builtin Media Headspace)
@@ -39,33 +39,32 @@ This is the directory structure AMI has controlled access to via the AI and Head
 ArtificiakModularIntelligence/
  ├── filespace/ (name define in config.yaml)
  │    ├── headspaces/
- │    │    ├── calendar
- │    │    │    ├── config.yaml (local config copied from Hedaspace default_config.yaml)
- │    │    │    └── calendar.json
  │    │    ├── markdown/
  │    │    │    ├── config.yaml (local config copied from Hedaspace default_config.yaml)
  │    │    │    ├── techno_optimist.md
  │    │    │    └── effective_accelerationism.md
- │    │    └── rag (work in progress)
- │    │         ├── documents/
- │    │         └── vectorstores/
+ │    │    ├── company
+ │    │    │    └── goals.txt
+ │    │    └── calendar
+ │    │         ├── config.yaml
+ │    │         └── calendar.json
  │    ├── logs/
  │    ├── resources/
  │    │    ├── img_dump/ (used to store qr codes currently)
  │    │    └── models/ (contains model files for OpenWakeWord and futrue STT models)
- │    └── config.yaml (copied from root default_config.yaml)
+ │    ├── ami_config.yaml     # Master config copied from the repo_root/default_config.yaml
+ │    ├── plugin_config.yaml  # Specific config for the Headspaces/Plugins
+ │    └── .env                # Environment secrets
  └── /ami
 ```
 
 ### 🧭 Roadmap
 - [x] Config editor
-- Self updating functionality
+- [/] Self updating functionality
 - [x] Sync calendar with user google/apple calendar
-- Finacial Assisstant Headspace
-- Conversational Headspace. Allow for a Headspace to get to know the user through conversation. Answer question about the device.
-- Researcher Headspace (Perplexity style search, Perplexity level subject matter research document, RAG agent)
-- GitHub Wiki entry tracking add-on modules
-- Discord or Telegram Headspace
+- [ ]Finacial Assisstant Headspace
+- [ ] Conversational Headspace. Allow for a Headspace to get to know the user through conversation. Answer question about the device.
+- [ ] GitHub Wiki entry tracking add-on modules
 
 ### ✨ Inspired by
 - The entire e/acc community
@@ -74,11 +73,3 @@ ArtificiakModularIntelligence/
 
 ### 🧩 Build your own Headspace
 See ami.ai.headspace directory to understand how the GUI, Blueprint, and Headspace tie into the Headspace Module
-
-### Developer Notes
-- Possible switch from Tkinter to PyQt6
-- Better JSON infrastructure for calendar
-- Utils and Time need to be rolled into `builtin`
-- Local inference for STT needed
-- Build Finacial Headspace
-- Build Media Headspace

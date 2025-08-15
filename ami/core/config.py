@@ -10,17 +10,19 @@ import yaml
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
-HEADSPACE_DIR_NAME = "headspaces"
+AMI_HOME        = ".ami"
+PLUGINS_DIR     = "plugins"
+CONFIG_PATH     = "ami_config.yaml"
 
 def home_ami_dir() -> Path:
     """ This is the device specific directory for AMI files; Config, Plugins, Env Variables, Headspace Data, Logs """
-    p = Path.home() / ".ami"
+    p = Path.home() / AMI_HOME
     p.mkdir(parents=True, exist_ok=True)
     return p
 
 def get_config_filepath() -> Path:
     """The config filepath is hardcoded relative to this file"""
-    return home_ami_dir() / "ami_config.yaml"
+    return home_ami_dir() / CONFIG_PATH
 
 class ConfigFileHandler(FileSystemEventHandler):
     """Handles file system events for the config file"""
@@ -163,7 +165,7 @@ class Config:
     @cached_property
     def data_dir(self) -> Path:
         """ This is the device specific directory for AMI files; Config, Plugins, Env Variables, Headspace Data, Logs """
-        p = Path.home() / ".ami"
+        p = home_ami_dir()
         p.mkdir(parents=True, exist_ok=True)
         return p
 
@@ -183,7 +185,7 @@ class Config:
     @cached_property
     def plugins_dir(self) -> Path:
         """ This is where the 3rd party plugins are downloaded and stored """
-        p = self.data_dir / "plugins"
+        p = self.data_dir / PLUGINS_DIR
         p.mkdir(parents=True, exist_ok=True)
         return p
     
@@ -202,7 +204,7 @@ class Config:
     @cached_property
     def ami_config_filepath(self) -> Path:
         """ This is the config file for the AMI system saved locally """
-        config_filepath = self.data_dir / "ami_config.yaml"
+        config_filepath = get_config_filepath()
         if config_filepath.exists() is False:
             shutil.copy(self.repo_root / "config_template.yaml", config_filepath)
         return config_filepath
@@ -214,6 +216,7 @@ class Config:
 
     @cached_property
     def enviornment_variables_filepath(self) -> Path:
+        """ DEPRICATED """
         return self.data_dir / "env_var_keys"
 
 #---------------- AI CONFIG

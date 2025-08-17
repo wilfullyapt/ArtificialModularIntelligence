@@ -3,14 +3,14 @@
 
 #include "types.h"
 
-void cmd_run(void);
-void cmd_update(void);
-void cmd_gethead(const char *user_repo);
-void cmd_autostart_enable(void);
-void cmd_autostart_disable(void);
-void cmd_plugin_list(void);
-void cmd_plugin_enable(const char *name);
-void cmd_plugin_disable(const char *name);
-void cmd_help(void);
+int cmd_run(void);
+int cmd_update(void);
+int cmd_gethead(const char *user_repo);
+int cmd_autostart_enable(void);
+int cmd_autostart_disable(void);
+int cmd_help(void);
+
+extern char *g_source_dir;
+extern char *g_service_path;
 
 #endif

@@ -1,5 +1,6 @@
 #include "commands.h"
 #include "error.h"
+#include "plugin.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,186 +9,89 @@
 #include <unistd.h>
 #include <errno.h>
 
-#define AMI_HOME "~/.ami"
-#define PLUGINS_DIR "~/.ami/plugins"
-#define CONFIG_PATH "~/.ami/ami_config.yaml"
-#define SERVICE_PATH "~/.config/systemd/user/ami.service"
-
-extern const char *source_dir;  // From -DSOURCE_DIR
+extern char *g_source_dir;
+extern char *g_service_path;
 
 static char *expand_path(const char *path) {
+    if (path[0] != '~') {
+        return strdup(path);
+    }
     char *home = getenv("HOME");
     char *full = malloc(strlen(home) + strlen(path) + 1);
     sprintf(full, "%s%s", home, path + 1);  // Skip ~
     return full;
 }
 
-void cmd_run(void) {
+int cmd_run(void) {
     char cmd[1024];
-    snprintf(cmd, sizeof(cmd), "python3 %s/ami.py", source_dir);  // Assume main Python at SOURCE_DIR/ami.py
+    snprintf(cmd, sizeof(cmd), "python3 %s/ami.py", g_source_dir);  // Assume main Python at SOURCE_DIR/ami.py
     if (system(cmd) != 0) {
         log_error("Failed to run Python application");
+        return 1;
     }
+    return 0;
 }
 
-void cmd_update(void) {
+int cmd_update(void) {
     char cmd[1024];
-    snprintf(cmd, sizeof(cmd), "git -C %s fetch && git -C %s checkout $(git -C %s describe --tags --abbrev=0) && make -C %s test", source_dir, source_dir, source_dir, source_dir);  // Checkout latest tag, run tests (assume 'make test' exists)
+    snprintf(cmd, sizeof(cmd), "git -C %s fetch && git -C %s checkout $(git -C %s describe --tags --abbrev=0) && make -C %s test", g_source_dir, g_source_dir, g_source_dir, g_source_dir);  // Checkout latest tag, run tests (assume 'make test' exists)
     if (system(cmd) != 0) {
         log_error("Update failed");
+        return 1;
     }
+    return 0;
 }
 
-void cmd_gethead(const char *user_repo) {
-    char *plugins = expand_path(PLUGINS_DIR);
-    char cmd[1024];
-    snprintf(cmd, sizeof(cmd), "git clone https://github.com/%s %s/%s", user_repo, plugins, strrchr(user_repo, '/') + 1);
-    if (system(cmd) != 0) {
-        log_error("Failed to download headspace");
-    }
-    free(plugins);
+int cmd_gethead(const char *user_repo) {
+    return cmd_plugin_install(user_repo);
 }
 
-void cmd_autostart_enable(void) {
-    char *service = expand_path(SERVICE_PATH);
+int cmd_autostart_enable(void) {
+    char *service = expand_path(g_service_path);
     FILE *fp = fopen(service, "w");
     if (!fp) {
         log_error("Failed to create service file");
-        return;
+        free(service);
+        return 1;
     }
-    fprintf(fp, "[Unit]\nDescription=AMI\n[Service]\nExecStart=%s run\n[Install]\nWantedBy=default.target\n", getcwd(NULL, 0));  // Use current binary path for ExecStart
+    char cwd[1024];
+    if (getcwd(cwd, sizeof(cwd)) == NULL) {
+        log_error("Failed to get current working directory");
+        fclose(fp);
+        free(service);
+        return 1;
+    }
+    fprintf(fp, "[Unit]\nDescription=AMI\n[Service]\nExecStart=%s/ami run\n[Install]\nWantedBy=default.target\n", cwd);
     fclose(fp);
     system("systemctl --user daemon-reload");
     if (system("systemctl --user enable --now ami.service") != 0) {
         log_error("Failed to enable autostart");
+        free(service);
+        return 1;
     }
     free(service);
+    return 0;
 }
 
-void cmd_autostart_disable(void) {
+int cmd_autostart_disable(void) {
     if (system("systemctl --user disable --now ami.service") != 0) {
         log_error("Failed to disable autostart");
+        return 1;
     }
-    char *service = expand_path(SERVICE_PATH);
+    char *service = expand_path(g_service_path);
     remove(service);
     system("systemctl --user daemon-reload");
     free(service);
+    return 0;
 }
 
-void cmd_plugin_list(void) {
-    char *plugins = expand_path(PLUGINS_DIR);
-    DIR *dir = opendir(plugins);
-    if (!dir) {
-        log_error("Failed to open plugins dir");
-        free(plugins);
-        return;
-    }
-    struct dirent *entry;
-    while ((entry = readdir(dir))) {
-        if (entry->d_type == DT_DIR && entry->d_name[0] != '.') {
-            // Get status from YAML
-            char status[10] = "unknown";
-            char *config = expand_path(CONFIG_PATH);
-            FILE *fp = fopen(config, "r");
-            if (fp) {
-                char line[512];
-                char target[512];
-                snprintf(target, sizeof(target), "  %s: ", entry->d_name);
-                while (fgets(line, sizeof(line), fp)) {
-                    if (strstr(line, target)) {
-                        if (strstr(line, "true")) strcpy(status, "enabled");
-                        else if (strstr(line, "false")) strcpy(status, "disabled");
-                        break;
-                    }
-                }
-                fclose(fp);
-            }
-            free(config);
-            printf("Plugin: %s - Status: %s\n", entry->d_name, status);
-        }
-    }
-    closedir(dir);
-    free(plugins);
-}
-
-void cmd_plugin_enable(const char *name) {
-    // Note: Assuming enable sets to true (your description says "Disable" but seems like a typo; adjust if needed)
-    char *config = expand_path(CONFIG_PATH);
-    FILE *fp = fopen(config, "r");
-    if (!fp) {
-        log_error("Failed to open config");
-        free(config);
-        return;
-    }
-    char temp_file[] = "/tmp/ami_config_temp.yaml";
-    FILE *temp = fopen(temp_file, "w");
-    if (!temp) {
-        log_error("Failed to create temp file");
-        fclose(fp);
-        free(config);
-        return;
-    }
-    char line[256];
-    char target[256];
-    snprintf(target, sizeof(target), "  %s: false", name);
-    int found = 0;
-    while (fgets(line, sizeof(line), fp)) {
-        if (strstr(line, target)) {
-            fprintf(temp, "  %s: true\n", name);
-            found = 1;
-        } else {
-            fputs(line, temp);
-        }
-    }
-    if (!found) {
-        fprintf(temp, "  %s: true\n", name);  // Add if not found
-    }
-    fclose(fp);
-    fclose(temp);
-    rename(temp_file, config);
-    free(config);
-}
-
-void cmd_plugin_disable(const char *name) {
-    // Similar to enable, but set to false (your description says "Enable" but seems typo)
-    char *config = expand_path(CONFIG_PATH);
-    FILE *fp = fopen(config, "r");
-    if (!fp) {
-        log_error("Failed to open config");
-        free(config);
-        return;
-    }
-    char temp_file[] = "/tmp/ami_config_temp.yaml";
-    FILE *temp = fopen(temp_file, "w");
-    if (!temp) {
-        log_error("Failed to create temp file");
-        fclose(fp);
-        free(config);
-        return;
-    }
-    char line[256];
-    char target[256];
-    snprintf(target, sizeof(target), "  %s: true", name);
-    int found = 0;
-    while (fgets(line, sizeof(line), fp)) {
-        if (strstr(line, target)) {
-            fprintf(temp, "  %s: false\n", name);
-            found = 1;
-        } else {
-            fputs(line, temp);
-        }
-    }
-    if (!found) {
-        fprintf(temp, "  %s: false\n", name);  // Add if not found
-    }
-    fclose(fp);
-    fclose(temp);
-    rename(temp_file, config);
-    free(config);
-}
-
-void cmd_help(void) {
-    printf("Usage: ami <command>\n");
+int cmd_help(void) {
+    printf("Usage: ami [options] <command>\n");
+    printf("Options:\n");
+    printf("  --source-dir <path>       Set source directory (default: compile-time)\n");
+    printf("  --plugins-dir <path>      Set plugins directory (default: ~/.ami/plugins)\n");
+    printf("  --config-path <path>      Set config path (default: ~/.ami/ami_config.yaml)\n");
+    printf("  --service-path <path>     Set service path (default: ~/.config/systemd/user/ami.service)\n");
     printf("Commands:\n");
     printf("  run                       Execute the main Python application\n");
     printf("  update                    Update source repository to latest tag and run tests\n");
@@ -197,4 +101,8 @@ void cmd_help(void) {
     printf("  plugin list               List the Plugin name and its status\n");
     printf("  plugin enable <name>      Enable the Plugin in config.yaml\n");
     printf("  plugin disable <name>     Disable the Plugin in config.yaml\n");
+    printf("  plugin install <url>      Install plugin from URL (or GitHub user/repo)\n");
+    printf("  plugin remove <name>      Remove plugin\n");
+    printf("  plugin update <name>      Update plugin via git pull\n");
+    return 0;
 }

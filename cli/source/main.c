@@ -24,6 +24,8 @@ Command parse_command(int argc, char *argv[]) {
     if (argc < 2) return CMD_HELP;
     if (strcmp(argv[1], "run") == 0) return CMD_RUN;
     if (strcmp(argv[1], "update") == 0) return CMD_UPDATE;
+    if (strcmp(argv[1], "safe-update") == 0) return CMD_SAFE_UPDATE;
+    if (strcmp(argv[1], "rollback") == 0) return CMD_ROLLBACK;
     if (strcmp(argv[1], "gethead") == 0) return CMD_GETHEAD;
     if (strcmp(argv[1], "autostart") == 0 && argc > 2) {
         if (strcmp(argv[2], "enable") == 0) return CMD_AUTOSTART_ENABLE;
@@ -72,6 +74,12 @@ int main(int argc, char *argv[]) {
             break;
         case CMD_UPDATE:
             ret = cmd_update();
+            break;
+        case CMD_SAFE_UPDATE:
+            ret = cmd_safe_update();
+            break;
+        case CMD_ROLLBACK:
+            ret = cmd_rollback();
             break;
         case CMD_GETHEAD:
             if (argc - optind + 1 < 3) {

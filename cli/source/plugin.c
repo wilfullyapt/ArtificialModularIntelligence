@@ -1,3 +1,5 @@
+//#define _GNU_SOURCE
+
 #include "plugin.h"
 #include "error.h"
 #include <stdio.h>
@@ -5,11 +7,13 @@
 #include <string.h>
 #include <dirent.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 #include <errno.h>
 #include <yaml.h>
 #include <curl/curl.h>
 #include <ctype.h>
+
 
 extern char *g_plugins_dir;
 extern char *g_config_path;
@@ -83,19 +87,49 @@ static void remove_key(yaml_document_t *doc, yaml_node_t *mapping, const char *k
 static int set_plugin_status(const char *name, const char *status) {
     yaml_document_t doc;
     int loaded = load_config(&doc);
-    if (loaded != 0) {
-        yaml_document_initialize(&doc, NULL, NULL, NULL, 1, 1);
-    }
     yaml_node_t *root = yaml_document_get_root_node(&doc);
-    if (!root || root->type != YAML_MAPPING_NODE) {
-        yaml_node_t *new_root = yaml_document_add_mapping(&doc, NULL, YAML_BLOCK_MAPPING_STYLE);
-        if (loaded == 0) yaml_document_delete(&doc);  // Error handling
-        root = new_root;
+    int root_id;
+    if (loaded != 0 || !root || root->type != YAML_MAPPING_NODE) {
+        if (loaded == 0) {
+            yaml_document_delete(&doc);
+        }
+        if (!yaml_document_initialize(&doc, NULL, NULL, NULL, 1, 1)) {
+            log_error("Failed to initialize YAML document");
+            return 1;
+        }
+        root_id = yaml_document_add_mapping(&doc, NULL, YAML_BLOCK_MAPPING_STYLE);
+        if (!root_id) {
+            log_error("Failed to add root mapping");
+            yaml_document_delete(&doc);
+            return 1;
+        }
+        root = yaml_document_get_node(&doc, root_id);
+        if (!root) {
+            log_error("Failed to get root node");
+            yaml_document_delete(&doc);
+            return 1;
+        }
+    } else {
+        root_id = (root - doc.nodes.start) + 1;
     }
     remove_key(&doc, root, name);
-    yaml_node_t *key_node = yaml_document_add_scalar(&doc, NULL, (yaml_char_t *)name, -1, YAML_PLAIN_SCALAR_STYLE);
-    yaml_node_t *val_node = yaml_document_add_scalar(&doc, NULL, (yaml_char_t *)status, -1, YAML_PLAIN_SCALAR_STYLE);
-    yaml_document_append_mapping_pair(&doc, root, key_node, val_node);
+    int key_id = yaml_document_add_scalar(&doc, NULL, (yaml_char_t *)name, -1, YAML_PLAIN_SCALAR_STYLE);
+    if (!key_id) {
+        log_error("Failed to add key scalar");
+        yaml_document_delete(&doc);
+        return 1;
+    }
+    int val_id = yaml_document_add_scalar(&doc, NULL, (yaml_char_t *)status, -1, YAML_PLAIN_SCALAR_STYLE);
+    if (!val_id) {
+        log_error("Failed to add value scalar");
+        yaml_document_delete(&doc);
+        return 1;
+    }
+    if (!yaml_document_append_mapping_pair(&doc, root_id, key_id, val_id)) {
+        log_error("Failed to append mapping pair");
+        yaml_document_delete(&doc);
+        return 1;
+    }
     int ret = save_config(&doc);
     yaml_document_delete(&doc);
     return ret;
@@ -217,14 +251,22 @@ int cmd_plugin_install(const char *arg) {
         free(plugins);
         return 1;
     }
-    char cmd[1024];
-    snprintf(cmd, sizeof(cmd), "git clone %s %s", url, dir);
+    char *cmd = NULL;
+    int len = asprintf(&cmd, "git clone %s %s", url, dir);
+    if (len == -1) {
+        log_error("Failed to allocate memory for the git command");
+        free(repo_name);
+        free(cmd);
+        return 1;
+    }
     if (system(cmd) != 0) {
         log_error("Failed to clone repository");
+        free(cmd);
         free(repo_name);
         free(plugins);
         return 1;
     }
+    free(cmd);
     free(repo_name);
     free(plugins);
     return 0;
@@ -239,15 +281,22 @@ int cmd_plugin_remove(const char *name) {
         free(plugins);
         return 1;
     }
-    char cmd[1024];
-    snprintf(cmd, sizeof(cmd), "rm -rf %s", dir);
-    if (system(cmd) != 0) {
-        log_error("Failed to remove plugin");
+    char *cmd = NULL;
+    int len = asprintf(&cmd, "rm -rf %s", dir);
+    if (len == -1) {
+        log_error("Failed to allocate memory for the the remove command");
+        free(cmd);
         free(plugins);
         return 1;
     }
-    // Disable in config if exists
-    cmd_plugin_disable(name);
+    if (system(cmd) != 0) {
+        log_error("Failed to remove plugin");
+        free(cmd);
+        free(plugins);
+        return 1;
+    }
+    cmd_plugin_disable(name);       // Disable in config if exists
+    free(cmd);
     free(plugins);
     return 0;
 }
@@ -261,20 +310,36 @@ int cmd_plugin_update(const char *name) {
         free(plugins);
         return 1;
     }
-    char gitdir[1024];
-    snprintf(gitdir, sizeof(gitdir), "%s/.git", dir);
+    char *gitdir = NULL;
+    int len = asprintf(&gitdir, "%s/.git", dir);
+    if (len == -1) {
+        log_error("Failed to allocate memory for gitdir path");
+        free(plugins);
+        free(gitdir);
+        return 1;
+    }
     if (access(gitdir, F_OK) != 0) {
         log_error("Plugin is not a git repository");
+        free(gitdir);
         free(plugins);
         return 1;
     }
-    char cmd[1024];
-    snprintf(cmd, sizeof(cmd), "git -C %s pull", dir);
+    free(gitdir);
+    char *cmd = NULL;
+    len = asprintf(&cmd, "git -C %s pull", dir);
+    if (len == -1) {
+        log_error("Failed to allocate memory for git command");
+        free(cmd);
+        free(plugins);
+        return 1;
+    }
     if (system(cmd) != 0) {
         log_error("Failed to update plugin");
+        free(cmd);
         free(plugins);
         return 1;
     }
+    free(cmd);
     free(plugins);
     return 0;
 }

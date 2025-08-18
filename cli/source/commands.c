@@ -1,9 +1,12 @@
+//#define _GNU_SOURCE
+
 #include "commands.h"
 #include "error.h"
 #include "plugin.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 #include <dirent.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -41,6 +44,7 @@ int cmd_run(void) {
     if (system(cmd) != 0) {
         log_error("Failed to run Python application");
         return 1;
+
     }
     return 0;
 }
@@ -167,7 +171,7 @@ int cmd_safe_update(void) {
         return 1;
     }
     bool needs_recompile = false;
-    snprintf(git_cmd, sizeof(git_cmd), "git -C %s diff %s..HEAD -- cli/ | wc -l", g_source_dir, current_tag);
+    snprintf(git_cmd, sizeof(git_cmd), "git -C %s diff %s..HEAD -- cli/source/ cli/include/ Makefile | wc -l", g_source_dir, current_tag);
     char *diff_count_str = capture_output(git_cmd);
     if (diff_count_str) {
         int diff_count = atoi(diff_count_str);
@@ -185,21 +189,39 @@ int cmd_safe_update(void) {
     }
     bool recompiled = false;
     if (needs_recompile) {
-        char backup_cmd[1024];
-        snprintf(backup_cmd, sizeof(backup_cmd), "cp %s/ami %s/ami_prev", cli_dir, cli_dir);
-        if (system(backup_cmd) != 0) {
-            log_error("Failed to backup binary");
+        char *backup_cmd = NULL;
+        int len = asprintf(&backup_cmd, "cp %s/ami %s/ami_prev", cli_dir, cli_dir);
+        if (len == -1) {
+            log_error("Failed to allocate memory for backup command");
             cmd_rollback();
             free(current_tag);
             free(latest_tag);
             free(last_good_path);
             return 1;
         }
+        if (system(backup_cmd) != 0) {
+            log_error("Failed to backup binary");
+            free(backup_cmd);
+            cmd_rollback();
+            free(current_tag);
+            free(latest_tag);
+            free(last_good_path);
+            return 1;
+        }
+        free(backup_cmd);
         if (system("make clean && make") != 0) {
             log_error("Failed to recompile binary");
-            char rollback_cmd[1024];
-            snprintf(rollback_cmd, sizeof(rollback_cmd), "%s/ami_prev rollback", cli_dir);
+            char *rollback_cmd = NULL;
+            int len = asprintf(&rollback_cmd, "%s/ami_prev rollback", cli_dir);
+            if (len == -1) {
+                log_error("Failed to allocate memory for rollback command");
+                free(current_tag);
+                free(latest_tag);
+                free(last_good_path);
+                return 1;
+            }
             system(rollback_cmd);
+            free(rollback_cmd);
             free(current_tag);
             free(latest_tag);
             free(last_good_path);
@@ -212,9 +234,17 @@ int cmd_safe_update(void) {
     if (system(test_cmd) != 0) {
         log_error("Tests failed");
         if (recompiled) {
-            char rollback_cmd[1024];
-            snprintf(rollback_cmd, sizeof(rollback_cmd), "%s/ami_prev rollback", cli_dir);
+            char *rollback_cmd = NULL;
+            int len = asprintf(&rollback_cmd, "%s/ami_prev rollback", cli_dir);
+            if (len == -1) {
+                log_error("Failed to allocate memory for rollback command");
+                free(current_tag);
+                free(latest_tag);
+                free(last_good_path);
+                return 1;
+            }
             system(rollback_cmd);
+            free(rollback_cmd);
         } else {
             cmd_rollback();
         }
@@ -253,13 +283,20 @@ int cmd_rollback(void) {
     }
     fclose(fp);
     prev_tag[strcspn(prev_tag, "\n")] = '\0';
-    char git_cmd[1024];
-    snprintf(git_cmd, sizeof(git_cmd), "git -C %s checkout %s", g_source_dir, prev_tag);
-    if (system(git_cmd) != 0) {
-        log_error("Failed to checkout previous tag");
+    char *git_cmd = NULL;
+    int len = asprintf(&git_cmd, "git -C %s checkout %s", g_source_dir, prev_tag);
+    if (len == -1) {
+        log_error("Failed to allocate memory for git command.");
         free(last_good_path);
         return 1;
     }
+    if (system(git_cmd) != 0) {
+        log_error("Failed to checkout previous tag");
+        free(git_cmd);
+        free(last_good_path);
+        return 1;
+    }
+    free(git_cmd);
     if (system("make clean && make") != 0) {
         log_error("Failed to rebuild binary after rollback");
         free(last_good_path);
@@ -267,11 +304,17 @@ int cmd_rollback(void) {
     }
     char cli_dir[1024];
     if (getcwd(cli_dir, sizeof(cli_dir)) != NULL) {
-        char prev_bin[1024];
-        snprintf(prev_bin, sizeof(prev_bin), "%s/ami_prev", cli_dir);
+        char *prev_bin = NULL;
+        int len =asprintf(&prev_bin, "%s/ami_prev", cli_dir);
+        if (len == -1) {
+            log_error("Failed to allocate memory for previous binary path");
+            free(prev_bin);
+            return 1;
+        }
         if (access(prev_bin, F_OK) == 0) {
             remove(prev_bin);
         }
+        free(prev_bin);
     }
     free(last_good_path);
     return 0;

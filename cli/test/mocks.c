@@ -1,4 +1,3 @@
-
 #include "test_framework.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -88,6 +87,6 @@ const char* get_last_system_cmd(void) {
 }
 
 int repo_exists(const char *user_repo) {
-    (void)user_repo;
+    (void)user_repo;  // Mark parameter as used
     return 1;  // Fake valid repo
 }

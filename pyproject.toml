@@ -42,3 +42,8 @@ package = true
 
 [tool.uv.sources]
 ami = { path = "./ami", editable = true }
+
+[dependency-groups]
+dev = [
+    "pytest-cov>=6.2.1",
+]

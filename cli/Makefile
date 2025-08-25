@@ -1,11 +1,11 @@
 
 CC = gcc
 SOURCE_DIR ?= $(shell pwd)/..
-#CFLAGS = -Wall -g -Iinclude -DSOURCE_DIR=\"$(SOURCE_DIR)\" -I test/unity/src
-CFLAGS = -Wall -g -Iinclude -DSOURCE_DIR=\"$(SOURCE_DIR)\" -I test/unity/src -D_GNU_SOURCE
+CFLAGS = -Wall -g -Iinclude -DSOURCE_DIR=\"$(SOURCE_DIR)\" -D_GNU_SOURCE
 LDFLAGS = -lcurl -lyaml
-OBJ = source/main.o source/commands.o source/error.o source/plugin.o
-TEST_OBJ = test/unit_tests.o test/unity/src/unity.o
+SOURCE_OBJ = source/commands.o source/error.o source/plugin.o
+OBJ = $(SOURCE_OBJ) source/main.o
+TEST_OBJ = test/test_main.o test/test_commands.o test/test_plugin.o test/test_e2e.o test/mocks.o
 TARGET = ami
 TEST_TARGET = test_ami
 
@@ -19,6 +19,12 @@ check-install:
 $(TARGET): $(OBJ)
 	$(CC) $(OBJ) -o $(TARGET) $(LDFLAGS)
 
+test: $(TARGET) $(TEST_TARGET)
+	./$(TEST_TARGET)
+
+$(TEST_TARGET): $(SOURCE_OBJ) $(TEST_OBJ)
+	$(CC) $(SOURCE_OBJ) $(TEST_OBJ) -o $(TEST_TARGET) $(LDFLAGS)
+
 source/main.o: source/main.c include/commands.h include/types.h include/error.h include/plugin.h
 	$(CC) $(CFLAGS) -c source/main.c -o source/main.o
 
@@ -31,25 +37,27 @@ source/error.o: source/error.c include/error.h
 source/plugin.o: source/plugin.c include/plugin.h include/error.h include/types.h
 	$(CC) $(CFLAGS) -c source/plugin.c -o source/plugin.o
 
-test/unit_tests.o: test/unit_tests.c
-	$(CC) $(CFLAGS) -c test/unit_tests.c -o test/unit_tests.o
+test/test_main.o: test/test_main.c test/test_framework.h
+	$(CC) $(CFLAGS) -c test/test_main.c -o test/test_main.o
 
-test/unity/src/unity.o: test/unity/src/unity.c
-	$(CC) $(CFLAGS) -c test/unity/src/unity.c -o test/unity/src/unity.o
+test/test_commands.o: test/test_commands.c test/test_framework.h include/commands.h
+	$(CC) $(CFLAGS) -c test/test_commands.c -o test/test_commands.o
 
-$(TEST_TARGET): $(OBJ) $(TEST_OBJ)
-	$(CC) $(OBJ) $(TEST_OBJ) -o $(TEST_TARGET) $(LDFLAGS)
+test/test_plugin.o: test/test_plugin.c test/test_framework.h include/plugin.h
+	$(CC) $(CFLAGS) -c test/test_plugin.c -o test/test_plugin.o
 
-test: $(TEST_TARGET)
-	./$(TEST_TARGET)
-	./test/integration.sh
+test/test_e2e.o: test/test_e2e.c test/test_framework.h
+	$(CC) $(CFLAGS) -c test/test_e2e.c -o test/test_e2e.o
 
-check-deps:
-	@command -v git >/dev/null 2>&1 || echo "Missing git: sudo apt install git"
-	@command -v systemctl >/dev/null 2>&1 || echo "Missing systemd: Already on Pop!_OS"
-	@pkg-config --exists libyaml-0.1 >/dev/null 2>&1 || echo "Missing libyaml: sudo apt install libyaml-dev"
+test/mocks.o: test/mocks.c include/mocks.h
+	$(CC) $(CFLAGS) -c test/mocks.c -o test/mocks.o
 
 clean:
-	rm -f $(OBJ) $(TEST_OBJ) $(TARGET) $(TEST_TARGET)
+	rm -f $(OBJ) $(TEST_OBJ) $(TARGET) $(TEST_TARGET) *.gcno *.gcda *.gcov
 
-.PHONY: all clean check-deps test
+#Coverage: Compile with coverage flags, run tests, generate reports
+coverage: CFLAGS += --coverage
+coverage: clean test
+	gcov source/*.c
+
+.PHONY: all install check-install test clean coverage

@@ -1,6 +1,10 @@
 #include "mocks.h"
-#include <string.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <dirent.h>
 
 static char last_system_cmd[1024] = {0};
 

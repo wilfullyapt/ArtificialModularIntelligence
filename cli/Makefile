@@ -1,63 +1,47 @@
-
 CC = gcc
-SOURCE_DIR ?= $(shell pwd)/..
-CFLAGS = -Wall -g -Iinclude -DSOURCE_DIR=\"$(SOURCE_DIR)\" -D_GNU_SOURCE
-LDFLAGS = -lcurl -lyaml
-SOURCE_OBJ = source/commands.o source/error.o source/plugin.o
-OBJ = $(SOURCE_OBJ) source/main.o
-TEST_OBJ = test/test_main.o test/test_commands.o test/test_plugin.o test/test_e2e.o test/mocks.o
+CFLAGS = -Wall -Wextra -std=c99 -Iinclude -DSOURCE_DIR=\"$(PWD)/../\"
+LDFLAGS = -lyaml -lcurl
+
+SRCDIR = source
+TESTDIR = test
+INCDIR = include
+BUILDDIR = build
+
+SOURCES = $(wildcard $(SRCDIR)/*.c)
+OBJECTS = $(SOURCES:$(SRCDIR)/%.c=$(BUILDDIR)/%.o)
+TEST_SOURCES = $(wildcard $(TESTDIR)/*.c)
+TEST_OBJECTS = $(TEST_SOURCES:$(TESTDIR)/%.c=$(BUILDDIR)/test_%.o)
+
 TARGET = ami
-TEST_TARGET = test_ami
+TEST_TARGET = test_runner
+
+.PHONY: all clean test
 
 all: $(TARGET)
 
-install: $(TARGET)
-	cp $(TARGET) $(HOME)/.local/bin/
-check-install:
-	ls -lt $(HOME)/.local/bin | grep ami
+$(TARGET): $(OBJECTS)
+	$(CC) $(OBJECTS) -o $@ $(LDFLAGS)
 
-$(TARGET): $(OBJ)
-	$(CC) $(OBJ) -o $(TARGET) $(LDFLAGS)
+$(BUILDDIR)/%.o: $(SRCDIR)/%.c | $(BUILDDIR)
+	$(CC) $(CFLAGS) -c $< -o $@
 
-test: $(TARGET) $(TEST_TARGET)
+$(BUILDDIR):
+	mkdir -p $(BUILDDIR)
+
+# Test build
+test: $(TEST_TARGET)
 	./$(TEST_TARGET)
 
-$(TEST_TARGET): $(SOURCE_OBJ) $(TEST_OBJ)
-	$(CC) $(SOURCE_OBJ) $(TEST_OBJ) -o $(TEST_TARGET) $(LDFLAGS)
+$(TEST_TARGET): $(TEST_OBJECTS) $(filter-out $(BUILDDIR)/main.o, $(OBJECTS)) | $(BUILDDIR)
+	$(CC) $(filter-out $(BUILDDIR)/main.o, $(OBJECTS)) $(TEST_OBJECTS) -o $@ $(LDFLAGS)
 
-source/main.o: source/main.c include/commands.h include/types.h include/error.h include/plugin.h
-	$(CC) $(CFLAGS) -c source/main.c -o source/main.o
-
-source/commands.o: source/commands.c include/commands.h include/error.h include/types.h include/plugin.h
-	$(CC) $(CFLAGS) -c source/commands.c -o source/commands.o
-
-source/error.o: source/error.c include/error.h
-	$(CC) $(CFLAGS) -c source/error.c -o source/error.o
-
-source/plugin.o: source/plugin.c include/plugin.h include/error.h include/types.h
-	$(CC) $(CFLAGS) -c source/plugin.c -o source/plugin.o
-
-test/test_main.o: test/test_main.c test/test_framework.h
-	$(CC) $(CFLAGS) -c test/test_main.c -o test/test_main.o
-
-test/test_commands.o: test/test_commands.c test/test_framework.h include/commands.h
-	$(CC) $(CFLAGS) -c test/test_commands.c -o test/test_commands.o
-
-test/test_plugin.o: test/test_plugin.c test/test_framework.h include/plugin.h
-	$(CC) $(CFLAGS) -c test/test_plugin.c -o test/test_plugin.o
-
-test/test_e2e.o: test/test_e2e.c test/test_framework.h
-	$(CC) $(CFLAGS) -c test/test_e2e.c -o test/test_e2e.o
-
-test/mocks.o: test/mocks.c include/mocks.h
-	$(CC) $(CFLAGS) -c test/mocks.c -o test/mocks.o
+$(BUILDDIR)/test_%.o: $(TESTDIR)/%.c | $(BUILDDIR)
+	$(CC) $(CFLAGS) -DTESTING -c $< -o $@
 
 clean:
-	rm -f $(OBJ) $(TEST_OBJ) $(TARGET) $(TEST_TARGET) *.gcno *.gcda *.gcov
+	rm -rf $(BUILDDIR) $(TARGET) $(TEST_TARGET)
 
-#Coverage: Compile with coverage flags, run tests, generate reports
-coverage: CFLAGS += --coverage
-coverage: clean test
-	gcov source/*.c
+install: $(TARGET)
+	cp $(TARGET) /usr/local/bin/
 
-.PHONY: all install check-install test clean coverage
+.PRECIOUS: $(BUILDDIR)/%.o $(BUILDDIR)/test_%.o

@@ -1,6 +1,7 @@
+
 #include "test_framework.h"
-#include <stdio class="h">
-#include <string class="h">
+#include <stdio.h>
+#include <string.h>
 
 TEST(test_ami_help) {
     FILE *fp = popen("./ami help", "r");
@@ -33,4 +34,3 @@ TEST(test_ami_help) {
 void run_e2e_tests(void) {
     RUN_TEST(test_ami_help);
 }
-

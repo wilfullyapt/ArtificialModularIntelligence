@@ -1,45 +1,22 @@
-// test/mocks.c
-#include <stdlib class="h">
-#include <string class="h">
-#include <stdio class="h">
+#include "mocks.h"
+#include <string.h>
+#include <stdlib.h>
 
-char *last_system_cmd = NULL;
-int mock_system_ret = 0;
+static char last_system_cmd[1024] = {0};
 
-int system(const char *cmd) {
-    if (last_system_cmd) free(last_system_cmd);
-    last_system_cmd = strdup(cmd);
-    return mock_system_ret;
+void reset_system_mock(void) {
+    memset(last_system_cmd, 0, sizeof(last_system_cmd));
 }
 
-char *get_last_system_cmd(void) {
+const char* get_last_system_cmd(void) {
     return last_system_cmd;
 }
 
-void reset_system_mock(void) {
-    if (last_system_cmd) free(last_system_cmd);
-    last_system_cmd = NULL;
-}
-
-FILE *fopen(const char *path, const char *mode) {
-    return tmpfile();  // Fake temp file
-}
-
-int fclose(FILE *fp) {
-    return 0;
-}
-
-int fprintf(FILE *fp, const char *format, ...) {
-    return 0;  // Fake success
-}
-
-char *getcwd(char *buf, size_t size) {
-    strncpy(buf, "/fake/cwd", size);
-    return buf;
-}
-
-char *capture_output(const char *cmd) {
-    return strdup("v1.0");  // Fake tag for safe-update tests
+int system_mock(const char* cmd) {
+    if (cmd) {
+        strncpy(last_system_cmd, cmd, sizeof(last_system_cmd) - 1);
+    }
+    return 0;  // Always succeed in tests
 }
 
 // Add other mock definitions (e.g., for dirent functions, repo_exists)

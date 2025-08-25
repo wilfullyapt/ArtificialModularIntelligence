@@ -1,5 +1,3 @@
-//#define _GNU_SOURCE
-
 #include "commands.h"
 #include "error.h"
 #include "plugin.h"

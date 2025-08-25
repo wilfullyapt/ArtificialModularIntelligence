@@ -1,11 +1,12 @@
+
 // test/test_commands.c
 #include "test_framework.h"
 #include "commands.h"
 #include "mocks.h"
-#include <string class="h">
-#include <stdlib class="h">
-#include <stdio class="h">
-#include <unistd class="h">
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <unistd.h>
 
 // Mock globals
 char *g_source_dir = "/fake/source";
@@ -37,7 +38,6 @@ TEST(test_cmd_autostart_enable) {
     free(service_path);
     unlink(temp_template);  // Clean up the temp file
 }
-
 
 TEST(test_cmd_safe_update_no_update_needed) {   // No local capture_output needed; use global mock
     int ret = cmd_safe_update();

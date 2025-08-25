@@ -28,6 +28,18 @@ int repo_exists(const char *user_repo) {
     return 1;  // Fake valid repo
 }
 
-DIR *opendir(const char *name) { return (DIR *)1; }
-struct dirent *readdir(DIR *dirp) { return NULL; }  // Empty dir
+DIR *opendir(const char *name) { 
+    (void)name; // Suppress unused parameter warning
+    return (DIR *)1; 
+}
+
+struct dirent *readdir(DIR *dirp) { 
+    (void)dirp; // Suppress unused parameter warning
+    return NULL;  // Empty dir
+}
+
+int closedir(DIR *dirp) {
+    (void)dirp; // Suppress unused parameter warning
+    return 0;
+}
 int closedir(DIR *dirp) { return 0; }

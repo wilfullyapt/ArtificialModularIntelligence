@@ -42,4 +42,3 @@ int closedir(DIR *dirp) {
     (void)dirp; // Suppress unused parameter warning
     return 0;
 }
-int closedir(DIR *dirp) { return 0; }

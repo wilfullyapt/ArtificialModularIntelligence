@@ -1,12 +1,16 @@
+
 // test/test_framework.h
 #ifndef TEST_FRAMEWORK_H
 #define TEST_FRAMEWORK_H
 
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
+#include <stdarg.h>
 
-static int tests_run = 0;
-static int tests_failed = 0;
+// Global test counters
+extern int tests_run;
+extern int tests_failed;
 
 #define TEST(name) void name(void)
 #define RUN_TEST(name) do { \
@@ -38,4 +42,9 @@ static int tests_failed = 0;
            tests_run, tests_run - tests_failed, tests_failed); \
 } while (0)
 
-#endif
+// Mock function declarations
+void reset_system_mock(void);
+const char* get_last_system_cmd(void);
+int repo_exists(const char *user_repo);
+
+#endif // TEST_FRAMEWORK_H

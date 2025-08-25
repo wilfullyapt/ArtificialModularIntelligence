@@ -1,4 +1,5 @@
-#include "mocks.h"
+
+#include "test_framework.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -6,39 +7,87 @@
 #include <sys/stat.h>
 #include <dirent.h>
 
-static char last_system_cmd[1024] = {0};
+// Global test counters
+int tests_run = 0;
+int tests_failed = 0;
 
-void reset_system_mock(void) {
-    memset(last_system_cmd, 0, sizeof(last_system_cmd));
+static char *last_system_cmd = NULL;
+
+// Mock system function
+int system(const char *cmd) {
+    free(last_system_cmd);
+    last_system_cmd = strdup(cmd);
+    return 0;  // Default: success
 }
 
-const char* get_last_system_cmd(void) {
-    return last_system_cmd;
+// Mock file operations
+FILE *fopen(const char *path, const char *mode) {
+    (void)path; (void)mode;
+    return (FILE *)1;  // Fake file pointer
 }
 
-int system_mock(const char* cmd) {
-    if (cmd) {
-        strncpy(last_system_cmd, cmd, sizeof(last_system_cmd) - 1);
+int fclose(FILE *fp) {
+    (void)fp;
+    return 0;
+}
+
+int fprintf(FILE *fp, const char *format, ...) {
+    (void)fp; (void)format;
+    return 0;
+}
+
+char *getcwd(char *buf, size_t size) {
+    if (buf) {
+        strncpy(buf, "/fake/cwd", size - 1);
+        buf[size - 1] = '\0';
+        return buf;
     }
-    return 0;  // Always succeed in tests
+    return strdup("/fake/cwd");
 }
 
-// Add other mock definitions (e.g., for dirent functions, repo_exists)
-int repo_exists(const char *user_repo) {
-    return 1;  // Fake valid repo
+// Mock directory operations
+DIR *opendir(const char *name) {
+    (void)name;
+    return (DIR *)1;
 }
 
-DIR *opendir(const char *name) { 
-    (void)name; // Suppress unused parameter warning
-    return (DIR *)1; 
-}
-
-struct dirent *readdir(DIR *dirp) { 
-    (void)dirp; // Suppress unused parameter warning
-    return NULL;  // Empty dir
+struct dirent *readdir(DIR *dirp) {
+    (void)dirp;
+    return NULL;  // Empty directory
 }
 
 int closedir(DIR *dirp) {
-    (void)dirp; // Suppress unused parameter warning
+    (void)dirp;
     return 0;
+}
+
+// Mock system operations
+int mkdir(const char *pathname, mode_t mode) {
+    (void)pathname; (void)mode;
+    return 0;
+}
+
+int chdir(const char *path) {
+    (void)path;
+    return 0;
+}
+
+int access(const char *pathname, int mode) {
+    (void)pathname; (void)mode;
+    return 0;  // Always accessible
+}
+
+// Test utility functions
+void reset_system_mock(void) {
+    free(last_system_cmd);
+    last_system_cmd = NULL;
+}
+
+const char* get_last_system_cmd(void) {
+    return last_system_cmd ? last_system_cmd : "";
+}
+
+int repo_exists(const char *user_repo) {
+    (void)user_repo;
+    return 1;  // Fake valid repo
 }

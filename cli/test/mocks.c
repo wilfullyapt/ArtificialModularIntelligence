@@ -1,4 +1,4 @@
-#include "mocks.h"
+#include "../include/mocks.h"
 #include "test_framework.h"
 #include <stdio.h>
 #include <stdlib.h>

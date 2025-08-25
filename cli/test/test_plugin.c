@@ -1,5 +1,6 @@
 // test/test_plugin.c
 #include "test_framework.h"
+#include "../include/mocks.h"
 #include "../include/plugin.h"
 #include <string.h>
 

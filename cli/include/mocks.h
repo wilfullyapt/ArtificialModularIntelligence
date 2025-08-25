@@ -1,4 +1,3 @@
-
 #ifndef MOCKS_H
 #define MOCKS_H
 
@@ -8,17 +7,13 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-// Mock functions for testing
-int system(const char *command);
-int mkdir(const char *pathname, mode_t mode);
-int chdir(const char *path);
-int access(const char *pathname, int mode);
-FILE *fopen(const char *path, const char *mode);
-int fclose(FILE *fp);
-int fprintf(FILE *fp, const char *format, ...);
-char *getcwd(char *buf, size_t size);
-DIR *opendir(const char *name);
-struct dirent *readdir(DIR *dirp);
-int closedir(DIR *dirp);
+// Test utility functions
+void reset_system_mock(void);
+const char* get_last_system_cmd(void);
+int repo_exists(const char *user_repo);
+
+// Global test counters (defined in mocks.c)
+extern int tests_run;
+extern int tests_failed;
 
 #endif // MOCKS_H

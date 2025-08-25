@@ -1,6 +1,7 @@
 
 // test/test_commands.c
 #include "test_framework.h"
+#include "../include/mocks.h"
 #include "../include/commands.h"
 #include <string.h>
 #include <stdlib.h>

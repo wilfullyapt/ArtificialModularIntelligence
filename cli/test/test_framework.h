@@ -42,9 +42,4 @@ extern int tests_failed;
            tests_run, tests_run - tests_failed, tests_failed); \
 } while (0)
 
-// Mock function declarations
-void reset_system_mock(void);
-const char* get_last_system_cmd(void);
-int repo_exists(const char *user_repo);
-
 #endif // TEST_FRAMEWORK_H

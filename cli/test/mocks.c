@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include "../include/mocks.h"
 #include "test_framework.h"
 #include <stdio.h>
@@ -5,6 +6,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <dirent.h>
 
 // Global test counters

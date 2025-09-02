@@ -4,6 +4,7 @@
 #include <stddef.h>
 
 typedef enum {
+    CMD_WHEREPO,
     CMD_RUN,
     CMD_UPDATE,
     CMD_SAFE_UPDATE,

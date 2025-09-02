@@ -42,4 +42,4 @@ extern int tests_failed;
            tests_run, tests_run - tests_failed, tests_failed); \
 } while (0)
 
-#endif // TEST_FRAMEWORK_H
+#endif

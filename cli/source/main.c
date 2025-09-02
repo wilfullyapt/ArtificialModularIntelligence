@@ -7,7 +7,7 @@
 #include <getopt.h>
 #include <stdlib.h>
 
-char *g_source_dir = SOURCE_DIR;  // Can be overridden
+char *g_source_dir = SOURCE_DIR;
 char *g_plugins_dir = "~/.ami/plugins";
 char *g_config_path = "~/.ami/ami_config.yaml";
 char *g_service_path = "~/.config/systemd/user/ami.service";
@@ -22,6 +22,7 @@ static struct option long_options[] = {
 
 Command parse_command(int argc, char *argv[]) {
     if (argc < 2) return CMD_HELP;
+    if (strcmp(argv[1], "wherepo") == 0) return CMD_WHEREPO;
     if (strcmp(argv[1], "run") == 0) return CMD_RUN;
     if (strcmp(argv[1], "update") == 0) return CMD_UPDATE;
     if (strcmp(argv[1], "safe-update") == 0) return CMD_SAFE_UPDATE;
@@ -69,6 +70,10 @@ int main(int argc, char *argv[]) {
     Command cmd = parse_command(argc - optind + 1, &argv[optind - 1]);
     int ret = 0;
     switch (cmd) {
+        case CMD_WHEREPO:
+            ret = 0;
+            printf("Source local Repo: %s\n", g_source_dir);
+            break;
         case CMD_RUN:
             ret = cmd_run();
             break;

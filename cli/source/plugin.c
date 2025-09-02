@@ -1,3 +1,7 @@
+#define _GNU_SOURCE
+#include <stdio.h>
+#include <string.h>
+#include <dirent.h>
 #include "plugin.h"
 #include "error.h"
 #include <stdio.h>
@@ -11,7 +15,6 @@
 #include <yaml.h>
 #include <curl/curl.h>
 #include <ctype.h>
-
 
 extern char *g_plugins_dir;
 extern char *g_config_path;

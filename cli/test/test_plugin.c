@@ -5,8 +5,8 @@
 #include <string.h>
 
 // Mock globals
-char *g_plugins_dir = NULL;
-char *g_config_path = NULL;
+char *g_plugins_dir = "/fake/plugins";
+char *g_config_path = "/fake/config.yaml";
 
 // No local mocks needed; use global mocks from mocks.c
 

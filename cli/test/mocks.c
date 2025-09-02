@@ -1,5 +1,5 @@
 #define _GNU_SOURCE
-#include "../include/mocks.h"
+#include "mocks.h"
 #include "test_framework.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,8 +15,41 @@ int tests_failed = 0;
 
 static char *last_system_cmd = NULL;
 
+FILE *popen(const char *cmd, const char *type) {
+    (void)type;  // Unused
+    free(last_system_cmd);
+    last_system_cmd = strdup(cmd);
+
+    FILE *fp = tmpfile();  // Temporary file for simulated output
+    if (!fp) return NULL;
+
+    // Simulate outputs based on command patterns
+    if (strstr(cmd, "describe --tags")) {
+        fputs("v1.0\n", fp);  // Fake current tag
+    } else if (strstr(cmd, "tag -l --sort")) {
+        fputs("v1.0\n", fp);  // Fake latest tag (same as current)
+    } else if (strstr(cmd, "diff") && strstr(cmd, "wc -l")) {
+        fputs("0\n", fp);  // No changes, no recompile needed
+    } else {
+        // Default: empty output for unknown commands
+        fputs("\n", fp);
+    }
+
+    rewind(fp);
+    return fp;
+}
+
+int pclose(FILE *fp) {
+    if (fp) fclose(fp);
+    return 0;
+}
+
 // Mock system function
 int system(const char *cmd) {
+    if (cmd == NULL) {
+        last_system_cmd = NULL;
+        return -1;
+    }
     free(last_system_cmd);
     last_system_cmd = strdup(cmd);
     return 0;  // Default: success
@@ -25,7 +58,7 @@ int system(const char *cmd) {
 // Mock file operations
 FILE *fopen(const char *path, const char *mode) {
     (void)path; (void)mode;
-    return (FILE *)1;  // Fake file pointer
+    return tmpfile();
 }
 
 int fclose(FILE *fp) {

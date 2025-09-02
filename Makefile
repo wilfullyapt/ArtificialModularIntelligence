@@ -46,6 +46,9 @@ cli:
 	cp cli/ami $(HOME)/.local/bin/ami
 	@echo "$(GREEN)  --==  DONE  ==--$(RESET)"
 
+ext-test:
+	$(MAKE) -C cli print-dir
+
 install: cli
 	@echo "Syncing UV environment..."
 	uv sync

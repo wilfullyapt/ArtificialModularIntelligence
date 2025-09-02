@@ -8,11 +8,8 @@
 #include <stdio.h>
 #include <unistd.h>
 
-// External globals that commands.c expects
 extern char *g_source_dir;
 extern char *g_service_path;
-
-// Mock globals for testing
 char *g_source_dir = "/fake/source";
 char *g_service_path = "/fake/service.service";
 

@@ -1,12 +1,156 @@
-from pathlib import Path
-from typing import List, Dict, Any, Optional, Tuple
-from datetime import datetime, timedelta
+import os
 import json
-import re
+import uuid
+from pathlib import Path
+from typing import List, Dict, Any
+import subprocess
+import socket
 from threading import Lock
 
 from ami.core import LogBase
 from ami.builtin.markdown.tool import Markdown as MarkdownTool
+
+class BinaryRunnerForAMI(LogBase):
+    """Handles running the AMI binary with optional real-time socket communication.
+
+    Supports synchronous (JSON output) and real-time (socket events) modes.
+    In real-time, events are forwarded to IPC (if provided) and collected for return.
+    """
+
+    def __init__(self, ipc_manager=None):
+        self.ipc_manager = ipc_manager
+        self._lock = Lock()
+
+    def ami_binary_command(self, args: List[str], real_time: bool = False) -> Dict[str, Any]:
+        """
+        Run binary, optionally in real-time mode.
+        Non-real-time: Synchronous capture with --json-output.
+        Real-time: Create socket, launch Popen, block on accept/recv to forward and collect events.
+        Returns consistent dict with status, message, and (if applicable) data/events.
+        """
+        cmd = ['ami'] + args
+        with self._lock:
+            if not real_time:
+                cmd.insert(1, '--json-output')
+                try:
+                    result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+                    return json.loads(result.stdout)
+                except subprocess.CalledProcessError as e:
+                    return {"status": "error", "message": e.stderr.strip(), "return_code": e.returncode}
+                except json.JSONDecodeError:
+                    return {"status": "error", "message": "Invalid JSON output"}
+            else:
+                # Real-time mode
+                socket_dir = Path.home() / '.ami' / 'sockets'
+                socket_dir.mkdir(parents=True, exist_ok=True)
+                socket_path = str(socket_dir / f'ami-{os.getpid()}-{uuid.uuid4().hex[:8]}.sock')
+                if os.path.exists(socket_path):
+                    os.unlink(socket_path)
+
+                conn = None
+                server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                try:
+                    server.bind(socket_path)
+                    os.chmod(socket_path, 0o600)
+                    server.listen(1)
+                    cmd.insert(1, f'--socket-path={socket_path}')
+                    self.logs.info(f"Starting binary with socket: {socket_path}")
+                    proc = subprocess.Popen(
+                        cmd,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True
+                    )
+
+                    server.settimeout(10.0)
+                    conn, _ = server.accept()
+                    server.settimeout(None)
+                    data = b''
+                    events = []
+
+                    while True:
+                        chunk = conn.recv(1024)
+                        if not chunk:
+                            break
+                        data += chunk
+                        while b'\n' in data:
+                            line, data = data.split(b'\n', 1)
+                            try:
+                                msg = json.loads(line.decode('utf-8'))
+                                events.append(msg)
+                                if self.ipc_manager:
+                                    self.ipc_manager.route_event(IPCEvent(
+                                        type=EventType.REAL_TIME_UPDATE,
+                                        source=ProcessType.AI,
+                                        target=ProcessType.AI,
+                                        data=msg
+                                    ))
+                                else:
+                                    self.logs.info(f"Real-time event: {msg}")
+                            except json.JSONDecodeError:
+                                self.logs.error("Invalid JSON from binary")
+
+                    if data:
+                        try:
+                            msg = json.loads(data.decode('utf-8'))
+                            events.append(msg)
+                        except json.JSONDecodeError:
+                            self.logs.error("Incomplete final JSON from binary")
+
+                    stdout, stderr = proc.communicate()
+                    ret_code = proc.returncode
+                    if stdout:
+                        self.logs.info(f"Binary stdout: {stdout.strip()}")
+                    if stderr:
+                        self.logs.error(f"Binary stderr: {stderr.strip()}")
+
+                    if ret_code != 0:
+                        return {"status": "error", "message": "Binary failed", "return_code": ret_code, "events": events}
+
+                    return {"status": "completed", "message": "Real-time operation finished", "events": events}
+                except socket.timeout:
+                    self.logs.error("Timeout waiting for binary connection")
+                    return {"status": "error", "message": "Binary connection timeout"}
+                except Exception as e:
+                    self.logs.error(f"Unexpected error: {str(e)}")
+                    return {"status": "error", "message": str(e)}
+                finally:
+                    if conn:
+                        conn.close()
+                    server.close()
+                    if os.path.exists(socket_path):
+                        os.unlink(socket_path)
+                    if 'proc' in locals() and proc.poll() is None:
+                        proc.terminate()
+                        proc.wait(timeout=5.0)
+
+    ##################################################
+    ###     AMI Binary Commands
+    def update_ami_source(self, real_time: bool = False) -> Dict[str, Any]:
+        return self.ami_binary_command(['update'], real_time)
+    def safe_update_ami(self, real_time: bool = False) -> Dict[str, Any]:
+        return self.ami_binary_command(['safe-update'], real_time)
+    def rollback_ami(self, real_time: bool = False) -> Dict[str, Any]:
+        return self.ami_binary_command(['rollback'], real_time)
+    def install_headspace_plugins(self, user_repo: str, real_time: bool = False) -> Dict[str, Any]:
+        return self.ami_binary_command(['gethead', user_repo], real_time)
+    def install_plugin(self, url_or_repo: str, real_time: bool = False) -> Dict[str, Any]:
+        return self.ami_binary_command(['plugin', 'install', url_or_repo], real_time)
+    def remove_plugin(self, name: str, real_time: bool = False) -> Dict[str, Any]:
+        return self.ami_binary_command(['plugin', 'remove', name], real_time)
+    def update_plugin(self, name: str, real_time: bool = False) -> Dict[str, Any]:
+        return self.ami_binary_command(['plugin', 'update', name], real_time)
+
+
+    ##################################################
+    ###     AMI Non-Binary Commands
+    def list_plugins(self, real_time: bool = False) -> Dict[str, Any]:
+        return self._run_ami_command(['plugin', 'list'], real_time)
+    def enable_plugin(self, name: str, real_time: bool = False) -> Dict[str, Any]:
+        return self._run_ami_command(['plugin', 'enable', name], real_time)
+    def disable_plugin(self, name: str, real_time: bool = False) -> Dict[str, Any]:
+        return self._run_ami_command(['plugin', 'disable', name], real_time)
+
 
 class ReminderManager(LogBase):
     """Manages reminders and timers for corespace"""

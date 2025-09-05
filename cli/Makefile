@@ -56,6 +56,13 @@ valgrind: $(TEST_OBJECTS)
 $(TEST_BUILDDIR)/%.o: %.c | $(TEST_BUILDDIR)
 	$(CC) $(TEST_CFLAGS) $(if $(findstring $(TESTDIR)/,$<),-DTESTING,) -c $< -o $@
 
+coverage: test
+	gcov $(SOURCES)
+	# Or for HTML reports: Install lcov (sudo apt install lcov), then:
+	# lcov --capture --directory . --output-file coverage.info
+	# genhtml coverage.info --output-directory coverage_html
+	# Open coverage_html/index.html in a browser
+
 $(TEST_BUILDDIR):
 	mkdir -p $(TEST_BUILDDIR)
 

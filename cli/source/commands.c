@@ -6,6 +6,7 @@
 #include "commands.h"
 #include "error.h"
 #include "plugin.h"
+#include "socket_comm.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,6 +15,23 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <errno.h>
+
+
+
+/* Example in cmd_safe_update (add to key points):
+ *
+int cmd_safe_update(void) {
+    send_event_if_connected("progress", "Getting current tag", NULL);
+    char *current_tag = capture_output(git_cmd);
+    if (!current_tag) {
+        send_event_if_connected("error", "Failed to get current tag", NULL);
+        log_error("Failed to get current tag");  // Fallback if not real-time
+    }
+    // ... more sends for progress/latest/fetch
+return 0;
+}
+*/
+
 
 extern char *g_source_dir;
 extern char *g_service_path;

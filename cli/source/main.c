@@ -2,6 +2,7 @@
 #include "types.h"
 #include "error.h"
 #include "plugin.h"
+#include "socket_comm.h"
 #include <stdio.h>
 #include <string.h>
 #include <getopt.h>
@@ -12,11 +13,15 @@ char *g_plugins_dir = "~/.ami/plugins";
 char *g_config_path = "~/.ami/ami_config.yaml";
 char *g_service_path = "~/.config/systemd/user/ami.service";
 
+char *g_socket_path = NULL;
+int g_socket_fd = -1;
+
 static struct option long_options[] = {
     {"source-dir", required_argument, NULL, 'd'},
     {"plugins-dir", required_argument, NULL, 'p'},
     {"config-path", required_argument, NULL, 'c'},
     {"service-path", required_argument, NULL, 's'},
+    {"socket-path", required_argument, NULL, 'k'},
     {NULL, 0, NULL, 0}
 };
 
@@ -60,6 +65,9 @@ int main(int argc, char *argv[]) {
             case 's':
                 g_service_path = optarg;
                 break;
+            case 'k':
+                g_socket_path = optarg;
+                break;
             default:
                 log_error("Unknown option");
                 cmd_help();
@@ -67,7 +75,16 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    Command cmd = parse_command(argc - optind + 1, &argv[optind - 1]);
+    int socket_enabled = (g_socket_path != NULL && strlen(g_socket_path) > 0);
+    if (socket_enabled) {
+        if (init_socket_connection(g_socket_path) != 0) {
+            log_error("Failed to initialize socket connection");
+            return 1;
+        }
+        send_event_if_connected("start", "Command started", NULL);
+    }
+
+    Command cmd = parse_command(argc - optind + 1, argv + optind - 1);
     int ret = 0;
     switch (cmd) {
         case CMD_WHEREPO:
@@ -144,6 +161,15 @@ int main(int argc, char *argv[]) {
             log_error("Unknown command");
             cmd_help();
             return 1;
+    }
+
+    if (socket_enabled) {
+        if (ret == 0) {
+            send_event_if_connected("success", "Command completed", NULL);
+        } else {
+            send_event_if_connected("error", "Command failed", NULL);
+        }
+        close_socket_connection();
     }
 
     return ret;

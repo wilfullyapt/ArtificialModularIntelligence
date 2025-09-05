@@ -4,7 +4,7 @@ from typing import Optional
 
 from ami.headspace import Headspace
 from ami.headspace import ami_tool
-from .tool import ReminderManager, UpdateManager
+from .tool import ReminderManager, UpdateManager, BinaryRunnerForAMI
 from .settings import CorespaceSettings
 
 class CorespaceHeadspace(Headspace):
@@ -183,3 +183,47 @@ class CorespaceHeadspace(Headspace):
         """Get the current date and time"""
         now = datetime.now()
         return f"Current date and time: {now.strftime('%A, %B %d, %Y at %I:%M %p')}"
+
+
+
+    @ami_tool
+    def run_ami_app(self, real_time: bool = False):
+        runner = BinaryRunnerForAMI(self.ipc_manager)  # Pass manager if needed
+        return runner.run_ami_app(real_time)
+    @ami_tool
+    def update_ami_source(self, real_time: bool = False):
+        runner = BinaryRunnerForAMI(self.ipc_manager)
+        return runner.update_ami_source(real_time)
+
+
+
+    @ami_tool
+    def update_ami_source(real_time: bool = False) -> Dict[str, Any]:
+        BinaryRunnerForAMI.update()
+
+    def safe_update_ami(real_time: bool = False) -> Dict[str, Any]:
+        return _run_ami_command(['safe-update'], real_time)
+
+    def rollback_ami(real_time: bool = False) -> Dict[str, Any]:
+        return _run_ami_command(['rollback'], real_time)
+
+    def install_headspace_plugins(user_repo: str, real_time: bool = False) -> Dict[str, Any]:
+        return _run_ami_command(['gethead', user_repo], real_time)
+
+    def list_plugins(real_time: bool = False) -> Dict[str, Any]:
+        return _run_ami_command(['plugin', 'list'], real_time)
+
+    def enable_plugin(name: str, real_time: bool = False) -> Dict[str, Any]:
+        return _run_ami_command(['plugin', 'enable', name], real_time)
+
+    def disable_plugin(name: str, real_time: bool = False) -> Dict[str, Any]:
+        return _run_ami_command(['plugin', 'disable', name], real_time)
+
+    def install_plugin(url_or_repo: str, real_time: bool = False) -> Dict[str, Any]:
+        return _run_ami_command(['plugin', 'install', url_or_repo], real_time)
+
+    def remove_plugin(name: str, real_time: bool = False) -> Dict[str, Any]:
+        return _run_ami_command(['plugin', 'remove', name], real_time)
+
+    def update_plugin(name: str, real_time: bool = False) -> Dict[str, Any]:
+        return _run_ami_command(['plugin', 'update', name], real_time)

@@ -348,6 +348,7 @@ int cmd_help(void) {
     printf("  --plugins-dir <path>      Set plugins directory (default: ~/.ami/plugins)\n");
     printf("  --config-path <path>      Set config path (default: ~/.ami/ami_config.yaml)\n");
     printf("  --service-path <path>     Set service path (default: ~/.config/systemd/user/ami.service)\n");
+    printf("  --socket-path=<path>      Enable the socket communications flag and pass the socket file location (default: none)\n");
     printf("Commands:\n");
     printf("  run                       Execute the main Python application\n");
     printf("  update                    Update source repository to latest tag and run tests\n");

@@ -36,10 +36,10 @@ int init_socket_connection(const char *socket_path) {
     return 0;
 }
 
-int send_event_if_connected(const char *event, const char *message, const char *data_json) {
+void send_event_if_connected(const char *event, const char *message, const char *data_json) {
     if (g_socket_fd == -1) {
         log_info("Socket not connected; falling back to log");
-        return -1;
+        return;
     }
     char buf[1024];
     int len;
@@ -51,15 +51,14 @@ int send_event_if_connected(const char *event, const char *message, const char *
 
     if (len <= 0 || (size_t)len >= sizeof(buf)) {
         log_error("Event message too long or formatting error");
-        return -1;
+        return;
     }
 
     ssize_t written = write(g_socket_fd, buf, len);
     if (written != len) {
         log_error("Failed to write to socket: %s", strerror(errno));
-        return -1;
+        return;
     }
-    return 0;
 }
 
 void close_socket_connection(void) {

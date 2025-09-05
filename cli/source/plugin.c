@@ -1,10 +1,5 @@
 #define _GNU_SOURCE
 #include <stdio.h>
-#include <string.h>
-#include <dirent.h>
-#include "plugin.h"
-#include "error.h"
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <dirent.h>
@@ -15,6 +10,9 @@
 #include <yaml.h>
 #include <curl/curl.h>
 #include <ctype.h>
+#include "plugin.h"
+#include "error.h"
+#include "socket_comm.h"
 
 extern char *g_plugins_dir;
 extern char *g_config_path;
@@ -27,6 +25,25 @@ static char *expand_path(const char *path) {
     char *full = malloc(strlen(home) + strlen(path) + 1);
     sprintf(full, "%s%s", home, path + 1);
     return full;
+}
+
+static char *json_escape(const char *str) {
+    size_t len = strlen(str);
+    char *escaped = malloc(len * 2 + 1);  // Worst case: all chars escaped
+    if (!escaped) return NULL;
+    char *p = escaped;
+    for (; *str; str++) {
+        switch (*str) {
+            case '"': *p++ = '\\'; *p++ = '"'; break;
+            case '\\': *p++ = '\\'; *p++ = '\\'; break;
+            case '\n': *p++ = '\\'; *p++ = 'n'; break;
+            case '\r': *p++ = '\\'; *p++ = 'r'; break;
+            case '\t': *p++ = '\\'; *p++ = 't'; break;
+            default: *p++ = *str; break;
+        }
+    }
+    *p = '\0';
+    return escaped;
 }
 
 static int load_config(yaml_document_t *doc) {
@@ -253,21 +270,48 @@ int cmd_plugin_install(const char *arg) {
         return 1;
     }
     char *cmd = NULL;
-    int len = asprintf(&cmd, "git clone %s %s", url, dir);
+    int len = asprintf(&cmd, "git clone --progress %s %s 2>&1", url, dir);
     if (len == -1) {
         log_error("Failed to allocate memory for the git command");
-        free(repo_name);
-        free(cmd);
-        return 1;
-    }
-    if (system(cmd) != 0) {
-        log_error("Failed to clone repository");
-        free(cmd);
         free(repo_name);
         free(plugins);
         return 1;
     }
+
+    send_event_if_connected("progress", "Starting plugin installation", NULL);
+
+    FILE *fp = popen(cmd, "r");
     free(cmd);
+    if (!fp) {
+        log_error("Failed to run git clone");
+        send_event_if_connected("error", "Failed to start git clone", NULL);
+        free(repo_name);
+        free(plugins);
+        return 1;
+    }
+
+    char line[1024];
+    while (fgets(line, sizeof(line), fp)) {
+        line[strcspn(line, "\n")] = '\0';  // Strip newline
+        char *escaped = json_escape(line);
+        if (escaped) {
+            char data_json[2048];  // Larger buffer for escaped data
+            snprintf(data_json, sizeof(data_json), "\"%s\"", escaped);
+            send_event_if_connected("progress", "Git clone output", data_json);
+            free(escaped);
+        }
+    }
+
+    int status = pclose(fp);
+    if (status == -1 || WEXITSTATUS(status) != 0) {
+        log_error("Failed to clone repository");
+        send_event_if_connected("error", "Failed to clone repository", NULL);
+        free(repo_name);
+        free(plugins);
+        return 1;
+    }
+
+    send_event_if_connected("progress", "Plugin installation completed", NULL);
     free(repo_name);
     free(plugins);
     return 0;
@@ -285,8 +329,7 @@ int cmd_plugin_remove(const char *name) {
     char *cmd = NULL;
     int len = asprintf(&cmd, "rm -rf %s", dir);
     if (len == -1) {
-        log_error("Failed to allocate memory for the the remove command");
-        free(cmd);
+        log_error("Failed to allocate memory for the remove command");
         free(plugins);
         return 1;
     }
@@ -296,7 +339,7 @@ int cmd_plugin_remove(const char *name) {
         free(plugins);
         return 1;
     }
-    cmd_plugin_disable(name);       // Disable in config if exists
+    cmd_plugin_disable(name);  // Disable in config if exists
     free(cmd);
     free(plugins);
     return 0;
@@ -316,7 +359,6 @@ int cmd_plugin_update(const char *name) {
     if (len == -1) {
         log_error("Failed to allocate memory for gitdir path");
         free(plugins);
-        free(gitdir);
         return 1;
     }
     if (access(gitdir, F_OK) != 0) {
@@ -330,7 +372,6 @@ int cmd_plugin_update(const char *name) {
     len = asprintf(&cmd, "git -C %s pull", dir);
     if (len == -1) {
         log_error("Failed to allocate memory for git command");
-        free(cmd);
         free(plugins);
         return 1;
     }

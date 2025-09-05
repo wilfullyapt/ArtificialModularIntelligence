@@ -1,8 +1,10 @@
 import os
 import json
+import re
 import uuid
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
+from datetime import datetime, timedelta
 import subprocess
 import socket
 from threading import Lock
@@ -79,12 +81,8 @@ class BinaryRunnerForAMI(LogBase):
                                 msg = json.loads(line.decode('utf-8'))
                                 events.append(msg)
                                 if self.ipc_manager:
-                                    self.ipc_manager.route_event(IPCEvent(
-                                        type=EventType.REAL_TIME_UPDATE,
-                                        source=ProcessType.AI,
-                                        target=ProcessType.AI,
-                                        data=msg
-                                    ))
+                                    self.logs.info(f"Message recieved: {msg}")
+#                                   self.ipc_manager.route_event(IPCEvent(type=EventType.REAL_TIME_UPDATE, source=ProcessType.AI, target=ProcessType.AI, data=msg))
                                 else:
                                     self.logs.info(f"Real-time event: {msg}")
                             except json.JSONDecodeError:

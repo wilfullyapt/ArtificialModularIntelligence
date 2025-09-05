@@ -35,7 +35,7 @@ production: $(PROD_OBJECTS)
 
 install:
 	$(MAKE) production
-	cp $(TARGET) /usr/local/bin/
+	cp $(TARGET) $(HOME)/.local/bin/ami
 
 $(PROD_BUILDDIR)/%.o: $(SOURCE_DIR)/%.c | $(PROD_BUILDDIR)
 	$(CC) $(PROD_CFLAGS) -c $< -o $@

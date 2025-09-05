@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 import re
-from typing import Optional
+from typing import Optional, Dict, Any
 
 from ami.headspace import Headspace
 from ami.headspace import ami_tool
@@ -219,8 +219,9 @@ class CorespaceHeadspace(Headspace):
     def disable_plugin(name: str, real_time: bool = False) -> Dict[str, Any]:
         return _run_ami_command(['plugin', 'disable', name], real_time)
 
-    def install_plugin(url_or_repo: str, real_time: bool = False) -> Dict[str, Any]:
-        return _run_ami_command(['plugin', 'install', url_or_repo], real_time)
+    @ami_tool
+    def install_plugin(self, url_or_repo: str, real_time: bool = False) -> Dict[str, Any]:
+        return BinaryRunnerForAMI(True).install_plugin(url_or_repo, real_time)
 
     def remove_plugin(name: str, real_time: bool = False) -> Dict[str, Any]:
         return _run_ami_command(['plugin', 'remove', name], real_time)

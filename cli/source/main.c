@@ -50,6 +50,8 @@ Command parse_command(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
+    init_logging("ami", 1);
+
     int opt;
     while ((opt = getopt_long(argc, argv, "", long_options, NULL)) != -1) {
         switch (opt) {
@@ -171,6 +173,8 @@ int main(int argc, char *argv[]) {
         }
         close_socket_connection();
     }
+
+    close_logging();
 
     return ret;
 }

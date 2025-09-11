@@ -31,15 +31,19 @@ class BinaryRunnerForAMI(LogBase):
         Returns consistent dict with status, message, and (if applicable) data/events.
         """
         cmd = ['ami'] + args
+        self.logs.debug(f"Preparing to run command: {' '.join(cmd)} (real_time={real_time})")
         with self._lock:
             if not real_time:
                 cmd.insert(1, '--json-output')
                 try:
+                    self.logs.debug("Running in non-real-time mode")
                     result = subprocess.run(cmd, capture_output=True, text=True, check=True)
                     return json.loads(result.stdout)
                 except subprocess.CalledProcessError as e:
+                    self.logs.error(f"Non-real-time execution failed: return_code={e.returncode}, stderr={e.stderr.strip()}")
                     return {"status": "error", "message": e.stderr.strip(), "return_code": e.returncode}
                 except json.JSONDecodeError:
+                    self.logs.error("Invalid JSON output from non-real-time execution")
                     return {"status": "error", "message": "Invalid JSON output"}
             else:
                 # Real-time mode
@@ -48,25 +52,40 @@ class BinaryRunnerForAMI(LogBase):
                 socket_path = str(socket_dir / f'ami-{os.getpid()}-{uuid.uuid4().hex[:8]}.sock')
                 if os.path.exists(socket_path):
                     os.unlink(socket_path)
+                    self.logs.debug(f"Removed existing socket path: {socket_path}")
 
                 conn = None
                 server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
                 try:
+                    self.logs.debug(f"Binding socket to: {socket_path}")
                     server.bind(socket_path)
                     os.chmod(socket_path, 0o600)
+                    self.logs.debug("Socket bound and permissions set")
                     server.listen(1)
                     cmd.insert(1, f'--socket-path={socket_path}')
-                    self.logs.info(f"Starting binary with socket: {socket_path}")
+                    self.logs.info(f"Starting binary with socket: {socket_path}, cmd: {' '.join(cmd)}")
                     proc = subprocess.Popen(
                         cmd,
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
                         text=True
                     )
+                    self.logs.info(f"Binary launched with PID: {proc.pid}")
+
+                    # Quick check if process exited early
+                    early_exit = proc.poll()
+                    if early_exit is not None:
+                        self.logs.error(f"Binary exited early with code {early_exit} before connection")
+                        stdout, stderr = proc.communicate()
+                        self.logs.error(f"Early stdout: {stdout.strip() if stdout else 'None'}")
+                        self.logs.error(f"Early stderr: {stderr.strip() if stderr else 'None'}")
+                        return {"status": "error", "message": "Binary exited early", "return_code": early_exit, "stdout": stdout.strip(), "stderr": stderr.strip()}
 
                     server.settimeout(10.0)
+                    self.logs.debug("Waiting for binary connection (timeout=10s)")
                     conn, _ = server.accept()
                     server.settimeout(None)
+                    self.logs.debug("Binary connected successfully")
                     data = b''
                     events = []
 
@@ -81,8 +100,7 @@ class BinaryRunnerForAMI(LogBase):
                                 msg = json.loads(line.decode('utf-8'))
                                 events.append(msg)
                                 if self.ipc_manager:
-                                    self.logs.info(f"Message recieved: {msg}")
-#                                   self.ipc_manager.route_event(IPCEvent(type=EventType.REAL_TIME_UPDATE, source=ProcessType.AI, target=ProcessType.AI, data=msg))
+                                    self.logs.info(f"Message received: {msg}")
                                 else:
                                     self.logs.info(f"Real-time event: {msg}")
                             except json.JSONDecodeError:
@@ -101,16 +119,29 @@ class BinaryRunnerForAMI(LogBase):
                         self.logs.info(f"Binary stdout: {stdout.strip()}")
                     if stderr:
                         self.logs.error(f"Binary stderr: {stderr.strip()}")
-
                     if ret_code != 0:
-                        return {"status": "error", "message": "Binary failed", "return_code": ret_code, "events": events}
+                        return {"status": "error", "message": "Binary failed", "return_code": ret_code, "events": events, "stdout": stdout.strip(), "stderr": stderr.strip()}
 
                     return {"status": "completed", "message": "Real-time operation finished", "events": events}
                 except socket.timeout:
                     self.logs.error("Timeout waiting for binary connection")
+                    if 'proc' in locals():
+                        ret_code = proc.poll()
+                        self.logs.error(f"Process status after timeout: {'exited' if ret_code is not None else 'running'}, return_code={ret_code}")
+                        stdout, stderr = proc.communicate(timeout=5.0)  # Wait briefly for output
+                        self.logs.error(f"Stdout after timeout: {stdout.strip() if stdout else 'None'}")
+                        self.logs.error(f"Stderr after timeout: {stderr.strip() if stderr else 'None'}")
+                        return {"status": "error", "message": "Binary connection timeout", "return_code": proc.returncode, "stdout": stdout.strip(), "stderr": stderr.strip()}
                     return {"status": "error", "message": "Binary connection timeout"}
                 except Exception as e:
                     self.logs.error(f"Unexpected error: {str(e)}")
+                    if 'proc' in locals():
+                        ret_code = proc.poll()
+                        self.logs.error(f"Process status after exception: {'exited' if ret_code is not None else 'running'}, return_code={ret_code}")
+                        stdout, stderr = proc.communicate(timeout=5.0)
+                        self.logs.error(f"Stdout after exception: {stdout.strip() if stdout else 'None'}")
+                        self.logs.error(f"Stderr after exception: {stderr.strip() if stderr else 'None'}")
+                        return {"status": "error", "message": str(e), "return_code": proc.returncode, "stdout": stdout.strip(), "stderr": stderr.strip()}
                     return {"status": "error", "message": str(e)}
                 finally:
                     if conn:
@@ -118,9 +149,12 @@ class BinaryRunnerForAMI(LogBase):
                     server.close()
                     if os.path.exists(socket_path):
                         os.unlink(socket_path)
+                        self.logs.debug(f"Cleaned up socket: {socket_path}")
                     if 'proc' in locals() and proc.poll() is None:
+                        self.logs.warning(f"Terminating lingering process PID {proc.pid}")
                         proc.terminate()
                         proc.wait(timeout=5.0)
+
 
     ##################################################
     ###     AMI Binary Commands
@@ -143,11 +177,11 @@ class BinaryRunnerForAMI(LogBase):
     ##################################################
     ###     AMI Non-Binary Commands
     def list_plugins(self, real_time: bool = False) -> Dict[str, Any]:
-        return self._run_ami_command(['plugin', 'list'], real_time)
+        return self.ami_binary_command(['plugin', 'list'], real_time)
     def enable_plugin(self, name: str, real_time: bool = False) -> Dict[str, Any]:
-        return self._run_ami_command(['plugin', 'enable', name], real_time)
+        return self.ami_binary_command(['plugin', 'enable', name], real_time)
     def disable_plugin(self, name: str, real_time: bool = False) -> Dict[str, Any]:
-        return self._run_ami_command(['plugin', 'disable', name], real_time)
+        return self.ami_binary_command(['plugin', 'disable', name], real_time)
 
 
 class ReminderManager(LogBase):

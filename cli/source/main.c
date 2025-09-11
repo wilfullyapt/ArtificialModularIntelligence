@@ -52,6 +52,22 @@ Command parse_command(int argc, char *argv[]) {
 int main(int argc, char *argv[]) {
     init_logging("ami", 1);
 
+    char cmd_buf[4096] = {0};
+    size_t len = 0;
+    for (int i = 0; i < argc; i++) {
+        size_t arg_len = strlen(argv[i]);
+        if (len + arg_len + 2 > sizeof(cmd_buf)) {
+            break;
+        }
+        if (i > 0) {
+            cmd_buf[len++] = ' ';
+        }
+        memcpy(cmd_buf + len, argv[i], arg_len);
+        len += arg_len;
+    }
+    cmd_buf[len] = '\0';
+    log_info("Executed command: %s", cmd_buf);
+
     int opt;
     while ((opt = getopt_long(argc, argv, "", long_options, NULL)) != -1) {
         switch (opt) {

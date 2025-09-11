@@ -186,6 +186,8 @@ static const char *get_status(yaml_document_t *doc, const char *name) {
 }
 
 int cmd_plugin_list(void) {
+    log_info("Entering cmd_plugin_list");
+
     char *plugins = expand_path(g_plugins_dir);
     DIR *dir = opendir(plugins);
     if (!dir) {
@@ -202,12 +204,15 @@ int cmd_plugin_list(void) {
             if (has_config) {
                 status = get_status(&doc, entry->d_name);
             }
+            log_info("Found plugin: %s - Status: %s", entry->d_name, status);
             printf("Plugin: %s - Status: %s\n", entry->d_name, status);
         }
     }
     closedir(dir);
     if (has_config) yaml_document_delete(&doc);
     free(plugins);
+
+    log_info("Exiting cmd_plugin_list");
     return 0;
 }
 

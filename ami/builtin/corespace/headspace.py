@@ -148,27 +148,6 @@ class CorespaceHeadspace(Headspace):
             return f"Error listing reminders: {e}"
 
     @ami_tool
-    def check_system_updates(self):
-        """Check if system updates are available"""
-        try:
-            result = self.update_manager.check_for_updates()
-            return f"Update status: {result['message']}"
-        except Exception as e:
-            return f"Error checking updates: {e}"
-
-    @ami_tool
-    def perform_system_update(self):
-        """Perform a system update"""
-        try:
-            result = self.update_manager.perform_update()
-            if result['success']:
-                return "System updated successfully. Please restart AMI to apply changes."
-            else:
-                return f"Update failed: {result['message']}"
-        except Exception as e:
-            return f"Error performing update: {e}"
-
-    @ami_tool
     def explain_topic(self, topic: str):
         """Explain a topic or concept to the user"""
         return f"I'd be happy to explain '{topic}'. However, I need more context about what specific aspect you'd like me to explain. Could you be more specific about what you'd like to know?"
@@ -185,46 +164,38 @@ class CorespaceHeadspace(Headspace):
         return f"Current date and time: {now.strftime('%A, %B %d, %Y at %I:%M %p')}"
 
 
+############## BINARY ACCESS TOOLS ##############
 
-    @ami_tool
-    def run_ami_app(self, real_time: bool = False):
-        runner = BinaryRunnerForAMI(self.ipc_manager)  # Pass manager if needed
-        return runner.run_ami_app(real_time)
+
     @ami_tool
     def update_ami_source(self, real_time: bool = False):
         runner = BinaryRunnerForAMI(self.ipc_manager)
         return runner.update_ami_source(real_time)
 
-
-
-    @ami_tool
-    def update_ami_source(real_time: bool = False) -> Dict[str, Any]:
-        BinaryRunnerForAMI.update()
-
-    def safe_update_ami(real_time: bool = False) -> Dict[str, Any]:
+    def safe_update_ami(self, real_time: bool = False) -> Dict[str, Any]:
         return _run_ami_command(['safe-update'], real_time)
 
-    def rollback_ami(real_time: bool = False) -> Dict[str, Any]:
+    def rollback_ami(self, real_time: bool = False) -> Dict[str, Any]:
         return _run_ami_command(['rollback'], real_time)
 
-    def install_headspace_plugins(user_repo: str, real_time: bool = False) -> Dict[str, Any]:
+    def install_headspace_plugins(self, user_repo: str, real_time: bool = False) -> Dict[str, Any]:
         return _run_ami_command(['gethead', user_repo], real_time)
 
-    def list_plugins(real_time: bool = False) -> Dict[str, Any]:
-        return _run_ami_command(['plugin', 'list'], real_time)
+    def list_plugins(self, real_time: bool = False) -> Dict[str, Any]:
+        return BinaryRunnerForAMI(True).list_plugins(real_time)
 
-    def enable_plugin(name: str, real_time: bool = False) -> Dict[str, Any]:
+    def enable_plugin(self, name: str, real_time: bool = False) -> Dict[str, Any]:
         return _run_ami_command(['plugin', 'enable', name], real_time)
 
-    def disable_plugin(name: str, real_time: bool = False) -> Dict[str, Any]:
+    def disable_plugin(self, name: str, real_time: bool = False) -> Dict[str, Any]:
         return _run_ami_command(['plugin', 'disable', name], real_time)
 
     @ami_tool
     def install_plugin(self, url_or_repo: str, real_time: bool = False) -> Dict[str, Any]:
         return BinaryRunnerForAMI(True).install_plugin(url_or_repo, real_time)
 
-    def remove_plugin(name: str, real_time: bool = False) -> Dict[str, Any]:
+    def remove_plugin(self, name: str, real_time: bool = False) -> Dict[str, Any]:
         return _run_ami_command(['plugin', 'remove', name], real_time)
 
-    def update_plugin(name: str, real_time: bool = False) -> Dict[str, Any]:
+    def update_plugin(self, name: str, real_time: bool = False) -> Dict[str, Any]:
         return _run_ami_command(['plugin', 'update', name], real_time)

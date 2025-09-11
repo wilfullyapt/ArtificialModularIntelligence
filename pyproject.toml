@@ -35,13 +35,13 @@ build-backend = "hatchling.build"
 packages = ["ami"]
 
 [project.scripts]
-ami = "ami.main:main"
+main = "ami.main:main"
 
 [tool.uv]
 package = true
 
 [tool.uv.sources]
-ami = { path = "./ami", editable = true }
+main = { path = "./ami", editable = true }
 
 [dependency-groups]
 dev = [

@@ -50,9 +50,9 @@ class CorespaceSettings(BaseWidgetSettings):
         description="How often to check for reminders in seconds"
     )
     
-    menu_items: List[Tuple[str, str]] = [
-        ("Dashboard", "dashboard"),
-        ("System", "system"), 
-        ("Plugins", "plugins"),
-        ("Reminders", "reminders")
+    menu_items: List[dict] = [
+        {"text": "Dashboard", "url": "dashboard"},
+        {"text": "System", "url": "system"},
+        {"text": "Plugins", "url": "plugins"},
+        {"text": "Reminders", "url": "reminders"}
     ]

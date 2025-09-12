@@ -7,8 +7,23 @@ The standard convention is to define the import to one of the three runtimes,
 Secondarily there shoule be a List of examples prompts so AI understands the context to route to this Headspace
 """
 
-from .gui import CorespaceGUI as GUI
-from .headspace import CorespaceHeadspace as Headspace
+# Lazy imports to avoid GUI and circular dependencies in headless environments
+def __getattr__(name):
+    """Lazy import components on demand"""
+    if name == "Headspace":
+        try:
+            from .headspace import CorespaceHeadspace as Headspace
+            return Headspace
+        except ImportError:
+            return None
+    elif name == "Blueprint":
+        from .blueprint import CorespaceBlueprint as Blueprint
+        return Blueprint
+    elif name == "GUI":
+        from .gui import CorespaceGUI as GUI
+        return GUI
+    else:
+        raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
 
 
 EXAMPLES = [
@@ -24,6 +39,7 @@ EXAMPLES = [
 __version__ = "0.1.0"
 
 __all__ = [
+    "Blueprint", 
     "GUI",
     "Headspace",
     "EXAMPLES",

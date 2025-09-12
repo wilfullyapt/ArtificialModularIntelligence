@@ -37,6 +37,8 @@ class BinaryRunnerForAMI(LogBase):
                 try:
                     result = subprocess.run(cmd, capture_output=True, text=True, check=True)
                     return json.loads(result.stdout)
+                except FileNotFoundError:
+                    return {"status": "error", "message": "AMI binary not found in PATH"}
                 except subprocess.CalledProcessError as e:
                     return {"status": "error", "message": e.stderr.strip(), "return_code": e.returncode}
                 except json.JSONDecodeError:
@@ -51,18 +53,22 @@ class BinaryRunnerForAMI(LogBase):
 
                 conn = None
                 server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                proc = None
                 try:
                     server.bind(socket_path)
                     os.chmod(socket_path, 0o600)
                     server.listen(1)
                     cmd.insert(1, f'--socket-path={socket_path}')
                     self.logs.info(f"Starting binary with socket: {socket_path}")
-                    proc = subprocess.Popen(
-                        cmd,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                        text=True
-                    )
+                    try:
+                        proc = subprocess.Popen(
+                            cmd,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE,
+                            text=True
+                        )
+                    except FileNotFoundError:
+                        return {"status": "error", "message": "AMI binary not found in PATH"}
 
                     server.settimeout(10.0)
                     conn, _ = server.accept()
@@ -118,9 +124,14 @@ class BinaryRunnerForAMI(LogBase):
                     server.close()
                     if os.path.exists(socket_path):
                         os.unlink(socket_path)
-                    if 'proc' in locals() and proc.poll() is None:
-                        proc.terminate()
-                        proc.wait(timeout=5.0)
+                    if proc is not None and proc.poll() is None:
+                        try:
+                            proc.terminate()
+                            proc.wait(timeout=5.0)
+                        except subprocess.TimeoutExpired:
+                            # Force kill if terminate doesn't work
+                            proc.kill()
+                            proc.wait()
 
     ##################################################
     ###     AMI Binary Commands
@@ -143,11 +154,12 @@ class BinaryRunnerForAMI(LogBase):
     ##################################################
     ###     AMI Non-Binary Commands
     def list_plugins(self, real_time: bool = False) -> Dict[str, Any]:
-        return self._run_ami_command(['plugin', 'list'], real_time)
+        # Use ami_binary_command for consistency
+        return self.ami_binary_command(['plugin', 'list'], real_time)
     def enable_plugin(self, name: str, real_time: bool = False) -> Dict[str, Any]:
-        return self._run_ami_command(['plugin', 'enable', name], real_time)
+        return self.ami_binary_command(['plugin', 'enable', name], real_time)
     def disable_plugin(self, name: str, real_time: bool = False) -> Dict[str, Any]:
-        return self._run_ami_command(['plugin', 'disable', name], real_time)
+        return self.ami_binary_command(['plugin', 'disable', name], real_time)
 
 
 class ReminderManager(LogBase):

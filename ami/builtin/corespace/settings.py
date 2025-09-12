@@ -7,8 +7,8 @@ from ami.headspace.settings import BaseWidgetSettings
 class CorespaceSettings(BaseWidgetSettings):
     """Settings for the corespace plugin"""
 
-    x: int = 1
-    y: int = 1
+    x: int | None = 1
+    y: int | None = 1
     anchor: str = "nw"
     background_color: str = "black"
     font_name: str = "Helvetica"

@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}System Management{% endblock %}
+
+{% block content %}
+<div class="system-management">
+    <h2><i class="fas fa-cogs"></i> System Management</h2>
+    
+    <div class="management-sections">
+        <div class="section">
+            <h3>Updates</h3>
+            <p>Keep your AMI system up to date</p>
+            <form method="post" action="{{ url_for('CorespaceBlueprint.system_update') }}">
+                <button type="submit" class="btn btn-success">
+                    <i class="fas fa-download"></i> Update System
+                </button>
+            </form>
+            <form method="post" action="{{ url_for('CorespaceBlueprint.system_safe_update') }}">
+                <button type="submit" class="btn btn-warning">
+                    <i class="fas fa-shield-alt"></i> Safe Update
+                </button>
+            </form>
+        </div>
+        
+        <div class="section">
+            <h3>Recovery</h3>
+            <p>Rollback to a previous version if needed</p>
+            <form method="post" action="{{ url_for('CorespaceBlueprint.system_rollback') }}" 
+                  onsubmit="return confirm('Are you sure you want to rollback? This will revert recent changes.')">
+                <button type="submit" class="btn btn-danger">
+                    <i class="fas fa-undo"></i> Rollback System
+                </button>
+            </form>
+        </div>
+    </div>
+    
+    <div class="system-status">
+        <h3>System Status</h3>
+        <div class="status-info">
+            <p><strong>Status:</strong> Running</p>
+            <p><strong>Last Update Check:</strong> {{ status.get('last_check', 'Never') }}</p>
+            <p><strong>Version:</strong> {{ status.get('version', 'Unknown') }}</p>
+        </div>
+    </div>
+</div>
+
+<style>
+.system-management {
+    background: #1a1a1a;
+    color: white;
+    padding: 20px;
+    font-family: Arial, sans-serif;
+}
+
+.management-sections {
+    display: flex;
+    gap: 20px;
+    margin: 20px 0;
+}
+
+.section {
+    background: #333;
+    padding: 20px;
+    border-radius: 5px;
+    flex: 1;
+}
+
+.btn {
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    margin: 5px;
+    cursor: pointer;
+}
+
+.btn-success { background: #4CAF50; }
+.btn-warning { background: #ff9500; }
+.btn-danger { background: #f44336; }
+
+.status-info {
+    background: #333;
+    padding: 15px;
+    border-radius: 5px;
+}
+</style>
+{% endblock %}

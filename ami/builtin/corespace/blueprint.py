@@ -21,7 +21,7 @@ class CorespaceBlueprint(Blueprint):
     
     @cached_property
     def binary_runner(self):
-        return BinaryRunnerForAMI(ipc_manager=self.ipc_manager)
+        return BinaryRunnerForAMI()
 
     @route('/', methods=['GET'])
     def index(self):

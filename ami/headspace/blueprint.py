@@ -65,12 +65,16 @@ class Blueprint(FlaskBlueprint, Primitive, metaclass=BlueprintMeta):
                                 module_name,
                                 class_module,
                                 static_folder=self._module_dir/"static",
-                                static_url_path=f"/{module_name.lower()}",
+                                static_url_path=f"/{self._module_dir.name}",
                                 template_folder=self._module_dir/"templates",
                                 url_prefix=f"/{self._module_dir.name}",
                                 *args,
                                 **kwargs
                                )
+        self.logs.debug(f"Blueprint for {module_name} loaded with static_folder={self._module_dir}/static")
+        self.logs.debug(f"Blueprint for {module_name} loaded with static_url_path=/{self._module_dir.name}")
+        self.logs.debug(f"Blueprint for {module_name} loaded with template_folder={self._module_dir}/templates")
+        self.logs.debug(f"Blueprint for {module_name} loaded with url_prefix=/{self._module_dir.name}")
 
         self.ipc_manager: IPCManager = ipc_manager
 
@@ -93,6 +97,7 @@ class Blueprint(FlaskBlueprint, Primitive, metaclass=BlueprintMeta):
                 context.update(blueprint_context.pop("context_overides", {}))
                 context.update(blueprint_context.pop("buttons", {}))
 
+                print("Context:")
                 print(context)
 
                 return render_template('base.html', content=rendered_blueprint, **context)

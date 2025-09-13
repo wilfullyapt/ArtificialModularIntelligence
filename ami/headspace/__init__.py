@@ -1,35 +1,39 @@
-""" __init__.py """
+"""
+The Headspaces sub library controls how a plugin integrates and interacts with the system.
+Primitive           -> Implemented at all levels for standard naming and calling conventions. BP, HS, GUI.
+
+Headspace           -> Headspace Agent specific implementation for subclassing
+InscructionType     -> HS Instruction formating when completing a delerverable tool
+ami_tool            -> HS tool decorator
+generate_qr_image   -> HS tool for creating QR links
+
+BaseWidget          -> BaseWidget for subclassing a widget for a Headspace
+BaseWidgetSettings  -> Base widget settings for Headspace widgets
+
+Blueprint           -> AMI specific Flask Blueprint for Headspace subclassing
+HeaderButton        -> Buttom speicifcs for integrating into the Base Flask Server
+route               -> AMI specific route decorator to define a route
+plugin_template     -> AMI specific Flask templating return
+"""
 
 from .base import Primitive
 from .headspace_instructions import HeadspaceInstruction, InstructionType
+from .headspace import Headspace, ami_tool, generate_qr_image
+from .widget import BaseWidget
 from .settings import BaseWidgetSettings 
 from .blueprint import Blueprint, HeaderButton, route, plugin_template
-
-# Optional GUI imports - only load if needed
-def _import_gui_components():
-    """Lazy import GUI components to avoid PyQt6 dependencies in headless environments"""
-    try:
-        from .widget import BaseWidget
-        from .headspace import Headspace, ami_tool, generate_qr_image
-        return BaseWidget, Headspace, ami_tool, generate_qr_image
-    except ImportError as e:
-        # GUI dependencies not available
-        return None, None, None, None
-
-# Try to import GUI components, but don't fail if they're not available
-BaseWidget, Headspace, ami_tool, generate_qr_image = _import_gui_components()
 
 __all__ = [
     "Primitive",
     "HeadspaceInstruction",
     "InstructionType",
+    "Headspace",
+    "ami_tool",
+    "generate_qr_image",
+    "BaseWidget",
     "BaseWidgetSettings",
     "Blueprint",
     "HeaderButton",
     "route",
     "plugin_template",
 ]
-
-# Add GUI components to __all__ if they were successfully imported
-if BaseWidget is not None:
-    __all__.extend(["BaseWidget", "Headspace", "ami_tool", "generate_qr_image"])

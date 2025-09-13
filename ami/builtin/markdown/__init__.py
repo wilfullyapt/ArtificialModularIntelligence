@@ -7,14 +7,7 @@ The standard convention is to define the import to one of the three runtimes,
 Secondarily there shoule be a List of examples prompts so AI understands the context to route to this Headspace
 """
 
-# Lazy import for GUI to avoid PyQt6 dependencies in headless environments
-def __getattr__(name):
-    """Lazy import GUI components on demand"""
-    if name == "GUI":
-        from .gui import MarkdownGUI as GUI
-        return GUI
-    else:
-        raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
+from .gui import MarkdownGUI as GUI
 from .headspace import Markdown as Headspace
 from .blueprint import Markdown as Blueprint
 

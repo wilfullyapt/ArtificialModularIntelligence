@@ -40,7 +40,7 @@ class BinaryRunnerForAMI(LogBase):
         self.logs.debug(f"Preparing to run command: {' '.join(cmd)} (real_time={real_time})")
         with self._lock:
             if not real_time:
-                cmd.insert(1, '--json-output')
+#               cmd.insert(1, '--json-output')
                 try:
                     self.logs.debug("Running in non-real-time mode")
                     result = subprocess.run(cmd, capture_output=True, text=True, check=True)

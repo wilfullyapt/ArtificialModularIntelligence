@@ -36,7 +36,7 @@ class Markdown(Headspace):
         except Exception as e:
             return f"Error listing available lists: {e}"
 
-    @ami_tool
+    @ami_tool(prereqs=['list_lists'])
     def add_to_list(self, list_name:str, item:str, index:int=-1):
         """ Use this tool to add an item to a list, do not supply an index unless it is the user's intention """
         try:
@@ -45,7 +45,7 @@ class Markdown(Headspace):
         except Exception as e:
             return f"Error in add_to_list! Use the `list_lists` tool to identify the right list. Error: {e}"
 
-    @ami_tool
+    @ami_tool(prereqs=['list_lists'])
     def remove_from_list(self, list_name: str, item: str):
         """ Use this tool to remove an item to a list. Ensure to spell the list_name correctly. """
         try:

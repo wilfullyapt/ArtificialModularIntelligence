@@ -19,8 +19,7 @@ class BinaryRunnerForAMI(LogBase):
     In real-time, events are forwarded to IPC (if provided) and collected for return.
     """
 
-    def __init__(self, ipc_manager=None):
-        self.ipc_manager = ipc_manager
+    def __init__(self):
         self._lock = Lock()
 
     def ami_binary_command(self, args: List[str], real_time: bool = False) -> Dict[str, Any]:
@@ -99,10 +98,7 @@ class BinaryRunnerForAMI(LogBase):
                             try:
                                 msg = json.loads(line.decode('utf-8'))
                                 events.append(msg)
-                                if self.ipc_manager:
-                                    self.logs.info(f"Message received: {msg}")
-                                else:
-                                    self.logs.info(f"Real-time event: {msg}")
+                                self.logs.info(f"Message received: {msg}")
                             except json.JSONDecodeError:
                                 self.logs.error("Invalid JSON from binary")
 

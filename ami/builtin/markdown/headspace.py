@@ -25,7 +25,7 @@ class Markdown(Headspace):
         except Exception as e:
             return f"Error listing markdown files: {e}"
 
-    @ami_tool
+    @ami_tool()
     def list_lists(self):
         """ Use this tool to list out the known lists in the markdown files """
         try:

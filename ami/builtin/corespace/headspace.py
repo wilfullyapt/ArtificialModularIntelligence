@@ -169,33 +169,44 @@ class CorespaceHeadspace(Headspace):
 
     @ami_tool
     def update_ami_source(self, real_time: bool = False):
-        runner = BinaryRunnerForAMI(self.ipc_manager)
-        return runner.update_ami_source(real_time)
-
-    def safe_update_ami(self, real_time: bool = False) -> Dict[str, Any]:
-        return _run_ami_command(['safe-update'], real_time)
-
-    def rollback_ami(self, real_time: bool = False) -> Dict[str, Any]:
-        return _run_ami_command(['rollback'], real_time)
-
-    def install_headspace_plugins(self, user_repo: str, real_time: bool = False) -> Dict[str, Any]:
-        return _run_ami_command(['gethead', user_repo], real_time)
-
-    def list_plugins(self, real_time: bool = False) -> Dict[str, Any]:
-        return BinaryRunnerForAMI(True).list_plugins(real_time)
-
-    def enable_plugin(self, name: str, real_time: bool = False) -> Dict[str, Any]:
-        return _run_ami_command(['plugin', 'enable', name], real_time)
-
-    def disable_plugin(self, name: str, real_time: bool = False) -> Dict[str, Any]:
-        return _run_ami_command(['plugin', 'disable', name], real_time)
+        return BinaryRunnerForAMI().update_ami_source(real_time)
 
     @ami_tool
-    def install_plugin(self, url_or_repo: str, real_time: bool = False) -> Dict[str, Any]:
-        return BinaryRunnerForAMI(True).install_plugin(url_or_repo, real_time)
+    def safe_update_ami(self, real_time: bool = False) -> Dict[str, Any]:
+        return BinaryRunnerForAMI().safe_update_ami(real_time)
 
+    @ami_tool
+    def rollback_ami(self, real_time: bool = False) -> Dict[str, Any]:
+        return BinaryRunnerForAMI().rollback_ami(real_time)
+
+    # This doesn't make sense as a voice assistant tool
+    def install_headspace_plugins(self, user_repo: str, real_time: bool = False) -> Dict[str, Any]:
+        return BinaryRunnerForAMI().install_headspace_plugins(user_repo, real_time)
+
+    # This doesn't make sense as a voice assistant tool
+    def list_plugins(self, real_time: bool = False) -> Dict[str, Any]:
+        return BinaryRunnerForAMI().list_plugins(real_time)
+
+    # This doesn't make sense as a voice assistant tool
+    def enable_plugin(self, name: str, real_time: bool = False) -> Dict[str, Any]:
+        return BinaryRunnerForAMI().list_plugins(real_time)
+
+    # This doesn't make sense as a voice assistant tool
+    def disable_plugin(self, name: str, real_time: bool = False) -> Dict[str, Any]:
+        return BinaryRunnerForAMI().list_plugins(real_time)
+
+    # This doesn't make sense as a voice assistant tool
+    def install_plugin(self, url_or_repo: str, real_time: bool = False) -> Dict[str, Any]:
+        return BinaryRunnerForAMI().install_plugin(url_or_repo, real_time)
+
+    # This doesn't make sense as a voice assistant tool
     def remove_plugin(self, name: str, real_time: bool = False) -> Dict[str, Any]:
-        return _run_ami_command(['plugin', 'remove', name], real_time)
+        return BinaryRunnerForAMI().list_plugins(real_time)
 
     def update_plugin(self, name: str, real_time: bool = False) -> Dict[str, Any]:
-        return _run_ami_command(['plugin', 'update', name], real_time)
+        return BinaryRunnerForAMI().list_plugins(real_time)
+
+    @ami_tool
+    def update_all_plugins(self):
+        for plugin in ['AMI-Calendar']:
+            self.update_plugin(plugin)

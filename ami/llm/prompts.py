@@ -10,7 +10,7 @@ class ZeroShot(LogBase):
         try:
             self.logs.debug(f"LLM model in use: {self.provider.model}")
 
-            kwargs = {}
+            kwargs = {'max_tokens': 300}
             if self.provider.model in [ "grok-3-mini", "grok-3-mini-fast" ]:
                 kwargs = {"reasoning_effort": "low", "max_tokens": 500}
                 self.logs.info(f"Thinking model '{self.provider.model}' detected, using low effort reasoning.")

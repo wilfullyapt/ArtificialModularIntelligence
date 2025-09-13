@@ -63,8 +63,6 @@ class Brain(LogBase):
             temp_comms: Temporal communications system
             registry: Registry managing all plugins including headspaces
         """
-        super().__init__()
-#       config = Config()
         self.registry = PluginRegistry(ipc_manager)
         self._headspace_cache = {}
         

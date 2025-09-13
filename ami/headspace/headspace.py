@@ -5,7 +5,7 @@ import typing
 import inspect
 from pathlib import Path
 from dataclasses import dataclass
-from typing import Callable, Dict, List
+from typing import Callable, Dict, List, Optional
 from functools import cached_property, wraps
 
 import qrcode
@@ -16,21 +16,31 @@ from ..llm import LLMProvider
 from .base import Primitive
 from .headspace_instructions import HeadspaceInstruction
 
-def ami_tool(func):
+def ami_tool(prereqs: Optional[List[str]] = None):
     """ Decorator for creating tools within AI-controlled classes.
 
     This decorator marks a function as a tool that can be used by the AI agent.
     It adds an 'is_tool' attribute to the function for easy identification.
+    Optionally accepts a list of prerequisite method names (strings) whose results
+    will be dynamically appended to the tool's description in the system prompt
+    for contextual awareness (e.g., @ami_tool(['list_lists'])).
+
+    Args:
+        prereqs: List of strings naming prerequisite methods to call for context.
 
     Returns:
-        Callable: The decorated function with an added 'is_tool' attribute.
+        Callable: The decorated function with added 'is_tool' and 'prerequisites' attributes.
     """
-    @wraps(func)
-    def wrapper():
-        setattr(func, 'is_tool', True)
-        return func
-
-    return wrapper()
+    if prereqs is None:
+        prereqs = []
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            return func(*args, **kwargs)
+        wrapper.is_tool = True
+        wrapper.prerequisites = prereqs
+        return wrapper
+    return decorator
 
 def generate_qr_image(url) -> Path:
     qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=10, border=4)
@@ -107,11 +117,13 @@ class HeadspaceTool:
         return f"{self.name}({', '.join([ f'{an}: {av}' for an, av in self.arg_schema.items()])}) - {self.description}"
 
     @classmethod
-    def from_method(cls, method: Callable) -> 'HeadspaceTool':
-        tool_info = extract_tool_info(method)
+    def from_method(cls, method: Callable, enhanced_description: Optional[str] = None) -> 'HeadspaceTool':
+        func = method.__func__ if hasattr(method, '__func__') else method
+        tool_info = extract_tool_info(func)
+        description = enhanced_description or tool_info["description"]
         return cls(
                 name = tool_info["name"],
-                description = tool_info["description"],
+                description = description,
                 arg_schema = tool_info["arg_schema"],
                 method = method
         )
@@ -163,22 +175,49 @@ class Headspace(Primitive):
 
     @cached_property
     def tools(self) -> List[HeadspaceTool]:
-        """ This method can be implemented by the subclass for specific behaivor, but it is not recommended """
-        possible_tools = [ member_method
-            for member_method in dir(self)
-            if member_method not in dir(self.__class__.__bases__[0]) ]
-        class_methods = [ getattr(self, class_tool) for class_tool in possible_tools ]
-        hai_tools = [ member_method
-            for member_method in class_methods
-            if hasattr(member_method, "is_tool") ]
-        tools = [ HeadspaceTool.from_method(mthd) for mthd in hai_tools ]
+        """ This method can be implemented by the subclass for specific behavior, but it is not recommended """
+        # Get instance methods not in the base class
+        base_dir = dir(self.__class__.__bases__[0])
+        possible_names = [name for name in dir(self) if name not in base_dir and not name.startswith('_')]
+        class_methods = [getattr(self, name) for name in possible_names]
+        
+        # Filter to tool methods (using __func__ for attribute check)
+        hai_tools = [mthd for mthd in class_methods if hasattr(getattr(mthd, '__func__', mthd), 'is_tool')]
+        
+        tools = []
+        for mthd in hai_tools:
+            func = getattr(mthd, '__func__', mthd)
+            tool_info = extract_tool_info(func)
+            
+            # Check for prerequisites and enhance description with their results
+            enhanced_description = tool_info["description"]
+            if hasattr(func, 'prerequisites') and func.prerequisites:
+                prereqs = func.prerequisites
+                context_parts = []
+                for prereq_name in prereqs:
+                    try:
+                        prereq_mthd = getattr(self, prereq_name)
+                        if callable(prereq_mthd):
+                            result = prereq_mthd()
+                            context_str = str(result) if not isinstance(result, str) else result
+                            context_parts.append(context_str)
+                    except Exception as e:
+                        # Log warning if needed; for now, append error as context
+                        context_parts.append(f"Error retrieving prerequisite '{prereq_name}': {str(e)}")
+                
+                if context_parts:
+                    enhanced_description += f"\n\nPrerequisite context (use this to inform tool usage): {'; '.join(context_parts)}"
+            
+            tool = HeadspaceTool.from_method(mthd, enhanced_description=enhanced_description)
+            tools.append(tool)
+        
         return tools
     
     def append_visual(self, img_path: Path):
         print(f"Image appended to Headspace returning: {img_path}")
 
     def query(self, prompt: str) -> HeadspaceInstruction:
-        """ Process a user query according to the tools in the child headspace opbject """
+        """ Process a user query according to the tools in the child headspace object """
         agent = LLMProvider.from_environment().as_funccalling_toa_agent(self.name)
 
         return agent.run(prompt, self.tools)

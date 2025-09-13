@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block title %}Reminder Management{% endblock %}
+
+{% block content %}
+<div class="reminder-management">
+    <h2><i class="fas fa-clock"></i> Reminder Management</h2>
+    
+    <div class="add-reminder">
+        <h3>Add New Reminder</h3>
+        <form method="post" action="{{ url_for('CorespaceBlueprint.reminder_add') }}" class="reminder-form">
+            <input type="text" name="message" placeholder="Reminder message" class="reminder-input" required>
+            <input type="text" name="time_spec" placeholder="When? (e.g., 'tomorrow 3pm', 'in 2 hours')" class="reminder-input" required>
+            <input type="text" name="recurring" placeholder="Recurring? (e.g., 'daily', 'weekly')" class="reminder-input">
+            <button type="submit" class="btn btn-success">
+                <i class="fas fa-plus"></i> Add Reminder
+            </button>
+        </form>
+    </div>
+    
+    <div class="reminders-list">
+        <h3>Active Reminders ({{ reminders|length }})</h3>
+        {% if reminders %}
+            {% for reminder in reminders %}
+            <div class="reminder-item {% if reminder.is_urgent %}urgent{% endif %}">
+                <div class="reminder-info">
+                    <h4>{{ reminder.message }}</h4>
+                    <p>Due: {{ reminder.due_date.strftime('%Y-%m-%d %H:%M') }}</p>
+                    {% if reminder.time_left.total_seconds() > 0 %}
+                        <p>Time left: {{ (reminder.time_left.total_seconds() // 3600)|int }}h 
+                           {{ ((reminder.time_left.total_seconds() % 3600) // 60)|int }}m</p>
+                    {% else %}
+                        <p class="overdue">OVERDUE</p>
+                    {% endif %}
+                </div>
+                <div class="reminder-actions">
+                    <form method="post" action="{{ url_for('CorespaceBlueprint.complete_reminder') }}" style="display: inline;">
+                        <input type="hidden" name="reminder_text" value="{{ reminder.original_text }}">
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-check"></i> Complete
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p>No active reminders</p>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+.reminder-management {
+    background: #1a1a1a;
+    color: white;
+    padding: 20px;
+    font-family: Arial, sans-serif;
+}
+
+.reminder-form {
+    background: #333;
+    padding: 15px;
+    border-radius: 5px;
+}
+
+.reminder-input {
+    padding: 10px;
+    margin: 5px;
+    background: #555;
+    color: white;
+    border: 1px solid #777;
+}
+
+.reminder-item {
+    background: #333;
+    padding: 15px;
+    margin: 10px 0;
+    border-radius: 5px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: white;
+}
+
+.reminder-item.urgent {
+    background: #ff8c00;
+    color: black;
+}
+
+.overdue {
+    color: red;
+    font-weight: bold;
+}
+
+.btn {
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 3px;
+    margin: 2px;
+    cursor: pointer;
+}
+
+.btn-success { background: #4CAF50; }
+</style>
+{% endblock %}

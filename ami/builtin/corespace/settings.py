@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Tuple
 
 from pydantic import Field
 
@@ -7,8 +7,8 @@ from ami.headspace.settings import BaseWidgetSettings
 class CorespaceSettings(BaseWidgetSettings):
     """Settings for the corespace plugin"""
 
-    x: int = 1
-    y: int = 1
+    x: int | None = 1
+    y: int | None = 1
     anchor: str = "nw"
     background_color: str = "black"
     font_name: str = "Helvetica"
@@ -49,3 +49,10 @@ class CorespaceSettings(BaseWidgetSettings):
         default=60,
         description="How often to check for reminders in seconds"
     )
+    
+    menu_items: List[dict] = [
+        {"text": "Dashboard", "url": "dashboard"},
+        {"text": "System", "url": "system"},
+        {"text": "Plugins", "url": "plugins"},
+        {"text": "Reminders", "url": "reminders"}
+    ]

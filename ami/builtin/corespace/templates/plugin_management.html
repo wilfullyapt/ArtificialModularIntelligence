@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}Plugin Management{% endblock %}
+
+{% block content %}
+<div class="plugin-management">
+    <h2><i class="fas fa-puzzle-piece"></i> Plugin Management</h2>
+    
+    <div class="install-section">
+        <h3>Install New Plugin</h3>
+        <form method="post" action="{{ url_for('CorespaceBlueprint.plugin_install') }}" class="install-form">
+            <input type="text" name="plugin_url" placeholder="Plugin URL or repository" class="plugin-input" required>
+            <button type="submit" class="btn btn-success">
+                <i class="fas fa-plus"></i> Install Plugin
+            </button>
+        </form>
+    </div>
+    
+    <div class="plugins-list">
+        <h3>Installed Plugins ({{ plugins|length }})</h3>
+        {% if plugins %}
+            {% for plugin in plugins %}
+            <div class="plugin-item">
+                <div class="plugin-info">
+                    <h4>{{ plugin.name }}</h4>
+                    <p>Version: {{ plugin.get('version', 'Unknown') }}</p>
+                    <p>Status: 
+                        <span class="status {% if plugin.get('enabled') %}enabled{% else %}disabled{% endif %}">
+                            {{ 'Enabled' if plugin.get('enabled') else 'Disabled' }}
+                        </span>
+                    </p>
+                </div>
+                <div class="plugin-actions">
+                    <form method="post" action="{{ url_for('CorespaceBlueprint.plugin_toggle', name=plugin.name) }}" style="display: inline;">
+                        <button type="submit" class="btn {% if plugin.get('enabled') %}btn-danger{% else %}btn-success{% endif %}">
+                            {% if plugin.get('enabled') %}Disable{% else %}Enable{% endif %}
+                        </button>
+                    </form>
+                    <form method="post" action="{{ url_for('CorespaceBlueprint.plugin_update', name=plugin.name) }}" style="display: inline;">
+                        <button type="submit" class="btn btn-warning">Update</button>
+                    </form>
+                    <form method="post" action="{{ url_for('CorespaceBlueprint.plugin_remove', name=plugin.name) }}" 
+                          style="display: inline;" onsubmit="return confirm('Remove plugin {{ plugin.name }}?')">
+                        <button type="submit" class="btn btn-danger">Remove</button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p>No plugins installed</p>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+.plugin-management {
+    background: #1a1a1a;
+    color: white;
+    padding: 20px;
+    font-family: Arial, sans-serif;
+}
+
+.install-form {
+    background: #333;
+    padding: 15px;
+    border-radius: 5px;
+}
+
+.plugin-input {
+    padding: 10px;
+    margin: 5px;
+    width: 300px;
+    background: #555;
+    color: white;
+    border: 1px solid #777;
+}
+
+.plugin-item {
+    background: #333;
+    padding: 15px;
+    margin: 10px 0;
+    border-radius: 5px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.status.enabled { color: #4CAF50; }
+.status.disabled { color: #f44336; }
+
+.btn {
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 3px;
+    margin: 2px;
+    cursor: pointer;
+}
+
+.btn-success { background: #4CAF50; }
+.btn-warning { background: #ff9500; }
+.btn-danger { background: #f44336; }
+</style>
+{% endblock %}

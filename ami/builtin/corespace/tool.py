@@ -10,7 +10,14 @@ import socket
 from threading import Lock
 
 from ami.core import LogBase
-from ami.builtin.markdown.tool import Markdown as MarkdownTool
+# Import markdown tool only when needed to avoid circular dependencies
+def _get_markdown_tool():
+    """Lazy import markdown tool to avoid GUI dependencies"""
+    try:
+        from ami.builtin.markdown.tool import Markdown as MarkdownTool
+        return MarkdownTool
+    except ImportError:
+        return None
 
 class BinaryRunnerForAMI(LogBase):
     """Handles running the AMI binary with optional real-time socket communication.
@@ -38,6 +45,8 @@ class BinaryRunnerForAMI(LogBase):
                     self.logs.debug("Running in non-real-time mode")
                     result = subprocess.run(cmd, capture_output=True, text=True, check=True)
                     return json.loads(result.stdout)
+                except FileNotFoundError:
+                    return {"status": "error", "message": "AMI binary not found in PATH"}
                 except subprocess.CalledProcessError as e:
                     self.logs.error(f"Non-real-time execution failed: return_code={e.returncode}, stderr={e.stderr.strip()}")
                     return {"status": "error", "message": e.stderr.strip(), "return_code": e.returncode}
@@ -55,6 +64,7 @@ class BinaryRunnerForAMI(LogBase):
 
                 conn = None
                 server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                proc = None
                 try:
                     self.logs.debug(f"Binding socket to: {socket_path}")
                     server.bind(socket_path)
@@ -152,6 +162,7 @@ class BinaryRunnerForAMI(LogBase):
                         proc.wait(timeout=5.0)
 
 
+
     ##################################################
     ###     AMI Binary Commands
     def update_ami_source(self, real_time: bool = False) -> Dict[str, Any]:
@@ -187,7 +198,12 @@ class ReminderManager(LogBase):
         self.filespace = filespace
         self.reminder_files = reminder_files
         self._lock = Lock()
-        self.markdown_tool = MarkdownTool(filespace, reminder_files)
+        MarkdownTool = _get_markdown_tool()
+        if MarkdownTool:
+            self.markdown_tool = MarkdownTool(filespace, reminder_files)
+        else:
+            # Degrade gracefully without markdown dependency
+            self.markdown_tool = None
         self._ensure_reminder_files()
     
     def _ensure_reminder_files(self):

@@ -10,7 +10,12 @@
 - Notes and List capabilities, including downloading list for on the go (builtin Markdown Headspace)
 - Finacial Assistant / Advisor (builtin Finance Headspace)
 - Media player for YouTube or Spotify (builtin Media Headspace)
+- **Neighbors** — local AMI mesh discovery + optional internet neighbors (subscription or self-hosted directory)
 - Voice assistant calendar + Google Calendar sycing [AMI-Calendar](https://github.com/wilfullyapt/AMI-Calendar)
+
+**Inference:** optional local LLM (Pi AI HAT) and/or cloud when online. Mesh/Neighbors works either way.
+
+**Related products:** handheld [mobile-ami](https://github.com/wilfullyapt/mobile-ami); household infra **Stronghold** (optional directory/relay). Hermes doorway (narthex) is a separate household path today.
 
 ### 🚀 Getting Started
 

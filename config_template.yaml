@@ -35,3 +35,4 @@ logging:
 enabled_headspaces:
   - corespace
   - markdown
+  - neighbors

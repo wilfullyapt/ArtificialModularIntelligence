@@ -31,8 +31,8 @@ if ! command -v uv >/dev/null 2>&1; then
     echo "Installing UV..."
     pip3 install --user uv
 fi
-REPO_URL="<repository-url>"  # Replace with actual URL
-REPO_DIR="ami-repo"
+REPO_URL="${AMI_REPO_URL:-https://github.com/wilfullyapt/ArtificialModularIntelligence.git}"
+REPO_DIR="${AMI_REPO_DIR:-ArtificialModularIntelligence}"
 if [ -d "$REPO_DIR" ]; then
     rm -rf "$REPO_DIR"
 fi

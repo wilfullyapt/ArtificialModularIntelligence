@@ -13,7 +13,11 @@
 - **Neighbors** — local AMI mesh discovery + optional internet neighbors (subscription or self-hosted directory)
 - Voice assistant calendar + Google Calendar sycing [AMI-Calendar](https://github.com/wilfullyapt/AMI-Calendar)
 
-**Inference:** optional local LLM (Pi AI HAT) and/or cloud when online. Mesh/Neighbors works either way.
+**Inference:** `llm.backend: ollama | xai | anthropic` (local/LAN Ollama default in template; cloud keys in `~/.ami/.env`). Optional Pi **AI HAT** is BOM addon, not required.
+
+**Speech:** `stt.backend: local` (faster-whisper) or `google` (legacy cloud).
+
+**Hardware:** first BOM + assembly notes in [ASSEMBLY.md](ASSEMBLY.md).
 
 **Related products:** handheld [mobile-ami](https://github.com/wilfullyapt/mobile-ami); household infra **Stronghold** (optional directory/relay). Hermes doorway (narthex) is a separate household path today.
 

@@ -10,7 +10,13 @@ from typing import Optional
 from ami.headspace import Headspace, ami_tool
 
 from .directory import InternetDirectory
-from .fabric import InMemoryMeshBus, LocalMeshFabric
+from .fabric import (
+    DEFAULT_MESH_PORT,
+    InMemoryMeshBus,
+    LocalMeshFabric,
+    MeshBus,
+    UdpBroadcastMeshBus,
+)
 from .service import NeighborsService
 from .settings import NeighborsSettings
 from .store import PeerStore
@@ -25,11 +31,21 @@ def _parse_caps(raw: str) -> tuple[str, ...]:
     return tuple(parts) or ("mesh",)
 
 
+def _build_bus(settings: NeighborsSettings, bus: Optional[MeshBus] = None) -> MeshBus:
+    if bus is not None:
+        return bus
+    transport = (getattr(settings, "mesh_transport", None) or "memory").strip().lower()
+    if transport == "udp":
+        port = int(getattr(settings, "mesh_port", None) or DEFAULT_MESH_PORT)
+        return UdpBroadcastMeshBus(port=port)
+    return _DEFAULT_BUS
+
+
 def build_neighbors_service(
     filespace: Path,
     settings: NeighborsSettings,
     *,
-    bus: Optional[InMemoryMeshBus] = None,
+    bus: Optional[MeshBus] = None,
 ) -> NeighborsService:
     peer_id = (settings.peer_id or "").strip()
     id_file = filespace / "peer_id"
@@ -45,7 +61,7 @@ def build_neighbors_service(
     fabric = LocalMeshFabric(
         peer_id=peer_id,
         display_name=settings.display_name or "AMI",
-        bus=bus or _DEFAULT_BUS,
+        bus=_build_bus(settings, bus),
         capabilities=_parse_caps(settings.mesh_capabilities),
     )
     token_env = settings.internet_directory_token_env or "AMI_NEIGHBORS_TOKEN"

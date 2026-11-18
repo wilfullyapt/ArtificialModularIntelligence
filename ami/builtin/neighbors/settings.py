@@ -37,6 +37,14 @@ class NeighborsSettings(BaseWidgetSettings):
         default="AMI_NEIGHBORS_TOKEN",
         description="Env var name holding optional directory bearer token",
     )
+    mesh_transport: str = Field(
+        default="memory",
+        description="memory (in-process/dev) | udp (LAN broadcast, port mesh_port)",
+    )
+    mesh_port: int = Field(
+        default=4177,
+        description="UDP mesh port when mesh_transport=udp",
+    )
     poll_on_list: bool = Field(
         default=True,
         description="When listing neighbors, poll local mesh first",

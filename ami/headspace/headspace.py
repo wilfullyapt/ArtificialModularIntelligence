@@ -1,11 +1,13 @@
 """ AMI Headspace Abstract Base Class and Core Funcionality """
 
+from __future__ import annotations
+
 import json
 import typing
 import inspect
 from pathlib import Path
 from dataclasses import dataclass
-from typing import Callable, Dict, List
+from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
 from functools import cached_property, wraps
 
 import qrcode
@@ -16,21 +18,20 @@ from ..llm import LLMProvider
 from .base import Primitive
 from .headspace_instructions import HeadspaceInstruction
 
+if TYPE_CHECKING:
+    from .hub import DelegationHub
+
+
 def ami_tool(func):
-    """ Decorator for creating tools within AI-controlled classes.
+    """Decorator marking a Headspace method as an LLM-callable tool."""
 
-    This decorator marks a function as a tool that can be used by the AI agent.
-    It adds an 'is_tool' attribute to the function for easy identification.
-
-    Returns:
-        Callable: The decorated function with an added 'is_tool' attribute.
-    """
     @wraps(func)
     def wrapper():
-        setattr(func, 'is_tool', True)
+        setattr(func, "is_tool", True)
         return func
 
     return wrapper()
+
 
 def generate_qr_image(url) -> Path:
     qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=10, border=4)
@@ -45,8 +46,30 @@ def generate_qr_image(url) -> Path:
     img.save(qr_img_path)
     return qr_img_path
 
+
 def get_param_type(annotation):
     """Convert Python type annotations to a JSON-compatible format."""
+    # PEP 563 / from __future__ import annotations → often strings
+    if isinstance(annotation, str):
+        normalized = annotation.strip().lower().replace("typing.", "")
+        if normalized in ("str", "string"):
+            return "string"
+        if normalized in ("int", "integer"):
+            return "integer"
+        if normalized in ("bool", "boolean"):
+            return "boolean"
+        if normalized.startswith("literal["):
+            # crude: treat as string enum unknown
+            return "string"
+        # Optional[str] style
+        if "str" in normalized:
+            return "string"
+        if "int" in normalized:
+            return "integer"
+        if "bool" in normalized:
+            return "boolean"
+        return "string"
+
     origin = typing.get_origin(annotation)
     if origin is typing.Literal:
         args = typing.get_args(annotation)
@@ -63,122 +86,161 @@ def get_param_type(annotation):
     else:
         raise ValueError(f"Unsupported parameter type: {annotation}")
 
+
 def extract_tool_info(func):
     """Extract name, description, and parameters from a tool function."""
     sig = inspect.signature(func)
-    description = func.__doc__.strip().split('\n')[0] if func.__doc__ else ""
+    description = func.__doc__.strip().split("\n")[0] if func.__doc__ else ""
     parameters = {}
     for param_name, param in sig.parameters.items():
-        if param_name == 'self':
+        if param_name == "self":
             continue
         if param.annotation is inspect.Parameter.empty:
             raise ValueError(f"Parameter '{param_name}' in '{func.__name__}' has no type annotation")
         param_type = get_param_type(param.annotation)
         param_info = {"type": param_type}
         if param.default is not inspect.Parameter.empty:
-            param_info['required'] = False
+            param_info["required"] = False
             param_info["default"] = param.default
         else:
-            param_info['required'] = True
+            param_info["required"] = True
         parameters[param_name] = param_info
     return {
         "name": func.__name__,
         "description": description,
-        "arg_schema": parameters
+        "arg_schema": parameters,
     }
+
+
+def collect_tool_methods(instance: Any) -> List[Callable]:
+    """
+    Collect @ami_tool methods from the instance MRO (inheritance-aware).
+
+    Walks subclasses → bases so tools defined on shared primitive/mixin
+    Headspace parents appear in children (menu hierarchy).
+    """
+    seen: set[str] = set()
+    methods: List[Callable] = []
+    for cls in type(instance).mro():
+        if cls in (object, Primitive):
+            continue
+        # Skip pure infrastructure bases without headspace tools
+        for name, obj in vars(cls).items():
+            if name.startswith("_") or name in seen:
+                continue
+            if not callable(obj):
+                continue
+            # Class dict holds function; is_tool set by @ami_tool on the function
+            if not getattr(obj, "is_tool", False):
+                continue
+            bound = getattr(instance, name)
+            if not callable(bound) or not getattr(bound, "is_tool", False):
+                # bound method may not carry attribute — check underlying
+                if not getattr(obj, "is_tool", False):
+                    continue
+            seen.add(name)
+            methods.append(bound if callable(bound) else obj)
+    return methods
+
 
 @dataclass
 class HeadspaceTool:
     name: str
     description: str
-    arg_schema: Dict[str, Dict[str, str|dict]]
+    arg_schema: Dict[str, Dict[str, str | dict]]
     method: Callable
 
     def __str__(self) -> str:
         data = {
             "name": self.name,
             "description": self.description,
-            "arg_schema": self.arg_schema
+            "arg_schema": self.arg_schema,
         }
         return json.dumps(data, indent=2)
 
     @property
     def tool_string(self) -> str:
-        return f"{self.name}({', '.join([ f'{an}: {av}' for an, av in self.arg_schema.items()])}) - {self.description}"
+        return f"{self.name}({', '.join([f'{an}: {av}' for an, av in self.arg_schema.items()])}) - {self.description}"
 
     @classmethod
-    def from_method(cls, method: Callable) -> 'HeadspaceTool':
+    def from_method(cls, method: Callable) -> "HeadspaceTool":
         tool_info = extract_tool_info(method)
         return cls(
-                name = tool_info["name"],
-                description = tool_info["description"],
-                arg_schema = tool_info["arg_schema"],
-                method = method
+            name=tool_info["name"],
+            description=tool_info["description"],
+            arg_schema=tool_info["arg_schema"],
+            method=method,
         )
 
+
 class Headspace(Primitive):
-    """ 
-    Headspace is an abstract base class that is the framework for an AI-powered AMI agent built
-    with natural language capabilities. It is designed to be inherited by subclasses that define
-    specific tools and behaviors for the agent.
+    """
+    AI-facing headspace: domain tools + optional peer delegation via a hub.
 
-    The Headspace class handles the creation of a structured chat agent using the LangChain
-    library, and provides methods for querying the agent, streaming its responses, and managing
-    the dialog history. It also includes functionality for parsing prompts from a separate module
-    and handling visual inputs.
+    Tools: mark methods with @ami_tool. Inherited tools from parent Headspace
+    mixins/primitives are included (MRO collection).
 
-    Subclasses of Headspace should define the tools of the agent with the decorator `@ami_tool`,
-    the higher level AI that AMI is will implement the tools in an agent and handle the routing
-    via the `ROUTING` member of `<headpsace>.prompt.py` module member script found in the
-    headspace directory. 
-
-    Key Features:
-    - Creation of a structured chat agent with custom tools and prompts
-    - Query and streaming methods for interacting with the agent
-    - Dialog history management
-    - Visual input handling
-    - Error handling for parsing errors during agent execution
-
-    Note: The Headspace class cannot be instantiated directly and is intended to be inherited by
-    concrete subclasses that define the specific agent functionality.
+    Delegation: when Brain attaches a DelegationHub, base tools
+    list_peer_headspaces / delegate_to_headspace enable a bounded
+    self-referential graph (max depth on the hub).
     """
 
+    # Optional hub injected by Brain each turn
+    _hub: Optional["DelegationHub"] = None
+
     def __new__(cls, *args, **kwargs):
-        """ This class is only inheritable, cannot be instantiated alone """
         if cls is Headspace:
             raise TypeError("Headspace class cannot be instantiated directly.")
         return super().__new__(cls, *args, **kwargs)
 
     def __repr__(self):
-        """ Custom __repr__ function for the Headspace instanced """
         return f"<Headspace(name={self.name})>"
+
+    def bind_hub(self, hub: Optional["DelegationHub"]) -> None:
+        """Attach or clear the cross-headspace delegation hub for this turn."""
+        self._hub = hub
 
     @cached_property
     def tool_names(self):
-        return ', '.join([ tool.name for tool in self.tools ])
+        return ", ".join([tool.name for tool in self.tools])
 
     @cached_property
     def tool_strings(self):
-        return '\n'.join([ tool.tool_string for tool in self.tools ])
+        return "\n".join([tool.tool_string for tool in self.tools])
 
-    @cached_property
+    @property
     def tools(self) -> List[HeadspaceTool]:
-        """ This method can be implemented by the subclass for specific behaivor, but it is not recommended """
-        possible_tools = [ member_method
-            for member_method in dir(self)
-            if member_method not in dir(self.__class__.__bases__[0]) ]
-        class_methods = [ getattr(self, class_tool) for class_tool in possible_tools ]
-        hai_tools = [ member_method
-            for member_method in class_methods
-            if hasattr(member_method, "is_tool") ]
-        tools = [ HeadspaceTool.from_method(mthd) for mthd in hai_tools ]
-        return tools
-    
+        """All @ami_tool methods including inherited primitive/parent tools."""
+        # Not cached_property: hub binding can change available base tools semantics
+        methods = collect_tool_methods(self)
+        return [HeadspaceTool.from_method(m) for m in methods]
+
     def append_visual(self, img_path: Path):
         print(f"Image appended to Headspace returning: {img_path}")
 
-    def query(self, prompt: str) -> HeadspaceInstruction:
-        """ Process a user query according to the tools in the child headspace opbject """
-        agent = LLMProvider.from_environment().as_funccalling_toa_agent(self.name)
+    # --- Primitive delegation tools (available on every headspace when hub bound) ---
 
+    @ami_tool
+    def list_peer_headspaces(self) -> str:
+        """List other headspaces and their tools so you can delegate domain work."""
+        if self._hub is None:
+            return "Delegation hub not attached; cannot list peers."
+        return self._hub.describe_menu(exclude=self.name)
+
+    @ami_tool
+    def delegate_to_headspace(self, headspace_name: str, task: str) -> str:
+        """
+        Delegate a sub-task to another headspace (bounded depth).
+        Use when the user need clearly belongs to another domain plugin.
+        """
+        if self._hub is None:
+            return "Delegation hub not attached; cannot delegate."
+        try:
+            return self._hub.delegate(headspace_name, task, from_headspace=self.name)
+        except ValueError as exc:
+            return f"Delegation failed: {exc}"
+
+    def query(self, prompt: str) -> HeadspaceInstruction:
+        """Process a user query with this headspace's tool set (incl. inherited + delegate)."""
+        agent = LLMProvider.from_environment().as_funccalling_toa_agent(self.name)
         return agent.run(prompt, self.tools)

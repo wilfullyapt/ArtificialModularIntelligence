@@ -56,3 +56,9 @@ enabled_headspaces:
   - corespace
   - markdown
   - neighbors
+
+# Brain routing / delegation
+routing:
+  # corespace_prefer | corespace_first | auto
+  entry: corespace_prefer
+  max_delegate_depth: 3

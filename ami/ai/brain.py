@@ -34,20 +34,19 @@ Formal, deferential, and professional, like a dedicated butler who prioritizes t
 
 SUMMERIZE_PROMPT = """
 You are a companion AI acting as a loyal, professional butler.
-Your assignment is to summarize your internal monologue and respond to the human in a formal, service-oriented manner, focusing solely on the completed task.
-Your inner monologue consists of actions you have already performed, and your response must reflect these in the past tense.
-Your response must be a single sentence, concise, goal-oriented, and free of personal pronouns referring to yourself (e.g., avoid "I" or "my").
-The response should include only relevant details to the Human's request, omitting unnecessary steps or pleasantries.
-You must respond in the first person.
+Summarize completed internal steps into ONE short sentence the human should hear.
+- Past tense, concise, task-focused.
+- Match the personality below.
+- Prefer third-person butler style without "I" / "my" (e.g. "The reminder is set for …").
+- No preamble, no lists, no quotes around the whole reply.
 
 ### Personality
 {personality}
 
-### Inner Monologue / Completed Tasks
+### Completed steps
 {steps}
 
-### How do you respond?
-
+### Spoken reply (one sentence):
 """
 
 COSPACE_ENTRY_PREAMBLE = """
@@ -77,8 +76,8 @@ class Brain(LogBase):
     Flow:
       1. Start TurnReceipt; prepare hub; bind turn for span logging.
       2. Pick entry: routing.entry=corespace (default prefer) or auto LLM router.
-      3. Headspace.query with inherited tools + ask/do peers.
-      4. summarize() through personality; finish+persist turn receipt.
+      3. Headspace.query with inherited tools + ask/do/call_tool peers.
+      4. speak() thin-by-default (or LLM summarize); finish+persist turn receipt.
     """
 
     def __init__(self, ipc_manager: "IPCManager"):
@@ -149,6 +148,10 @@ class Brain(LogBase):
         except (TypeError, ValueError):
             return 24
 
+    def _speak_mode(self) -> str:
+        cfg = Config().get("routing", {}) or {}
+        return str(cfg.get("speak") or "auto").strip().lower()
+
     def prepare_hub(self, turn: Optional[TurnReceipt] = None) -> DelegationHub:
         """Register every loaded headspace on the hub and bind hub to each instance."""
         self.hub.max_depth = self._max_delegate_depth()
@@ -218,7 +221,7 @@ class Brain(LogBase):
         return self.headspace_router(query)
 
     def summarize(self, steps: List[Dict[str, Any]]) -> str:
-        """Speak to the human in the household/corespace personality."""
+        """LLM polish path — one spoken sentence from steps + personality."""
         zero_shot = LLMProvider.from_environment().as_zero_shot()
         result = zero_shot.invoke(
             [
@@ -234,6 +237,33 @@ class Brain(LogBase):
             ]
         )
         return result.strip()
+
+    def speak(
+        self,
+        steps: List[Dict[str, Any]],
+        *,
+        turn: Optional[TurnReceipt] = None,
+    ) -> str:
+        """
+        Produce human-facing text.
+
+        routing.speak:
+          auto (default) — thin when a short clear observation exists
+          thin — never call a second LLM
+          llm — always summarize via LLM
+        """
+        from .speak import should_use_thin_speak, thin_speak
+
+        mode = self._speak_mode()
+        if should_use_thin_speak(mode=mode, steps=steps, turn=turn):
+            text = thin_speak(steps=steps, turn=turn)
+            if text:
+                self.logs.debug(f"speak mode={mode} path=thin len={len(text)}")
+                return text
+            if mode in ("thin", "template", "receipt"):
+                return "Task complete."
+        self.logs.debug(f"speak mode={mode} path=llm")
+        return self.summarize(steps)
 
     def query(self, convo: str) -> Tuple[HeadspaceInstruction, str]:
         if not convo:
@@ -262,7 +292,7 @@ class Brain(LogBase):
 
         try:
             headspace_result = headspace.query(prompt)
-            spoken = self.summarize(headspace_result.steps)
+            spoken = self.speak(headspace_result.steps, turn=turn)
         except Exception as exc:
             self.logs.error(f"Brain.query failed: {exc}")
             turn.finish(final_text=f"Error: {exc}")
@@ -283,7 +313,7 @@ class Brain(LogBase):
             peer_hops = [
                 s
                 for s in turn.spans
-                if s.kind in (SpanKind.ASK, SpanKind.DO, SpanKind.SKILL)
+                if s.kind in (SpanKind.ASK, SpanKind.DO, SpanKind.SKILL, SpanKind.TOOL)
             ]
             if len(peer_hops) >= 1 and spoken and not spoken.startswith("Error:"):
                 draft_path = headspace.draft_skill_from_receipt(turn)

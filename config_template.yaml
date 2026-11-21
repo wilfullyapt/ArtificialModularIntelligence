@@ -63,3 +63,5 @@ routing:
   entry: corespace_prefer
   max_delegate_depth: 3
   max_steps: 24
+  # speak: auto | thin | llm  (auto = thin when short clear observation; else LLM)
+  speak: auto

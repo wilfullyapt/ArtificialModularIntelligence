@@ -52,6 +52,16 @@ Route example: `corespace → tool:markdown.ping → speak`
 
 `filespace/skills/*.md` + `drafts/`. Trigger match injects into query.
 
+## Speak (P4)
+
+`routing.speak`:
+
+- `auto` (default) — thin speak from last observation when short/clear; else LLM summarize  
+- `thin` — never second LLM  
+- `llm` — always personality summarize  
+
+Thin path strips peer/tool prefixes (`[tool→markdown ok] …`).
+
 ## Config
 
 ```yaml
@@ -59,7 +69,12 @@ routing:
   entry: corespace_prefer
   max_delegate_depth: 3
   max_steps: 24
+  speak: auto
 ```
+
+## CI
+
+`.github/workflows/headless.yml` — pytest headless unit suite on Python 3.11 (no PyQt/PortAudio).
 
 ## Not yet
 

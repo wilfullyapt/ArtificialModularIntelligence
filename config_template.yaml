@@ -1,37 +1,67 @@
 ######################################################################
-# Configuation file for Artifical Modular Intelligence (AMI)
-#   These are settings for the AI that can only be user configured
+# Configuration file for Artificial Modular Intelligence (AMI)
+#   User-configurable settings (copied to ~/.ami/ami_config.yaml)
 
-# Timezone information; run homeai.utils.py:get_timezones() to see a list of inputs here
+# Timezone; see pytz timezone names
 timezone: America/Los_Angeles
 
-# Listening Patience is the gap of time between when the user stop speaking and the AI start digesting, in seconds
+# Listening: gap after speech ends before digest (seconds)
 listening_patience: 2
 
-# Listening Timeout (seconds) will cancel the interaction after this time if the listening isn;t completed
+# Listening: cancel interaction after this many seconds
 listening_timeout: 30
 
-# Minimun Silence Threshold is the minimum mic input volume to determine if the Human is speaking or not
+# Minimum mic amplitude treated as speech
 min_silence_threshold: 4000
 
-# Server Host
-host: 0.0.0.0
+# Detection threshold for openWakeWord (0-1)
+detection_threshold: 0.3
 
-# Server Port
+# Server Host / Port (Flask blueprints)
+host: 0.0.0.0
 port: 5000
 
-# Hot Word is a literal used by openWakeWord for the model to use for hotword detection
-# Literal[ "alexa", "hey_mycroft", "hey_jarvis", "hey_rhasspy" ]
+# openWakeWord model name
+# Literal-ish: alexa | hey_mycroft | hey_jarvis | hey_rhasspy
 hot_word: hey_rhasspy
 
-# Log configuration
+# --- LLM backend ---
+# backend: ollama | xai | anthropic
+# ollama works offline/LAN (Pi local or Stronghold). Cloud needs keys in ~/.ami/.env
+llm:
+  backend: ollama
+  model: llama3.2:1b
+  ollama_base_url: http://127.0.0.1:11434/v1
+
+# --- Speech-to-text ---
+# backend: local (faster-whisper) | google (legacy cloud)
+stt:
+  backend: local
+  model: tiny
+  device: cpu
+
+# --- Neighbors mesh ---
+neighbors:
+  mesh_port: 4177
+  # internet_directory_url: https://neighbors.example/v1   # optional subscription / Stronghold
+
 logging:
   stdout: True
   directory: logs
-  # Literal: DEBUG | INFO | WARNING | ERROR | CRITICAL
+  # DEBUG | INFO | WARNING | ERROR | CRITICAL
   level: WARNING
 
-# Enabled Headspaces (core and imported)
+# Enabled Headspaces (builtin package names under ami/builtin/)
 enabled_headspaces:
   - corespace
   - markdown
+  - neighbors
+
+# Brain routing / delegation
+routing:
+  # corespace_prefer | corespace_first | auto
+  entry: corespace_prefer
+  max_delegate_depth: 3
+  max_steps: 24
+  # speak: auto | thin | llm  (auto = thin when short clear observation; else LLM)
+  speak: auto

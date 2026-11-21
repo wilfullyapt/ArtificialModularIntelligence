@@ -143,22 +143,40 @@ class Listener(LogBase):
                 download_models(model_names=[hotword], target_directory=str(models_dir))
                 return self.get_model(models_dir, hotword, **kwargs)
 
+    def _resolve_stt(self):
+        """Lazy STT backend from config / env (local faster-whisper or google)."""
+        if getattr(self, "_stt_backend", None) is not None:
+            return self._stt_backend
+        from .stt import resolve_stt_backend
+
+        config = Config()
+        stt_cfg = config.get("stt", {}) or {}
+        backend = stt_cfg.get("backend")
+        model = stt_cfg.get("model") or "tiny"
+        device = stt_cfg.get("device") or "cpu"
+        self._stt_backend = resolve_stt_backend(backend, model_size=str(model), device=str(device))
+        self.logs.debug(f"STT backend resolved: {self._stt_backend.name}")
+        return self._stt_backend
+
     def string_from_audio(self, audio_data) -> str:
-        """ Convert the audio data to text """
+        """Convert the audio data to text via configured STT backend (local default)."""
         self.logs.debug("Audio to text in progress...")
-
         try:
-            audio = sr.AudioData(audio_data.getvalue(), sample_rate=16000, sample_width=2)
-            text = self.r.recognize_google(audio)      # google is the cloud
-#           text = self.r.recognize_sphinx(audio)      # sphinx is local
-            self.logs.debug("recognize_google used for audio STT")
-            return text
+            raw = audio_data.getvalue() if hasattr(audio_data, "getvalue") else bytes(audio_data)
+            # If caller passed a wav BytesIO from soundfile, use bytes as-is; else wrap PCM.
+            if len(raw) >= 4 and raw[:4] == b"RIFF":
+                wav_bytes = raw
+            else:
+                from .stt import wav_bytes_from_pcm16
 
-        except sr.UnknownValueError:
-            self.logs.error("Google Speech Recognition could not understand audio")
-            return ""
-        except sr.RequestError as e:
-            self.logs.error(f"Could not request results for speech recognition service; {e}")
+                wav_bytes = wav_bytes_from_pcm16(raw, sample_rate=16000)
+
+            backend = self._resolve_stt()
+            text = backend.transcribe_wav(wav_bytes, sample_rate=16000)
+            self.logs.debug(f"STT backend={backend.name} text_len={len(text or '')}")
+            return text or ""
+        except Exception as e:
+            self.logs.error(f"STT failed: {e}")
             return ""
 
     def _handle_error(self, e):

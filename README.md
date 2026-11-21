@@ -89,6 +89,10 @@ ami/
   cli.py                   # operator CLI
 ```
 
+## First boot
+
+Operator map: **[docs/SETUP.md](docs/SETUP.md)** (setup → install → initial run).
+
 ## Roadmap (active)
 
 See **`docs/APPLIANCE_SPINE.md`**: hygiene → plugin/release lifecycle with rollback → cheaper agent path → Pi appliance → **ecosystem** (headspace template, Stronghold directory, mobile mesh).

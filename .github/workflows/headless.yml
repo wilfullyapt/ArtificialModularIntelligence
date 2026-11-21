@@ -1,0 +1,51 @@
+name: headless
+
+on:
+  push:
+    branches: [prod, main, "feat/**"]
+  pull_request:
+    branches: [prod, main]
+
+jobs:
+  unit:
+    name: Headless unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install headless test deps
+        run: |
+          python -m pip install --upgrade pip
+          # Minimal set for domain/hub/receipt/skill tests — no PyQt, PortAudio, openwakeword.
+          pip install \
+            pytest \
+            pydantic \
+            pyyaml \
+            loguru \
+            rich \
+            watchdog \
+            python-dotenv \
+            gitpython \
+            qrcode \
+            pillow \
+            werkzeug
+
+      - name: Run headless unit suite
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          python -m pytest \
+            tests/unit/test_speak.py \
+            tests/unit/test_tool_rpc.py \
+            tests/unit/test_skills.py \
+            tests/unit/test_interaction_receipts.py \
+            tests/unit/test_headspace_delegation.py \
+            tests/unit/neighbors/test_neighbors.py \
+            tests/unit/test_vibe_directions.py \
+            -v --tb=short

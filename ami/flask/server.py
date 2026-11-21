@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any, List
 from pprint import pprint as pp
 
-from flask import Flask, flash, render_template,  redirect, request, url_for, make_response, send_file, abort
+from flask import Flask, flash, render_template,  redirect, request, url_for, make_response, send_file, abort, jsonify
 
 from ..core import Config, ConfigUpdater
 from ..ipc.manager import IPCManager
@@ -250,6 +250,43 @@ def get_app():
                                  available_levels=available_levels,
                                  selected_level=level_filter,
                                  total_logs=len(parsed_logs))
+
+    # --- Turn receipts (debug) ---
+    @app.route('/receipts')
+    def receipts_index():
+        from ..core.receipts import list_receipts
+
+        conf = Config()
+        limit = 50
+        try:
+            limit = max(1, min(200, int(request.args.get('limit', 50))))
+        except (TypeError, ValueError):
+            pass
+        items = list_receipts(conf.convos_dir, limit=limit)
+        return render_template('receipts.html', receipts=items, convos_dir=str(conf.convos_dir))
+
+    @app.route('/receipts/<session_id>/<turn_id>')
+    def receipts_detail(session_id, turn_id):
+        from ..core.receipts import load_receipt
+
+        conf = Config()
+        data = load_receipt(conf.convos_dir, session_id, turn_id)
+        if data is None:
+            abort(404)
+        return render_template(
+            'receipt_detail.html',
+            receipt=data,
+            session_id=session_id,
+            turn_id=turn_id,
+        )
+
+    @app.route('/api/receipts')
+    def receipts_api():
+        from ..core.receipts import list_receipts
+
+        conf = Config()
+        items = [r.to_dict() for r in list_receipts(conf.convos_dir, limit=50)]
+        return jsonify({"receipts": items})
 
 # ------------------------------------------------------------------------------
 #                       TREE ROUTING

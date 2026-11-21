@@ -30,8 +30,10 @@
 
 ## Phase D — Pi appliance
 
-- Flask worker slim; STT extras; receipt debug view
-- Optionally bind `run` to activated `CURRENT` release tree
+- [x] Flask/Gunicorn kiosk defaults (`server.workers=1`, `threads=2`); exit no longer kills AMI by default
+- [x] Receipt browser: `/receipts`, `/receipts/<session>/<turn>`, `/api/receipts`
+- [x] Optional deps: `[stt]` / `[pi]` extras for faster-whisper
+- [x] `ami.cli run --release` (or `AMI_USE_RELEASE=1`) prefers `~/.ami/releases/CURRENT`
 
 ## Phase E — Ecosystem
 
@@ -45,7 +47,10 @@ python -m ami.cli plugin install user/repo@v1.0.0 --enable
 python -m ami.cli release install v0.2.0
 python -m ami.cli release activate v0.2.0
 python -m ami.cli release rollback
+python -m ami.cli run              # dev checkout
+python -m ami.cli run --release    # activated CURRENT tree
 python -m ami.cli doctor
+# pip install 'ArtificialModularIntelligence[stt]'  # local whisper on Pi
 ```
 
 Releases live under `~/.ami/releases/`. Plugins under `~/.ami/plugins/<id>/`.

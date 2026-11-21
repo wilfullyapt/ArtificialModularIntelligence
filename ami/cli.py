@@ -14,6 +14,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -238,8 +239,27 @@ def cmd_doctor() -> int:
     return 0
 
 
-def cmd_run() -> int:
-    return subprocess.call([sys.executable, "-m", "ami.main"])
+def cmd_run(*, use_release: bool = False) -> int:
+    """
+    Launch ami.main.
+
+    Default: current checkout / installed package on PYTHONPATH (dev).
+    --release / AMI_USE_RELEASE=1: prepend ~/.ami/releases/CURRENT to sys.path
+    so the activated release tree is preferred (appliance mode).
+    """
+    env = os.environ.copy()
+    if use_release or env.get("AMI_USE_RELEASE", "").strip().lower() in ("1", "true", "yes"):
+        cfg = Config()
+        current = cfg.releases_dir / "CURRENT"
+        if not current.is_dir():
+            print(f"No CURRENT release at {current}. Install+activate first.", file=sys.stderr)
+            return 1
+        # Prefer release package root (contains `ami/`)
+        prev = env.get("PYTHONPATH", "")
+        env["PYTHONPATH"] = str(current) + (os.pathsep + prev if prev else "")
+        print(f"Running from release CURRENT → {current}")
+        return subprocess.call([sys.executable, "-m", "ami.main"], env=env)
+    return subprocess.call([sys.executable, "-m", "ami.main"], env=env)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -247,7 +267,12 @@ def build_parser() -> argparse.ArgumentParser:
     sub = p.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("doctor", help="Config / paths / releases / import smoke")
-    sub.add_parser("run", help="Run ami.main (full appliance)")
+    run_p = sub.add_parser("run", help="Run ami.main (full appliance)")
+    run_p.add_argument(
+        "--release",
+        action="store_true",
+        help="Prefer ~/.ami/releases/CURRENT on PYTHONPATH (or set AMI_USE_RELEASE=1)",
+    )
 
     plug = sub.add_parser("plugin", help="Third-party + enabled_headspaces")
     plug_sub = plug.add_subparsers(dest="plugin_cmd", required=True)
@@ -283,7 +308,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if args.cmd == "doctor":
         return cmd_doctor()
     if args.cmd == "run":
-        return cmd_run()
+        return cmd_run(use_release=bool(getattr(args, "release", False)))
     if args.cmd == "plugin":
         if args.plugin_cmd == "list":
             return cmd_plugin_list()

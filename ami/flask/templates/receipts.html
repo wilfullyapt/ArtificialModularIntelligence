@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block page_header %}Turn receipts{% endblock %}
+{% block contents %}
+<p class="muted">Source: <code>{{ convos_dir }}</code> · <a href="/api/receipts">JSON</a></p>
+{% if not receipts %}
+<p>No receipts yet. After a voice/brain turn, JSON appears under conversations/.</p>
+{% else %}
+<table>
+  <thead>
+    <tr><th>Started</th><th>Route</th><th>Human</th><th>Final</th><th></th></tr>
+  </thead>
+  <tbody>
+  {% for r in receipts %}
+    <tr>
+      <td><code>{{ r.started_at[:19] if r.started_at else '' }}</code></td>
+      <td><code>{{ r.route_summary }}</code></td>
+      <td>{{ r.human_text }}</td>
+      <td>{{ r.final_text }}</td>
+      <td><a href="/receipts/{{ r.session_id }}/{{ r.turn_id }}">view</a></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

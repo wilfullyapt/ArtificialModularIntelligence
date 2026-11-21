@@ -50,7 +50,8 @@ class FasterWhisperSttBackend:
         except ImportError as exc:
             raise RuntimeError(
                 "stt.backend=local requires faster-whisper. "
-                "pip install faster-whisper  (or use stt.backend=google)"
+                "pip install 'ArtificialModularIntelligence[stt]' "
+                "(or use stt.backend=google)"
             ) from exc
         self._model = WhisperModel(
             self.model_size,

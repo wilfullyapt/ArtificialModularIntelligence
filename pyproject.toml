@@ -27,6 +27,14 @@ dependencies = [
     "watchdog>=6.0.0",
 ]
 
+[project.optional-dependencies]
+stt = [
+    "faster-whisper>=1.0.0",
+]
+pi = [
+    "ArtificialModularIntelligence[stt]",
+]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

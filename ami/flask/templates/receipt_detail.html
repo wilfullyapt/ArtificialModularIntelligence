@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block page_header %}Receipt {{ turn_id }}{% endblock %}
+{% block contents %}
+<p><a href="/receipts">← all receipts</a> · session <code>{{ session_id }}</code></p>
+
+<p><strong>Human:</strong> {{ receipt.human_text }}</p>
+<p><strong>Final:</strong> {{ receipt.final_text }}</p>
+<p><strong>Route:</strong> <code>{{ receipt.route_summary }}</code></p>
+<p><strong>Entry:</strong> {{ receipt.entry_headspace }} ·
+   {{ receipt.started_at }} → {{ receipt.finished_at }}</p>
+
+<h2>Spans</h2>
+<ol>
+{% for s in receipt.spans or [] %}
+  <li>
+    <code>{{ s.kind }}</code> · <strong>{{ s.headspace }}</strong>
+    {% if s.name %}.{{ s.name }}{% endif %}
+    · {{ s.status }}
+    {% if s.input_summary %}<br><em>in:</em> {{ s.input_summary }}{% endif %}
+    {% if s.output_summary %}<br><em>out:</em> {{ s.output_summary }}{% endif %}
+  </li>
+{% else %}
+  <li>(no spans)</li>
+{% endfor %}
+</ol>
+
+{% if receipt.artifacts %}
+<h2>Artifacts</h2>
+<ul>
+{% for a in receipt.artifacts %}<li><code>{{ a }}</code></li>{% endfor %}
+</ul>
+{% endif %}
+
+<details>
+  <summary>Raw JSON</summary>
+  <pre>{{ receipt | tojson(indent=2) }}</pre>
+</details>
+{% endblock %}

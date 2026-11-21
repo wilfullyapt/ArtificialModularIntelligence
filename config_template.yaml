@@ -21,6 +21,13 @@ detection_threshold: 0.3
 host: 0.0.0.0
 port: 5000
 
+# Flask/Gunicorn (kiosk defaults — keep workers low on Pi)
+server:
+  workers: 1
+  threads: 2
+  # if true, gunicorn exit sets IPC stop_flag (stops whole AMI). Default false.
+  kill_ami_on_exit: false
+
 # openWakeWord model name
 # Literal-ish: alexa | hey_mycroft | hey_jarvis | hey_rhasspy
 hot_word: hey_rhasspy

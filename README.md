@@ -49,23 +49,27 @@ Entry points:
 python -m ami.cli doctor
 python -m ami.cli plugin list
 python -m ami.cli plugin enable neighbors
-python -m ami.cli plugin disable media
+python -m ami.cli plugin install user/repo@v1.0.0 --enable
+python -m ami.cli plugin validate ./my-plugin
+python -m ami.cli release install v0.2.0
+python -m ami.cli release activate v0.2.0
+python -m ami.cli release rollback
 python -m ami.cli run
 ```
 
 Config SoR: `~/.ami/ami_config.yaml` → `enabled_headspaces: [ … ]`  
-Data: `~/.ami/data/<headspace>/` · Plugins: `~/.ami/plugins/` · Receipts: `~/.ami/conversations/`
+Data: `~/.ami/data/<headspace>/` · Plugins: `~/.ami/plugins/` · Releases: `~/.ami/releases/` · Receipts: `~/.ami/conversations/`
 
 ### C binary CLI (`make cli`)
 
-Optional fast launcher under `cli/`. Prefer `python -m ami.cli` for plugin config (matches YAML list).  
-`ami update` / `gethead` exist but are **thin sketches** (no release rollback yet — see `docs/APPLIANCE_SPINE.md`).
+Optional launcher under `cli/`. Plugin list/enable/disable delegates to `python -m ami.cli`. Prefer the Python CLI for install/release.
 
 ## Third-party headspaces
 
-1. Place a git checkout under `~/.ami/plugins/<name>` (or `ami gethead user/repo` clone helper).
-2. Repo must be a package with `__init__.py` exporting `Headspace` (and optional `GUI`/`Blueprint`), `EXAMPLES`, and a **git tag** (registry uses latest tag as version).
-3. `python -m ami.cli plugin enable <name>` then restart AMI.
+1. Prefer `python -m ami.cli plugin install <user/repo|url|path>@<tag> [--enable]`
+2. Or place a package under `~/.ami/plugins/<id>/` with `plugin.toml` (see `docs/plugin.toml.example`) + `__init__.py` exporting `Headspace`
+3. Registry still expects a **git tag** on third-party dirs (install creates one)
+4. Restart AMI after enable
 
 ## Layout
 
@@ -73,11 +77,13 @@ Optional fast launcher under `cli/`. Prefer `python -m ami.cli` for plugin confi
 ~/.ami/
   ami_config.yaml
   plugins/                 # third-party headspaces
+  releases/                # CURRENT, PREVIOUS, <tag>/
   data/<headspace>/        # filespace + skills/
   conversations/           # turn receipts
 ami/
   builtin/                 # corespace, markdown, neighbors, …
   builtin/old/             # attic — not loaded
+  lifecycle/               # plugin contract, install, release plane
   headspace/               # Primitive, hub, skills
   ai/                      # Brain, Listener, speak
   cli.py                   # operator CLI

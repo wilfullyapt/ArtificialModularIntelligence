@@ -49,4 +49,5 @@ jobs:
             tests/unit/neighbors/test_neighbors.py \
             tests/unit/test_vibe_directions.py \
             tests/unit/test_cli_plugins.py \
+            tests/unit/test_lifecycle.py \
             -v --tb=short

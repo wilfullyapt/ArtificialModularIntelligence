@@ -186,6 +186,13 @@ class Config:
         p = self.data_dir / "plugins"
         p.mkdir(parents=True, exist_ok=True)
         return p
+
+    @cached_property
+    def releases_dir(self) -> Path:
+        """Side-by-side core releases for activate/rollback (appliance plane)."""
+        p = self.data_dir / "releases"
+        p.mkdir(parents=True, exist_ok=True)
+        return p
     
     @cached_property
     def environment_file(self) -> Path:

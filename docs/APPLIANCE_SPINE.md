@@ -3,7 +3,7 @@
 **Branch:** `feat/appliance-spine` (cut from `prod` after PR #4 squash)  
 **Goal:** Keep Headspace product model; industrialize lifecycle (CLI, plugins, update/rollback).
 
-## Phase A — Truth & hygiene (this branch, in progress)
+## Phase A — Truth & hygiene
 
 - [x] Quarantine `ami/builtin/old` from PluginRegistry discovery
 - [x] Python operator CLI matching `enabled_headspaces` list (`ami.cli`)
@@ -15,10 +15,11 @@
 
 ## Phase B — Operator spine
 
-- Plugin contract (`plugin.toml` / validate on install)
-- `ami plugin install <git-url>@<tag>`
-- Release plane: `releases/<tag>`, activate, **rollback**
-- `ami doctor` expanded (smoke import + last receipt)
+- [x] Plugin contract (`plugin.toml` + `__init__` AST checks)
+- [x] `ami plugin install <git-url|user/repo|path>@tag` + `validate`
+- [x] Release plane: `~/.ami/releases/<tag>`, `CURRENT`/`PREVIOUS`, activate, **rollback**, smoke import
+- [x] `ami doctor` expanded (releases + last turn + import smoke)
+- [x] Example `docs/plugin.toml.example`
 
 ## Phase C — Cognition cost
 
@@ -28,7 +29,21 @@
 ## Phase D — Pi appliance
 
 - Flask worker slim; STT extras; receipt debug view
+- Optionally bind `run` to activated `CURRENT` release tree
 
 ## Phase E — Ecosystem
 
 - Public headspace template; Stronghold directory; mobile-ami mesh client
+
+## Operator cheatsheet
+
+```bash
+python -m ami.cli plugin validate ./path/to/plugin
+python -m ami.cli plugin install user/repo@v1.0.0 --enable
+python -m ami.cli release install v0.2.0
+python -m ami.cli release activate v0.2.0
+python -m ami.cli release rollback
+python -m ami.cli doctor
+```
+
+Releases live under `~/.ami/releases/`. Plugins under `~/.ami/plugins/<id>/`.

@@ -1,4 +1,6 @@
+# Minimal third-party headspace manifest (flat keys).
 id = "demo_headspace"
 version = "0.1.0"
 ami_api_min = "0.1"
+# Allowed exports: headspace (required), gui, blueprint
 exports = ["headspace"]

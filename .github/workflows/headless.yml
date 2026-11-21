@@ -52,4 +52,5 @@ jobs:
             tests/unit/test_lifecycle.py \
             tests/unit/test_native_agent.py \
             tests/unit/test_phase_d.py \
+            tests/unit/test_phase_e.py \
             -v --tb=short

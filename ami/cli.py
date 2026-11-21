@@ -8,6 +8,7 @@ Usage:
   python -m ami.cli doctor
   python -m ami.cli plugin list|enable|disable|install|validate
   python -m ami.cli release status|install|activate|rollback|list
+  python -m ami.cli directory serve
   python -m ami.cli run
 """
 
@@ -262,6 +263,25 @@ def cmd_run(*, use_release: bool = False) -> int:
     return subprocess.call([sys.executable, "-m", "ami.main"], env=env)
 
 
+def cmd_directory_serve(
+    *,
+    host: str = "127.0.0.1",
+    port: int = 4178,
+    data: str = "",
+    token: str = "",
+    ttl: float = 3600.0,
+) -> int:
+    """Run Stronghold-ready neighbors directory (HTTP v1)."""
+    from ami.neighbors_directory.__main__ import main as dir_main
+
+    argv = ["--host", host, "--port", str(port), "--ttl", str(ttl)]
+    if data:
+        argv += ["--data", data]
+    if token:
+        argv += ["--token", token]
+    return int(dir_main(argv))
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="ami.cli", description="AMI operator CLI")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -298,6 +318,15 @@ def build_parser() -> argparse.ArgumentParser:
     ract.add_argument("tag")
     rel_sub.add_parser("rollback", help="Activate PREVIOUS release")
 
+    dirc = sub.add_parser("directory", help="Internet neighbors directory (Stronghold host)")
+    dirc_sub = dirc.add_subparsers(dest="directory_cmd", required=True)
+    dserve = dirc_sub.add_parser("serve", help="Run HTTP directory on LAN/cluster")
+    dserve.add_argument("--host", default=os.environ.get("AMI_DIRECTORY_HOST", "127.0.0.1"))
+    dserve.add_argument("--port", type=int, default=int(os.environ.get("AMI_DIRECTORY_PORT", "4178")))
+    dserve.add_argument("--data", default=os.environ.get("AMI_DIRECTORY_DATA", ""))
+    dserve.add_argument("--token", default=os.environ.get("AMI_NEIGHBORS_TOKEN", ""))
+    dserve.add_argument("--ttl", type=float, default=float(os.environ.get("AMI_DIRECTORY_TTL", "3600")))
+
     return p
 
 
@@ -331,6 +360,15 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             return cmd_release_activate(args.tag)
         if args.release_cmd == "rollback":
             return cmd_release_rollback()
+    if args.cmd == "directory":
+        if args.directory_cmd == "serve":
+            return cmd_directory_serve(
+                host=str(args.host),
+                port=int(args.port),
+                data=str(args.data or ""),
+                token=str(args.token or ""),
+                ttl=float(args.ttl),
+            )
     parser.error(f"unknown command: {args.cmd}")
     return 2
 

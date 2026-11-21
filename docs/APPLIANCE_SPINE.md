@@ -37,16 +37,24 @@
 
 ## Phase E — Ecosystem
 
-- Public headspace template; Stronghold directory; mobile-ami mesh client
+- [x] Freeze peer + directory contract (`docs/NEIGHBORS_CONTRACT.md`)
+- [x] Public headspace template in-tree (`templates/headspace`) + author doc
+- [x] Stronghold directory server (`python -m ami.neighbors_directory`) + live HTTP client
+- [x] CLI: `ami.cli directory serve`
+- [x] mobile-ami mesh client (parity package + tests on handheld tip)
+- [x] Public GitHub mirror of template (`wilfullyapt/ami-headspace-template`)
 
 ## Operator cheatsheet
 
 ```bash
 python -m ami.cli plugin validate ./path/to/plugin
-python -m ami.cli plugin install user/repo@v1.0.0 --enable
+python -m ami.cli plugin install user/repo@v0.1.0 --enable
+python -m ami.cli plugin install wilfullyapt/ami-headspace-template@v0.1.0 --enable
 python -m ami.cli release install v0.2.0
 python -m ami.cli release activate v0.2.0
 python -m ami.cli release rollback
+python -m ami.cli directory serve --host 0.0.0.0 --port 4178
+python -m ami.neighbors_directory --data ~/.ami/directory/peers.json
 python -m ami.cli run              # dev checkout
 python -m ami.cli run --release    # activated CURRENT tree
 python -m ami.cli doctor
@@ -54,3 +62,4 @@ python -m ami.cli doctor
 ```
 
 Releases live under `~/.ami/releases/`. Plugins under `~/.ami/plugins/<id>/`.
+Directory peers under `~/.ami/directory/` when `--data` is set. Contract: `docs/NEIGHBORS_CONTRACT.md`.

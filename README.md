@@ -91,7 +91,11 @@ ami/
 
 ## Roadmap (active)
 
-See **`docs/APPLIANCE_SPINE.md`**: hygiene → plugin/release lifecycle with rollback → cheaper agent path → Pi appliance hardening.
+See **`docs/APPLIANCE_SPINE.md`**: hygiene → plugin/release lifecycle with rollback → cheaper agent path → Pi appliance → **ecosystem** (headspace template, Stronghold directory, mobile mesh).
+
+- Plugin authoring: `docs/HEADSPACE_PLUGIN.md` · template `templates/headspace/` · public `wilfullyapt/ami-headspace-template`
+- Neighbors contract: `docs/NEIGHBORS_CONTRACT.md`
+- Directory host: `python -m ami.cli directory serve`
 
 ## Inspired by
 

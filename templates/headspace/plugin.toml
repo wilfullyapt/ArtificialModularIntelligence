@@ -1,0 +1,4 @@
+id = "demo_headspace"
+version = "0.1.0"
+ami_api_min = "0.1"
+exports = ["headspace"]

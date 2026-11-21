@@ -1,7 +1,9 @@
 # AMI — Initial setup, install, and first run
 
 **Branch tip this map tracks:** `feat/appliance-spine` (craft) · product tip `prod`  
+**Product posture:** **Standalone primary kiosk** (glass + voice). Not headless-desk; Stronghold/Reliquary optional.  
 **No PR required** — operator map only.  
+**Backlog:** day-0 installer/systemd/secrets + custom 2-speaker+mic PCB (shipyard backlog 2026-11-21).  
 **Related:** `docs/APPLIANCE_SPINE.md` (A–E craft roadmap) · `ASSEMBLY.md` (hardware BOM) · `README.md`
 
 ---

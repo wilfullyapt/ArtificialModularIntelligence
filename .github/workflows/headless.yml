@@ -48,4 +48,5 @@ jobs:
             tests/unit/test_headspace_delegation.py \
             tests/unit/neighbors/test_neighbors.py \
             tests/unit/test_vibe_directions.py \
+            tests/unit/test_cli_plugins.py \
             -v --tb=short

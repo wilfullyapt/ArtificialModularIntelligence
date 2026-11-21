@@ -196,19 +196,24 @@ class PluginCache(LogBase):
         def load_builtin_plugins(directory: Path) -> List[Plugin]:
             if not directory.is_dir():
                 return []
+            # Attic / non-plugin package dirs under builtin/ — never load as headspaces
+            skip_names = {"old", "__pycache__"}
             plugins = []
             for plugin_dir in directory.iterdir():
-                if plugin_dir.is_dir():
-                    init_file = plugin_dir / '__init__.py'
-                    if init_file.exists():
-                        version = get_version_from_init(init_file)
-                        if version:
-                            plugins.append(Plugin(
-                                name=plugin_dir.name,
-                                repo_url="builtin",
-                                version=version,
-                                location=plugin_dir
-                            ))
+                if not plugin_dir.is_dir():
+                    continue
+                if plugin_dir.name in skip_names or plugin_dir.name.startswith("."):
+                    continue
+                init_file = plugin_dir / '__init__.py'
+                if init_file.exists():
+                    version = get_version_from_init(init_file)
+                    if version:
+                        plugins.append(Plugin(
+                            name=plugin_dir.name,
+                            repo_url="builtin",
+                            version=version,
+                            location=plugin_dir
+                        ))
             return plugins
 
         def load_third_party_plugins(directory: Path) -> List[Plugin]:

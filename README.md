@@ -1,93 +1,92 @@
-# Artificial Modular Intelligence 🧩🧠
+# Artificial Modular Intelligence
+
+**AMI** is an in-home AI companion (typically Raspberry Pi + monitor) built around **Headspaces**: modular plugins that can provide LLM tools, a PyQt glass widget, and/or a Flask blueprint.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**AMI** is an AI companion with a plugin architecture called *Headspaces*. Headspaces can include 1 to 3 elements: Visual GUI, Web endpoint, and an LLM driven agent.
-**AMI** is built with the intention to be put on a Raspberry Pi with a monitor as an in home AI.
+## What works today (code truth)
 
-**Capabilities:**
-- Timer and Reminder (builtin Datetime Headspace)
-- Notes and List capabilities, including downloading list for on the go (builtin Markdown Headspace)
-- Finacial Assistant / Advisor (builtin Finance Headspace)
-- Media player for YouTube or Spotify (builtin Media Headspace)
-- **Neighbors** — local AMI mesh discovery + optional internet neighbors (subscription or self-hosted directory)
-- Voice assistant calendar + Google Calendar sycing [AMI-Calendar](https://github.com/wilfullyapt/AMI-Calendar)
+| Area | Status |
+|------|--------|
+| Builtin headspaces | `corespace`, `markdown`, `neighbors` (default enabled); `media`/`company` present |
+| Peer routing | `ask_headspace` / `do_headspace` / `call_headspace_tool` + turn receipts |
+| Skills | Per-headspace `~/.ami/data/<hs>/skills/` (markdown); draft/promote |
+| Speak | `routing.speak: auto\|thin\|llm` (thin avoids a second LLM when possible) |
+| Inference | `llm.backend: ollama \| xai \| anthropic` |
+| STT | `stt.backend: local` (faster-whisper, optional dep) or `google` |
+| Hardware notes | [ASSEMBLY.md](ASSEMBLY.md) |
+| CI | `.github/workflows/headless.yml` (unit tests, no GUI/audio) |
 
-**Inference:** `llm.backend: ollama | xai | anthropic` (local/LAN Ollama default in template; cloud keys in `~/.ami/.env`). Optional Pi **AI HAT** is BOM addon, not required.
+**Related products:** [mobile-ami](https://github.com/wilfullyapt/mobile-ami) (handheld); **Stronghold** (household infra / optional neighbor directory). Hermes doorway (narthex) is a separate path.
 
-**Speech:** `stt.backend: local` (faster-whisper) or `google` (legacy cloud).
+## Dev quickstart
 
-**Hardware:** first BOM + assembly notes in [ASSEMBLY.md](ASSEMBLY.md).
-
-**Related products:** handheld [mobile-ami](https://github.com/wilfullyapt/mobile-ami); household infra **Stronghold** (optional directory/relay). Hermes doorway (narthex) is a separate household path today.
-
-### 🚀 Getting Started
-
-#### Clone the repo
-1. Make sure you have `git` and `make` installed
 ```bash
-sudo apt-get update
-sudo apt install git make
-```
-2. Clone the repo & `cd`: `git clone https://github.com/wilfullyapt/ArtificialModularIntelligence.git && cd ArtificialModularIntelligence`
-3. Install AMI via Make: `make full-install`
-4. (optional) Create the service autostart file & reboot `ami autostart`
-5. Run `ami`
+git clone https://github.com/wilfullyapt/ArtificialModularIntelligence.git
+cd ArtificialModularIntelligence
+# Python 3.11
+uv sync   # or: pip install -e .  (GUI/audio deps are heavy)
 
-### 🔮 ML Models at work
-- Hot Word / Wake word detection (local): [openWakeWord](https://github.com/dscripka/openWakeWord)
-- Voice Activity Detector & STT (local): [silero-vad](https://github.com/snakers4/silero-vad)
-- LLM Inference: XAI or Anthropic or OpenAI
+# Headless unit tests
+PYTHONPATH=. pytest tests/unit -q
 
-
-### 💻 AMI Directory Structure
-
-This is the directory structure AMI has controlled access to via the AI and Headspace modules:
-
-```
-ArtificiakModularIntelligence/
- ├── filespace/ (name define in config.yaml)
- │    ├── headspaces/
- │    │    ├── calendar
- │    │    │    ├── config.yaml (local config copied from Hedaspace default_config.yaml)
- │    │    │    └── calendar.json
- │    │    ├── markdown/
- │    │    │    ├── config.yaml (local config copied from Hedaspace default_config.yaml)
- │    │    │    ├── techno_optimist.md
- │    │    │    └── effective_accelerationism.md
- │    │    └── rag (work in progress)
- │    │         ├── documents/
- │    │         └── vectorstores/
- │    ├── logs/
- │    ├── resources/
- │    │    ├── img_dump/ (used to store qr codes currently)
- │    │    └── models/ (contains model files for OpenWakeWord and futrue STT models)
- │    └── config.yaml (copied from root default_config.yaml)
- └── /ami
+# Full appliance (needs display + mic for real use)
+make dev
+# optional process subset:
+make dev ARGS='--ai --gui'
+make idev ARGS='--ai --debug'   # interactive
 ```
 
-### 🧭 Roadmap
-- [x] Config editor
-- Self updating functionality
-- [x] Sync calendar with user google/apple calendar
-- Finacial Assisstant Headspace
-- Conversational Headspace. Allow for a Headspace to get to know the user through conversation. Answer question about the device.
-- Researcher Headspace (Perplexity style search, Perplexity level subject matter research document, RAG agent)
-- GitHub Wiki entry tracking add-on modules
-- Discord or Telegram Headspace
+Entry points:
 
-### ✨ Inspired by
-- The entire e/acc community
-- MagicMirror2
-- Obsidian paradigm: File > App
+- `python -m ami.main` — full three-process run (AI + Flask + GUI)
+- `python -m ami.dev` — dev runner with `--ai/--gui/--server/--debug`
+- `python -m ami.cli …` — operator CLI (plugin enable list, doctor, run)
 
-### 🧩 Build your own Headspace
-See ami.ai.headspace directory to understand how the GUI, Blueprint, and Headspace tie into the Headspace Module
+## Operator CLI (Python)
 
-### Developer Notes
-- Possible switch from Tkinter to PyQt6
-- Better JSON infrastructure for calendar
-- Utils and Time need to be rolled into `builtin`
-- Local inference for STT needed
-- Build Finacial Headspace
-- Build Media Headspace
+```bash
+python -m ami.cli doctor
+python -m ami.cli plugin list
+python -m ami.cli plugin enable neighbors
+python -m ami.cli plugin disable media
+python -m ami.cli run
+```
+
+Config SoR: `~/.ami/ami_config.yaml` → `enabled_headspaces: [ … ]`  
+Data: `~/.ami/data/<headspace>/` · Plugins: `~/.ami/plugins/` · Receipts: `~/.ami/conversations/`
+
+### C binary CLI (`make cli`)
+
+Optional fast launcher under `cli/`. Prefer `python -m ami.cli` for plugin config (matches YAML list).  
+`ami update` / `gethead` exist but are **thin sketches** (no release rollback yet — see `docs/APPLIANCE_SPINE.md`).
+
+## Third-party headspaces
+
+1. Place a git checkout under `~/.ami/plugins/<name>` (or `ami gethead user/repo` clone helper).
+2. Repo must be a package with `__init__.py` exporting `Headspace` (and optional `GUI`/`Blueprint`), `EXAMPLES`, and a **git tag** (registry uses latest tag as version).
+3. `python -m ami.cli plugin enable <name>` then restart AMI.
+
+## Layout
+
+```text
+~/.ami/
+  ami_config.yaml
+  plugins/                 # third-party headspaces
+  data/<headspace>/        # filespace + skills/
+  conversations/           # turn receipts
+ami/
+  builtin/                 # corespace, markdown, neighbors, …
+  builtin/old/             # attic — not loaded
+  headspace/               # Primitive, hub, skills
+  ai/                      # Brain, Listener, speak
+  cli.py                   # operator CLI
+```
+
+## Roadmap (active)
+
+See **`docs/APPLIANCE_SPINE.md`**: hygiene → plugin/release lifecycle with rollback → cheaper agent path → Pi appliance hardening.
+
+## Inspired by
+
+e/acc community · MagicMirror2 · Obsidian (files > app)

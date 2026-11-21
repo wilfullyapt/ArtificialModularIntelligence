@@ -1,35 +1,35 @@
-*IPC related events and states and described here*
+*IPC related events and states*
 
 # Overview
 
-## Major Components
+## Major components
 
-### The Big Three:
-- The AI subprocess
-- The FastAPI Backend subprocess
-- The main process GUI
+- **AI** subprocess — listener + brain + headspaces  
+- **Flask** backend subprocess — blueprints / LAN helpers  
+- **GUI** main process — PyQt glass  
 
-These elements share common components as far as IPC and should be though of similarly when working with these IPC components
+`IPCManager` is constructed in the parent and passed into children; multiprocessing primitives (queues, shared state) are what actually cross the process boundary.
 
-### IPCManager
-- The IPCManager in the `./manager.py` file
-- Must be instanced before the Big Three and passed to each sub process
+## What is live vs sketch
 
-**Note**: the instance of the IPCManager is not shared to the other process, rather a proxy object, yet the members and components of the IPCManager are shared between process. This is the workaround.
+| Mechanism | Status |
+|-----------|--------|
+| Per-process **event queues** + `@on_event` handlers | **Live** — hotword, transcription, response, reload GUI, stop |
+| `EventType` + `StateType` enums | **Live** for events; state machine only partly drives behavior |
+| `EventPriority` on event types | **Defined but unused** — queues are plain FIFO; do not build priority scheduling on this yet |
+| `command_queues` (RPC request/response) | **Scaffold only** — almost no production callers; prefer events until RPC is real |
+| Config/plugin filesystem watchers | **Partial** — watcher exists; AI hot-reload handlers often TODO |
 
-### BaseProcess
-- See `./base.py:BaseProcess`
+## Architecture (intended)
 
-This should be the parent class for the Big Three. The idea is to create a standard subprocessing class containing all the infrastructure necessary for IPC setup and looping. Between the the IPCManager being passed to the BaseProcess for management, all specfics coming from one of the Big Three should be contained to the `setup` and `loop` methods of the **BaseProcess**.
+### Pub/Sub (event queue) — primary
 
-## Architecture
+- One-to-many notifications  
+- Used for interaction and UI  
 
-### Remote Procedure Call (RPC) (Command Queue)
-- One-to-one communication
-- Expects a response
-- Used for function calls between processes
+### RPC (command queue) — future
 
-### Pub/Sub (Event Queue)
-- One-to-many communication
-- No response expected
-- Used for state changes and notifications
+- One-to-one, expects response  
+- Not required for current voice turn path  
+
+When adding IPC features, extend **events** first unless you need a typed request/response.

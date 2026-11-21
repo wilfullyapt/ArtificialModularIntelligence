@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Dict, List, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Protocol
 
 if TYPE_CHECKING:
     from ..core.interaction import TurnReceipt
@@ -38,7 +38,8 @@ class PeerResult:
 
     def as_tool_string(self) -> str:
         status = "ok" if self.ok else "error"
-        base = f"[{self.kind}→{self.target} {status}] {self.observation}"
+        arrow = f"{self.kind}→{self.target}"
+        base = f"[{arrow} {status}] {self.observation}"
         if self.steps:
             base += f" | steps={self.steps}"
         if self.span_ids:
@@ -126,16 +127,34 @@ class DelegationHub:
             return "No peer headspaces registered."
         return "Peer headspaces:\n" + "\n".join(lines)
 
-    def _begin_peer_span(self, *, kind: str, target: str, prompt: str) -> Optional[str]:
+    def _begin_peer_span(
+        self,
+        *,
+        kind: str,
+        target: str,
+        prompt: str,
+        name: str = "",
+    ) -> Optional[str]:
         if self._turn is None:
             return None
         from ..core.interaction import SpanKind
 
-        span_kind = SpanKind.ASK if kind == "ask" else SpanKind.DO
+        if kind == "ask":
+            span_kind = SpanKind.ASK
+            span_name = name or "ask_headspace"
+        elif kind == "do":
+            span_kind = SpanKind.DO
+            span_name = name or "do_headspace"
+        elif kind == "tool":
+            span_kind = SpanKind.TOOL
+            span_name = name or "call_tool"
+        else:
+            span_kind = SpanKind.DO
+            span_name = name or kind
         return self._turn.begin_span(
             kind=span_kind,
             headspace=target,
-            name=f"{kind}_headspace",
+            name=span_name,
             input_summary=prompt,
             parent_span_id=self._current_parent_span_id,
         )
@@ -288,6 +307,198 @@ class DelegationHub:
     def do(self, target: str, task: str, *, from_headspace: str = "") -> PeerResult:
         """Action hop — target may mutate via tools."""
         return self._dispatch(target, task, kind="do", from_headspace=from_headspace)
+
+    # Peer meta-tools that must not be invoked via direct RPC (re-entrancy).
+    META_TOOL_NAMES = frozenset(
+        {
+            "ask_headspace",
+            "do_headspace",
+            "delegate_to_headspace",
+            "call_headspace_tool",
+            "list_headspace_tools",
+            "list_peer_headspaces",
+        }
+    )
+
+    def list_tools(self, target: str, *, exclude_meta: bool = True) -> PeerResult:
+        """List tool names on a registered headspace (no agent loop)."""
+        key = target.strip().lower()
+        if key not in self._registry:
+            known = ", ".join(self.names()) or "(none)"
+            msg = f"Unknown headspace '{target}'. Known: {known}"
+            return PeerResult(ok=False, observation=msg, target=target, kind="tool", error=msg)
+        hs = self._registry[key]
+        tools = getattr(hs, "tools", None) or []
+        names = []
+        try:
+            for t in tools:
+                name = getattr(t, "name", None) or str(t)
+                if exclude_meta and name in self.META_TOOL_NAMES:
+                    continue
+                # also skip skill meta
+                if exclude_meta and name in ("list_skills", "promote_skill_draft"):
+                    continue
+                names.append(name)
+        except Exception as exc:
+            msg = f"Failed listing tools: {exc}"
+            return PeerResult(ok=False, observation=msg, target=key, kind="tool", error=msg)
+        obs = f"tools for {key}: " + (", ".join(names) if names else "(none)")
+        return PeerResult(ok=True, observation=obs, target=key, kind="tool", steps=0)
+
+    def call_tool(
+        self,
+        target: str,
+        tool_name: str,
+        args: Any = None,
+        *,
+        from_headspace: str = "",
+    ) -> PeerResult:
+        """
+        Direct tool RPC — invoke a peer @ami_tool without a nested agent loop.
+
+        args: dict or JSON object string.
+        """
+        import json
+        from typing import Any as _Any  # local; module already has typing
+
+        key = target.strip().lower()
+        tname = (tool_name or "").strip()
+        span_ids: List[str] = []
+        input_summary = f"{tname}({args!r})"[:500]
+
+        if key not in self._registry:
+            known = ", ".join(self.names()) or "(none)"
+            msg = f"Unknown headspace '{target}'. Known: {known}"
+            span_id = self._begin_peer_span(
+                kind="tool", target=key or target, prompt=input_summary, name=tname or "call_tool"
+            )
+            if span_id:
+                span_ids.append(span_id)
+            self._end_peer_span(span_id, ok=False, observation=msg, error=msg)
+            return PeerResult(
+                ok=False, observation=msg, target=target, kind="tool", span_ids=span_ids, error=msg
+            )
+
+        if tname in self.META_TOOL_NAMES:
+            msg = f"Direct RPC refused for peer meta-tool '{tname}'. Use ask/do or domain tools."
+            span_id = self._begin_peer_span(
+                kind="tool", target=key, prompt=input_summary, name=tname
+            )
+            if span_id:
+                span_ids.append(span_id)
+            self._end_peer_span(span_id, ok=False, observation=msg, error=msg)
+            return PeerResult(
+                ok=False, observation=msg, target=key, kind="tool", span_ids=span_ids, error=msg
+            )
+
+        if self._steps_used >= self.max_steps:
+            msg = f"Shared step budget exhausted ({self.max_steps})."
+            span_id = self._begin_peer_span(
+                kind="tool", target=key, prompt=input_summary, name=tname
+            )
+            if span_id:
+                span_ids.append(span_id)
+            self._end_peer_span(span_id, ok=False, observation=msg, error=msg)
+            return PeerResult(
+                ok=False, observation=msg, target=key, kind="tool", span_ids=span_ids, error=msg
+            )
+
+        # Parse args
+        parsed: Dict = {}
+        if args is None or args == "":
+            parsed = {}
+        elif isinstance(args, dict):
+            parsed = args
+        elif isinstance(args, str):
+            try:
+                loaded = json.loads(args)
+                if not isinstance(loaded, dict):
+                    raise ValueError("args JSON must be an object")
+                parsed = loaded
+            except (json.JSONDecodeError, ValueError) as exc:
+                msg = f"Invalid args JSON: {exc}"
+                span_id = self._begin_peer_span(
+                    kind="tool", target=key, prompt=input_summary, name=tname
+                )
+                if span_id:
+                    span_ids.append(span_id)
+                self._end_peer_span(span_id, ok=False, observation=msg, error=msg)
+                return PeerResult(
+                    ok=False, observation=msg, target=key, kind="tool", span_ids=span_ids, error=msg
+                )
+        else:
+            msg = f"args must be dict or JSON string, got {type(args).__name__}"
+            return PeerResult(ok=False, observation=msg, target=key, kind="tool", error=msg)
+
+        hs = self._registry[key]
+        tools = getattr(hs, "tools", None) or []
+        tool = None
+        try:
+            tool = next((t for t in tools if getattr(t, "name", None) == tname), None)
+        except Exception:
+            tool = None
+        if tool is None:
+            available = []
+            try:
+                available = [
+                    t.name
+                    for t in tools
+                    if getattr(t, "name", None) and t.name not in self.META_TOOL_NAMES
+                ]
+            except Exception:
+                pass
+            msg = f"Tool '{tname}' not found on '{key}'. Available: {', '.join(available) or '(none)'}"
+            span_id = self._begin_peer_span(
+                kind="tool", target=key, prompt=input_summary, name=tname or "missing"
+            )
+            if span_id:
+                span_ids.append(span_id)
+            self._end_peer_span(span_id, ok=False, observation=msg, error=msg)
+            return PeerResult(
+                ok=False, observation=msg, target=key, kind="tool", span_ids=span_ids, error=msg
+            )
+
+        span_id = self._begin_peer_span(
+            kind="tool", target=key, prompt=input_summary, name=tname
+        )
+        if span_id:
+            span_ids.append(span_id)
+
+        self._steps_used += 1
+        prev_parent = self._current_parent_span_id
+        if span_id:
+            self._current_parent_span_id = span_id
+        try:
+            method = tool.method
+            raw = method(**parsed) if parsed else method()
+            # HeadspaceInstruction → observation string
+            if hasattr(raw, "observation"):
+                obs = str(getattr(raw, "observation"))
+            else:
+                obs = str(raw)
+            self._end_peer_span(span_id, ok=True, observation=obs)
+            return PeerResult(
+                ok=True,
+                observation=obs,
+                target=key,
+                kind="tool",
+                span_ids=span_ids,
+                steps=1,
+            )
+        except TypeError as exc:
+            msg = f"Tool arg error: {exc}"
+            self._end_peer_span(span_id, ok=False, observation=msg, error=msg)
+            return PeerResult(
+                ok=False, observation=msg, target=key, kind="tool", span_ids=span_ids, error=msg
+            )
+        except Exception as exc:
+            msg = f"{type(exc).__name__}: {exc}"
+            self._end_peer_span(span_id, ok=False, observation=msg, error=msg)
+            return PeerResult(
+                ok=False, observation=msg, target=key, kind="tool", span_ids=span_ids, error=msg
+            )
+        finally:
+            self._current_parent_span_id = prev_parent
 
     def delegate(self, target: str, prompt: str, *, from_headspace: str = "") -> str:
         """

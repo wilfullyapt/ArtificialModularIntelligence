@@ -10,12 +10,12 @@ Primitive          — name, filespace, settings, skills_dir
 
 Brain
   1. start TurnReceipt (session + human text)
-  2. prepare_hub(turn) → every headspace can list_peer + ask/do
+  2. prepare_hub(turn) → peers: list / ask / do / call_tool
   3. select_entry_headspace (corespace prefer / auto router)
   4. headspace.query(prompt)  # tools + matched skills + peers
   5. summarize(steps) via personality
   6. finish+persist turn JSON; log route_summary
-  7. if ask/do/skill hops → draft skill under entry filespace/skills/drafts/
+  7. if ask/do/skill/tool hops → draft skill under entry skills/drafts/
 ```
 
 ## Tools vs skills
@@ -28,34 +28,29 @@ Brain
 
 Builtin defaults ship in `ami/builtin/<hs>/skills/` and **copy once** into filespace (never overwrite user edits).
 
-## Base Headspace tools
+## Base Headspace peer surface
 
-Peers:
+| Tool | Cost | Use when |
+|---|---|---|
+| `list_peer_headspaces` | free | discover peers |
+| `list_headspace_tools` | free | discover domain tools |
+| `call_headspace_tool(hs, tool, args_json)` | **1 step, no nested agent** | known tool + args |
+| `ask_headspace` | full peer agent | open info questions |
+| `do_headspace` | full peer agent | peer must multi-step reason |
+| `delegate_to_headspace` | alias of do | legacy |
 
-- `list_peer_headspaces`
-- `ask_headspace` / `do_headspace` / `delegate_to_headspace` (alias)
+Skills: `list_skills`, `promote_skill_draft` (never auto-promote).
 
-Skills:
+Direct RPC refuses peer meta-tools (ask/do/call/…) to stop re-entrancy.
 
-- `list_skills`
-- `promote_skill_draft` (human confirm — never auto-promote)
+## Receipts
 
-## Delegation + receipts (P0/P1)
-
-`DelegationHub` ask/do + `TurnReceipt` spans under conversations/. See prior notes.
+`TurnReceipt` under `~/.ami/conversations/<session>/turns/`.  
+Route example: `corespace → tool:markdown.ping → speak`
 
 ## Skills (P2)
 
-```text
-~/.ami/data/<headspace>/skills/
-  grocery-list-house.md     # active
-  drafts/
-    from-turn-abc.md        # draft only until promote
-```
-
-Frontmatter: `id`, `version`, `triggers`, `tools`, `status` (active|draft|retired), `source`.
-
-`Headspace.query` injects matching active skills into the prompt and records `skill` spans on the turn.
+`filespace/skills/*.md` + `drafts/`. Trigger match injects into query.
 
 ## Config
 
@@ -66,9 +61,9 @@ routing:
   max_steps: 24
 ```
 
-## Not yet (P3+)
+## Not yet
 
-- Direct tool RPC (`call_headspace_tool`) without nested agent
 - GUI tree view of turn receipts / skill browser
 - Failure-linked pitfall auto-append
 - Streaming partial peer observations to the glass
+- Native provider tool-calling (still JSON-TAO agent)

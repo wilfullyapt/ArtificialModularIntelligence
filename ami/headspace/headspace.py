@@ -326,6 +326,30 @@ class Headspace(Primitive):
         return result.as_tool_string()
 
     @ami_tool
+    def list_headspace_tools(self, headspace_name: str) -> str:
+        """List domain tools on another headspace (direct, no agent loop)."""
+        if self._hub is None:
+            return "Delegation hub not attached; cannot list peer tools."
+        return self._hub.list_tools(headspace_name).as_tool_string()
+
+    @ami_tool
+    def call_headspace_tool(self, headspace_name: str, tool_name: str, args_json: str = "{}") -> str:
+        """
+        Call one tool on another headspace directly (no nested agent).
+        args_json must be a JSON object string, e.g. {"msg": "hi"}.
+        Prefer this for known tool names; use ask/do when judgment is needed.
+        """
+        if self._hub is None:
+            return "Delegation hub not attached; cannot call peer tools."
+        result = self._hub.call_tool(
+            headspace_name,
+            tool_name,
+            args_json,
+            from_headspace=self.name,
+        )
+        return result.as_tool_string()
+
+    @ami_tool
     def delegate_to_headspace(self, headspace_name: str, task: str) -> str:
         """
         Legacy alias for do_headspace (bounded depth). Prefer do_headspace or ask_headspace.

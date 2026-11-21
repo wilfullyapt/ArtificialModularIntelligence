@@ -23,8 +23,10 @@
 
 ## Phase C — Cognition cost
 
-- Native tool-calling adapters; TAO fallback
-- Enforce call_tool-first peer path
+- [x] Native tool-calling agent (`NativeToolAgent`) via `chat_with_tools` on Ollama/xAI
+- [x] Factory `llm.agent: auto|native|tao` (default auto)
+- [x] TAO fallback + call_tool-first peer guidance in system prompts/skills
+- [x] Fixed TAO `custom_tool_call` wiring; removed debug `print(steps)`
 
 ## Phase D — Pi appliance
 

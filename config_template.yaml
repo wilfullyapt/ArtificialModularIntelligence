@@ -32,6 +32,8 @@ llm:
   backend: ollama
   model: llama3.2:1b
   ollama_base_url: http://127.0.0.1:11434/v1
+  # agent: auto | native | tao  (auto = native tools if client supports chat_with_tools)
+  agent: auto
 
 # --- Speech-to-text ---
 # backend: local (faster-whisper) | google (legacy cloud)

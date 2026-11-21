@@ -53,15 +53,28 @@ class XAIClient(LLMClient, LogBase):
             **kwargs,
         )
 
-    def tool_call(self, prompt: str, tools):
-        messages = [{"role": "user", "content": "system_prompt"}, {"role": "user", "content": prompt}]
-        tools_definition = [(tool.name, tool.description, tool.arg_schema) for tool in tools]
-        return self.client.chat.completions.create(
+    def chat_with_tools(self, messages: List[Dict], tools: List[Dict], **kwargs) -> Dict:
+        """Native OpenAI-compatible tool calling."""
+        resp = self.client.chat.completions.create(
             model=self.model,
             messages=messages,
-            tools=tools_definition,
-            tool_choice="auto",
+            tools=tools or None,
+            tool_choice="auto" if tools else None,
+            temperature=kwargs.get("temperature", 0.0),
+            max_completion_tokens=kwargs.get("max_tokens", 800),
         )
+        msg = resp.choices[0].message
+        tool_calls = []
+        for tc in getattr(msg, "tool_calls", None) or []:
+            fn = getattr(tc, "function", None)
+            tool_calls.append(
+                {
+                    "id": getattr(tc, "id", "") or "",
+                    "name": getattr(fn, "name", "") if fn else "",
+                    "arguments": getattr(fn, "arguments", "{}") if fn else "{}",
+                }
+            )
+        return {"content": getattr(msg, "content", None), "tool_calls": tool_calls}
 
     def custom_tool_call(self, messages: List[Dict[str, str]], stop="obervation"):
         return self.get_completion(messages, temperature=0.0, max_tokens=350).choices[0].message.content.strip()
@@ -112,14 +125,23 @@ class OllamaClient(LLMClient, LogBase):
         self.api_key = api_key
         self.timeout_sec = timeout_sec
 
-    def _chat(self, messages: List[Dict[str, str]], temperature: float, max_tokens: int) -> str:
+    def _chat(
+        self,
+        messages: List[Dict[str, str]],
+        temperature: float,
+        max_tokens: int,
+        tools: Optional[List[Dict]] = None,
+    ) -> Dict:
         url = f"{self.base_url}/chat/completions"
-        body = {
+        body: Dict = {
             "model": self.model,
             "messages": messages,
             "temperature": temperature,
             "max_tokens": max_tokens,
         }
+        if tools:
+            body["tools"] = tools
+            body["tool_choice"] = "auto"
         data = json.dumps(body).encode("utf-8")
         req = urllib.request.Request(
             url,
@@ -139,16 +161,41 @@ class OllamaClient(LLMClient, LogBase):
                 "Start ollama or set llm.backend to xai/anthropic."
             ) from exc
         try:
-            return payload["choices"][0]["message"]["content"].strip()
+            message = payload["choices"][0]["message"]
         except (KeyError, IndexError, TypeError) as exc:
             raise RuntimeError(f"Unexpected Ollama response shape: {payload!r}") from exc
+        return message
+
+    def chat_with_tools(self, messages: List[Dict], tools: List[Dict], **kwargs) -> Dict:
+        message = self._chat(
+            messages,
+            temperature=float(kwargs.get("temperature", 0.0)),
+            max_tokens=int(kwargs.get("max_tokens", 800)),
+            tools=tools or None,
+        )
+        tool_calls = []
+        for tc in message.get("tool_calls") or []:
+            fn = tc.get("function") or {}
+            tool_calls.append(
+                {
+                    "id": tc.get("id") or "",
+                    "name": fn.get("name") or "",
+                    "arguments": fn.get("arguments") or "{}",
+                }
+            )
+        content = message.get("content")
+        if content is not None:
+            content = str(content).strip() or None
+        return {"content": content, "tool_calls": tool_calls}
 
     def generate_response(self, prompt: str, temperature: float = 0.7, max_tokens: int = 100, **kwargs) -> str:
         messages = [{"role": "user", "content": prompt}]
-        return self._chat(messages, temperature=temperature, max_tokens=max_tokens)
+        message = self._chat(messages, temperature=temperature, max_tokens=max_tokens)
+        return (message.get("content") or "").strip()
 
     def custom_tool_call(self, messages: List[Dict[str, str]], stop="obervation"):
-        return self._chat(messages, temperature=0.0, max_tokens=350)
+        message = self._chat(messages, temperature=0.0, max_tokens=350)
+        return (message.get("content") or "").strip()
 
 
 def _load_dotenv_if_present() -> None:
@@ -256,6 +303,19 @@ class LLMProvider(LogBase):
         return ReActAgent(self.client, headspace_name)
 
     def as_funccalling_toa_agent(self, headspace_name: str):
+        """Prefer native tool-calling when client supports it; else TAO text loop."""
         from .agents import FunctionCallingThoughActionObservation
+        from .native_agent import NativeToolAgent, client_supports_native_tools
 
+        cfg = Config().get("llm", {}) or {}
+        mode = str(cfg.get("agent") or os.environ.get("AMI_LLM_AGENT") or "auto").strip().lower()
+
+        if mode in ("tao", "text", "json"):
+            return FunctionCallingThoughActionObservation(self.client, headspace_name)
+        if mode in ("native", "tools") or (
+            mode in ("auto", "") and client_supports_native_tools(self.client)
+        ):
+            if client_supports_native_tools(self.client):
+                self.logs.debug(f"Using NativeToolAgent for {headspace_name}")
+                return NativeToolAgent(self.client, headspace_name)
         return FunctionCallingThoughActionObservation(self.client, headspace_name)

@@ -9,49 +9,44 @@ from ..core import LogBase, Config
 from ..headspace import HeadspaceInstruction
 
 FUNCTION_CALLING_TAO_AGENT_SYSTEM_PROMPT = """
-You are an AI tool calling agent. You run in a cognitive loop to accomplish tasks at the user's behest.
-You are designed to think about how to fullfil the human request, make python function calls, observe the result of the function, and decide when the request is fullfilled.
-You should first think about the tasks at hand and the sequence of tools to complete the objective.
+You are an AI tool calling agent for an AMI headspace. You run a Thought/Action/Observation loop.
 
-## You have access to the following tool:
+## Peer path preference (cheapest first)
+1. Use this headspace's domain tools when they fit.
+2. Prefer list_headspace_tools + call_headspace_tool for known peer tools (no nested agent).
+3. Use ask_headspace only for open info questions.
+4. Use do_headspace only when the peer must multi-step reason with its own tools.
+Do not use delegate_to_headspace unless call/ask/do are unavailable.
+
+## Tools
 {tools}
 
 ## Output Format
 
-To fullfil the Human's request, please use the following format:
-
 Human: Input request
-Thought: Use active listening to reiterate the Human's query in a way you can better understand the intentions of the Human and think about the steps to take to complete the Human's goal
+Thought: brief plan
 Action:
-```$JSON_BLOB
+```json
 {{
     "action": "tool_name",
     "args": {{
-        "arg_name": "arg_value",
-        "arg_name": "arg_value",
+        "arg_name": "arg_value"
     }}
 }}
 ```
 Observation: action result
 <repeat Thought/Action/Observation N times>
-Thought: It appears the task is complete
+Thought: task complete
 Action:
-```
+```json
 {{
-  "action": "TASK COMPLETE",
+  "action": "TASK COMPLETE"
 }}
+```
 
-## Tool Usage Instructions
-
-Use a json blob to specify a tool by providing the action ($TOOL_NAME) and the  ($INPUT).
-The only valid "action" values: {tool_names}
-Only use the "TASK COMPLETE" value for the action when you think the Human request has been fullfilled.
-You can only run one action at a time and observe what happens before taken a subsequent step. DO NOT TAKE TWO ACTIONS AT ONCE.
-
-
-Begin!
+Valid "action" values: {tool_names}
+Only one action per turn. Begin!
 """
-
 
 def remove_trailing_commas(json_str: str) -> str:
     """ Remove trailing commas from JSON strings before closing braces or brackets """
@@ -109,11 +104,10 @@ class FunctionCallingThoughActionObservation(LogBase):
 
     @cached_property
     def llm_call(self):
-        if hasattr(self.client, "custom_tool_call_"):
-#       if hasattr(self.client, "custom_tool_call"):            # This should be the line actually used for tool calling, not implemented yet
-            self.logs.debug("Tool calling agent using the 'custom_tool_call' function in the associated client")
+        if hasattr(self.client, "custom_tool_call") and callable(self.client.custom_tool_call):
+            self.logs.debug("Tool calling agent using custom_tool_call")
             return self.client.custom_tool_call
-        self.logs.debug("Tool calling agent using the 'generate_response' function in the associated client")
+        self.logs.debug("Tool calling agent using generate_response")
         return self.client.generate_response
 
     def _log_steps_to_file(self) -> None:
@@ -230,8 +224,6 @@ class FunctionCallingThoughActionObservation(LogBase):
         finally:
             self._log_steps_to_file()
 
-
-        print(self.steps)
         return HeadspaceInstruction.from_steps(self.steps, self.name)
 
 # Think and Plan Agent

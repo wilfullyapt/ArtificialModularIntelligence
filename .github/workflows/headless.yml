@@ -50,4 +50,5 @@ jobs:
             tests/unit/test_vibe_directions.py \
             tests/unit/test_cli_plugins.py \
             tests/unit/test_lifecycle.py \
+            tests/unit/test_native_agent.py \
             -v --tb=short

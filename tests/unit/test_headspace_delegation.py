@@ -40,6 +40,8 @@ def test_collect_tools_includes_inherited_primitive_tools():
     # Base Headspace delegation tools also present
     assert "list_peer_headspaces" in names
     assert "delegate_to_headspace" in names
+    assert "ask_headspace" in names
+    assert "do_headspace" in names
 
 
 def test_tools_property_builds_headspace_tools():

@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Any, Tuple, Optional
+import uuid
 from functools import cached_property
+from typing import Any, Dict, List, Optional, Tuple
 
-from ..core import LogBase, Config, PluginRegistry, PluginVertical
+from ..core import Config, LogBase, PluginRegistry, PluginVertical
+from ..core.interaction import InteractionStore, TurnReceipt
 from ..headspace import Headspace, HeadspaceInstruction
 from ..headspace.hub import DelegationHub
 from ..llm import LLMProvider
@@ -52,7 +54,8 @@ COSPACE_ENTRY_PREAMBLE = """
 [AMI routing]
 You are **corespace**, the preferred entry headspace.
 - Answer directly when the task is core (time, reminders, updates, general explain).
-- When another domain fits better, call list_peer_headspaces then delegate_to_headspace.
+- When another domain fits better, call list_peer_headspaces then ask_headspace (info) or do_headspace (actions).
+- Prefer ask_headspace for lookup/status; do_headspace for mutations.
 - Delegation is bounded; do not loop endlessly.
 - Your observations will be re-spoken to the human in the household personality voice.
 """
@@ -66,13 +69,13 @@ class AgentNotFound(Exception):
 
 class Brain(LogBase):
     """
-    Language router + headspace runner.
+    Language router + headspace runner with turn receipts.
 
-    Flow (improved):
-      1. Build DelegationHub; register all headspaces; reset depth.
+    Flow:
+      1. Start TurnReceipt; prepare hub; bind turn for span logging.
       2. Pick entry: routing.entry=corespace (default prefer) or auto LLM router.
-      3. Headspace.query with inherited tools + delegate_to_headspace.
-      4. summarize() through personality (corespace-owned voice to the human).
+      3. Headspace.query with inherited tools + ask/do peers.
+      4. summarize() through personality; finish+persist turn receipt.
     """
 
     def __init__(self, ipc_manager: "IPCManager"):
@@ -80,6 +83,9 @@ class Brain(LogBase):
         self.registry = PluginRegistry(ipc_manager)
         self._headspace_cache: Dict[str, Headspace] = {}
         self.hub = DelegationHub(max_depth=3, entry_headspace="corespace")
+        self._session_id = uuid.uuid4().hex[:12]
+        self._interaction_store = InteractionStore()
+        self.last_turn: Optional[TurnReceipt] = None
 
     def __contains__(self, value: str):
         return value.upper() in [n.upper() for n in self.available_headspaces]
@@ -133,10 +139,20 @@ class Brain(LogBase):
         except (TypeError, ValueError):
             return 3
 
-    def prepare_hub(self) -> DelegationHub:
+    def _max_steps(self) -> int:
+        cfg = Config().get("routing", {}) or {}
+        try:
+            return max(1, int(cfg.get("max_steps", 24)))
+        except (TypeError, ValueError):
+            return 24
+
+    def prepare_hub(self, turn: Optional[TurnReceipt] = None) -> DelegationHub:
         """Register every loaded headspace on the hub and bind hub to each instance."""
         self.hub.max_depth = self._max_delegate_depth()
+        self.hub.max_steps = self._max_steps()
         self.hub.reset_turn()
+        if turn is not None:
+            self.hub.bind_turn(turn)
         for name in self.available_headspaces:
             try:
                 hs = self[name]
@@ -194,8 +210,6 @@ class Brain(LogBase):
             self.logs.debug("Routing entry=corespace_first")
             return self["corespace"]
         if mode in ("corespace_prefer", "prefer_corespace", "") and has_core:
-            # Still allow auto for very domain-specific prompts? Prefer corespace always
-            # for entry; corespace delegates. User asked corespace as entry preference.
             self.logs.debug("Routing entry=corespace_prefer → corespace")
             return self["corespace"]
         return self.headspace_router(query)
@@ -224,14 +238,38 @@ class Brain(LogBase):
             self.logs.error(err_msg)
             raise ValueError(err_msg)
 
-        self.prepare_hub()
+        turn = self._interaction_store.start_turn(
+            session_id=self._session_id,
+            human_text=str(convo)[:2000],
+            entry_headspace="corespace",
+        )
+        self.prepare_hub(turn=turn)
         headspace = self.select_entry_headspace(str(convo))
-        self.logs.debug(f"Entry headspace '{headspace}' depth_max={self.hub.max_depth}")
+        if turn.spans and headspace.name != turn.entry_headspace:
+            turn.entry_headspace = headspace.name
+            turn.spans[0].headspace = headspace.name
+
+        self.logs.debug(
+            f"Entry headspace '{headspace}' depth_max={self.hub.max_depth} turn={turn.turn_id}"
+        )
 
         prompt = str(convo)
         if headspace.name == "corespace":
             prompt = f"{COSPACE_ENTRY_PREAMBLE}\n\nHuman request:\n{convo}"
 
-        headspace_result = headspace.query(prompt)
-        spoken = self.summarize(headspace_result.steps)
+        try:
+            headspace_result = headspace.query(prompt)
+            spoken = self.summarize(headspace_result.steps)
+        except Exception as exc:
+            self.logs.error(f"Brain.query failed: {exc}")
+            turn.finish(final_text=f"Error: {exc}")
+            path = self._interaction_store.save_turn(turn)
+            self.last_turn = turn
+            self.logs.info(f"Turn receipt (error) route={turn.route_summary} path={path}")
+            raise
+
+        turn.finish(final_text=spoken)
+        path = self._interaction_store.save_turn(turn)
+        self.last_turn = turn
+        self.logs.info(f"Turn receipt route={turn.route_summary} path={path}")
         return headspace_result, spoken

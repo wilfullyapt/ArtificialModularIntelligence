@@ -218,20 +218,41 @@ class Headspace(Primitive):
     def append_visual(self, img_path: Path):
         print(f"Image appended to Headspace returning: {img_path}")
 
-    # --- Primitive delegation tools (available on every headspace when hub bound) ---
+    # --- Peer tools (available on every headspace when hub bound) ---
 
     @ami_tool
     def list_peer_headspaces(self) -> str:
-        """List other headspaces and their tools so you can delegate domain work."""
+        """List other headspaces and their tools so you can ask or do domain work."""
         if self._hub is None:
             return "Delegation hub not attached; cannot list peers."
         return self._hub.describe_menu(exclude=self.name)
 
     @ami_tool
+    def ask_headspace(self, headspace_name: str, question: str) -> str:
+        """
+        Ask another headspace for information (prefer no side effects).
+        Use for status, lookup, explain — not mutations.
+        """
+        if self._hub is None:
+            return "Delegation hub not attached; cannot ask peers."
+        result = self._hub.ask(headspace_name, question, from_headspace=self.name)
+        return result.as_tool_string()
+
+    @ami_tool
+    def do_headspace(self, headspace_name: str, task: str) -> str:
+        """
+        Ask another headspace to perform a task (may use tools / mutate state).
+        Prefer when the work clearly belongs to that domain plugin.
+        """
+        if self._hub is None:
+            return "Delegation hub not attached; cannot do peer work."
+        result = self._hub.do(headspace_name, task, from_headspace=self.name)
+        return result.as_tool_string()
+
+    @ami_tool
     def delegate_to_headspace(self, headspace_name: str, task: str) -> str:
         """
-        Delegate a sub-task to another headspace (bounded depth).
-        Use when the user need clearly belongs to another domain plugin.
+        Legacy alias for do_headspace (bounded depth). Prefer do_headspace or ask_headspace.
         """
         if self._hub is None:
             return "Delegation hub not attached; cannot delegate."
@@ -241,6 +262,6 @@ class Headspace(Primitive):
             return f"Delegation failed: {exc}"
 
     def query(self, prompt: str) -> HeadspaceInstruction:
-        """Process a user query with this headspace's tool set (incl. inherited + delegate)."""
+        """Process a user query with this headspace's tool set (incl. inherited + peers)."""
         agent = LLMProvider.from_environment().as_funccalling_toa_agent(self.name)
         return agent.run(prompt, self.tools)

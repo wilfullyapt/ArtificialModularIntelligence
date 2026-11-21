@@ -8,6 +8,8 @@ wheels/
 
 # Virtual environments
 .venv
+.venv-test
+.pytest_cache
 
 .git
 cli/ami

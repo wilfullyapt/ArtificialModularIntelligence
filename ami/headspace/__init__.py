@@ -7,7 +7,7 @@ from typing import Any
 from .base import Primitive
 from .headspace_instructions import HeadspaceInstruction, InstructionType
 from .headspace import Headspace, ami_tool, generate_qr_image, collect_tool_methods
-from .hub import DelegationHub
+from .hub import DelegationHub, PeerResult
 from .settings import BaseWidgetSettings
 
 __all__ = [
@@ -19,6 +19,7 @@ __all__ = [
     "generate_qr_image",
     "collect_tool_methods",
     "DelegationHub",
+    "PeerResult",
     "BaseWidget",
     "BaseWidgetSettings",
     "Blueprint",

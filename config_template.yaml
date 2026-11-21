@@ -62,3 +62,4 @@ routing:
   # corespace_prefer | corespace_first | auto
   entry: corespace_prefer
   max_delegate_depth: 3
+  max_steps: 24

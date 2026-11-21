@@ -44,6 +44,14 @@ class Primitive(LogBase):
         return filespace
 
     @cached_property
+    def skills_dir(self) -> Path:
+        """Durable skills home: ~/.ami/data/<headspace>/skills/ (+ drafts/)."""
+        d = self.filespace / "skills"
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "drafts").mkdir(parents=True, exist_ok=True)
+        return d
+
+    @cached_property
     def class_name(self) -> str:
         return self.__class__.__name__.lower()
 

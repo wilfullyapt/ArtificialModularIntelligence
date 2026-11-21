@@ -8,6 +8,7 @@ from .base import Primitive
 from .headspace_instructions import HeadspaceInstruction, InstructionType
 from .headspace import Headspace, ami_tool, generate_qr_image, collect_tool_methods
 from .hub import DelegationHub, PeerResult
+from .skills import Skill, SkillStore, parse_skill_markdown, match_skills
 from .settings import BaseWidgetSettings
 
 __all__ = [
@@ -20,6 +21,10 @@ __all__ = [
     "collect_tool_methods",
     "DelegationHub",
     "PeerResult",
+    "Skill",
+    "SkillStore",
+    "parse_skill_markdown",
+    "match_skills",
     "BaseWidget",
     "BaseWidgetSettings",
     "Blueprint",

@@ -17,9 +17,11 @@ from ..llm import LLMProvider
 
 from .base import Primitive
 from .headspace_instructions import HeadspaceInstruction
+from .skills import SkillStore, draft_skill_markdown, seed_default_skills
 
 if TYPE_CHECKING:
     from .hub import DelegationHub
+    from ..core.interaction import TurnReceipt
 
 
 def ami_tool(func):
@@ -218,6 +220,80 @@ class Headspace(Primitive):
     def append_visual(self, img_path: Path):
         print(f"Image appended to Headspace returning: {img_path}")
 
+    # --- Skills (filespace/skills) ---
+
+    def skill_store(self) -> SkillStore:
+        """SkillStore rooted at this headspace filespace/skills (seeds builtins once)."""
+        store = SkillStore(self.skills_dir)
+        # Builtin defaults shipped beside the plugin package: <plugin>/skills/*.md
+        try:
+            plugin_dir = Path(__import__(self.__class__.__module__, fromlist=["*"]).__file__).resolve().parent
+        except Exception:
+            plugin_dir = None
+        if plugin_dir is not None:
+            defaults = plugin_dir / "skills"
+            if defaults.is_dir():
+                seed_default_skills(defaults, self.skills_dir)
+        return store
+
+    def skills_prompt_block(self, prompt: str) -> str:
+        """Render matching active skills for injection into the agent prompt."""
+        store = self.skill_store()
+        matched = store.match(prompt)
+        if not matched:
+            return ""
+        # Record skill use on bound turn if present
+        hub = self._hub
+        turn = getattr(hub, "turn", None) if hub is not None else None
+        if turn is not None:
+            from ..core.interaction import SpanKind, SpanStatus
+
+            for sk in matched:
+                sid = turn.begin_span(
+                    kind=SpanKind.SKILL,
+                    headspace=self.name,
+                    name=sk.id,
+                    input_summary=prompt[:200],
+                    parent_span_id=turn.root_span_id,
+                )
+                turn.end_span(sid, status=SpanStatus.OK, output_summary=f"loaded skill {sk.id}")
+        return store.render_for_prompt(matched)
+
+    def draft_skill_from_receipt(self, turn: "TurnReceipt") -> str:
+        """Write a draft skill markdown under skills/drafts/ from a turn receipt. Returns path."""
+        store = self.skill_store()
+        md = draft_skill_markdown(turn, headspace=self.name)
+        path = store.write_draft(md, suggested_id=f"from-{getattr(turn, 'turn_id', 'turn')}")
+        return str(path)
+
+    @ami_tool
+    def list_skills(self) -> str:
+        """List active and draft skills for this headspace."""
+        store = self.skill_store()
+        active = store.list_active()
+        drafts = store.list_drafts()
+        lines = [f"Active ({len(active)}):"]
+        for s in active:
+            lines.append(f"  - {s.id} v{s.version} triggers={s.triggers}")
+        lines.append(f"Drafts ({len(drafts)}):")
+        for s in drafts:
+            lines.append(f"  - {s.id} (draft)")
+        if not active and not drafts:
+            return "No skills yet. Defaults seed on first use when shipped under plugin/skills/."
+        return "\n".join(lines)
+
+    @ami_tool
+    def promote_skill_draft(self, draft_id: str) -> str:
+        """Promote a draft skill to active (human-in-the-loop confirm)."""
+        store = self.skill_store()
+        try:
+            path = store.promote_draft(draft_id.strip())
+            return f"Promoted draft '{draft_id}' → {path}"
+        except FileNotFoundError as exc:
+            return f"Promote failed: {exc}"
+        except ValueError as exc:
+            return f"Promote failed: {exc}"
+
     # --- Peer tools (available on every headspace when hub bound) ---
 
     @ami_tool
@@ -262,6 +338,8 @@ class Headspace(Primitive):
             return f"Delegation failed: {exc}"
 
     def query(self, prompt: str) -> HeadspaceInstruction:
-        """Process a user query with this headspace's tool set (incl. inherited + peers)."""
+        """Process a user query with tools, peers, and matched skills."""
+        skills_block = self.skills_prompt_block(prompt)
+        full_prompt = f"{skills_block}\n\n{prompt}" if skills_block else prompt
         agent = LLMProvider.from_environment().as_funccalling_toa_agent(self.name)
-        return agent.run(prompt, self.tools)
+        return agent.run(full_prompt, self.tools)

@@ -272,4 +272,22 @@ class Brain(LogBase):
         path = self._interaction_store.save_turn(turn)
         self.last_turn = turn
         self.logs.info(f"Turn receipt route={turn.route_summary} path={path}")
+
+        # Self-improve: multi-hop turns get a draft skill under the entry headspace (never auto-promote)
+        try:
+            from ..core.interaction import SpanKind
+
+            peer_hops = [
+                s
+                for s in turn.spans
+                if s.kind in (SpanKind.ASK, SpanKind.DO, SpanKind.SKILL)
+            ]
+            if len(peer_hops) >= 1 and spoken and not spoken.startswith("Error:"):
+                draft_path = headspace.draft_skill_from_receipt(turn)
+                turn.artifacts.append(str(draft_path))
+                self._interaction_store.save_turn(turn)
+                self.logs.info(f"Skill draft written: {draft_path}")
+        except Exception as draft_exc:
+            self.logs.debug(f"Skill draft skipped: {draft_exc}")
+
         return headspace_result, spoken

@@ -1,10 +1,10 @@
-# Headspace primitives, tools, peers, and the Brain loop
+# Headspace primitives, tools, peers, skills, and the Brain loop
 
 ## What exists today (code truth)
 
 ```
-Primitive          — name, filespace, settings
-   └─ Headspace    — @ami_tool methods → TAO agent loop (query)
+Primitive          — name, filespace, settings, skills_dir
+   └─ Headspace    — @ami_tool + skills inject → TAO agent loop
    └─ BaseWidget   — GUI
    └─ Blueprint    — Flask routes
 
@@ -12,55 +12,63 @@ Brain
   1. start TurnReceipt (session + human text)
   2. prepare_hub(turn) → every headspace can list_peer + ask/do
   3. select_entry_headspace (corespace prefer / auto router)
-  4. headspace.query(prompt)  # tools include inherited + peers
+  4. headspace.query(prompt)  # tools + matched skills + peers
   5. summarize(steps) via personality
   6. finish+persist turn JSON; log route_summary
+  7. if ask/do/skill hops → draft skill under entry filespace/skills/drafts/
 ```
 
-## Tool inheritance
+## Tools vs skills
 
-`@ami_tool` methods are collected via **MRO** (`collect_tool_methods`), so a
-shared primitive/mixin Headspace parent contributes tools to children
-(hierarchy / menu of capabilities).
+| | Tools | Skills |
+|---|---|---|
+| Where | Python `@ami_tool` in git | `~/.ami/data/<hs>/skills/*.md` |
+| Change | code release | edit / promote draft |
+| Role | deterministic acts | procedures the LLM follows |
 
-Base Headspace always offers (when a hub is bound):
+Builtin defaults ship in `ami/builtin/<hs>/skills/` and **copy once** into filespace (never overwrite user edits).
+
+## Base Headspace tools
+
+Peers:
 
 - `list_peer_headspaces`
-- `ask_headspace(name, question)` — info hop
-- `do_headspace(name, task)` — action hop
-- `delegate_to_headspace` — legacy alias of do
+- `ask_headspace` / `do_headspace` / `delegate_to_headspace` (alias)
 
-## Delegation graph + receipts (P0/P1)
+Skills:
 
-`DelegationHub` registers all Brain headspaces each turn.
+- `list_skills`
+- `promote_skill_draft` (human confirm — never auto-promote)
 
-- **Self-referential**: any headspace may ask/do any other.
-- **Depth max**: `routing.max_delegate_depth` (default 3).
-- **Step budget**: `routing.max_steps` (default 24) shared across the turn.
-- **PeerResult**: structured ok/observation/span_ids from ask/do.
-- **TurnReceipt**: span tree under `~/.ami/conversations/<session>/turns/<turn>.json`
-  with `route_summary` like `corespace → ask:neighbors → do:markdown → speak`.
+## Delegation + receipts (P0/P1)
 
-## Corespace as entry + personality
+`DelegationHub` ask/do + `TurnReceipt` spans under conversations/. See prior notes.
 
-Config:
+## Skills (P2)
+
+```text
+~/.ami/data/<headspace>/skills/
+  grocery-list-house.md     # active
+  drafts/
+    from-turn-abc.md        # draft only until promote
+```
+
+Frontmatter: `id`, `version`, `triggers`, `tools`, `status` (active|draft|retired), `source`.
+
+`Headspace.query` injects matching active skills into the prompt and records `skill` spans on the turn.
+
+## Config
 
 ```yaml
 routing:
-  entry: corespace_prefer   # corespace | corespace_first | auto
+  entry: corespace_prefer
   max_delegate_depth: 3
   max_steps: 24
 ```
 
-- Entry hop prefers **corespace** (can answer or ask/do peers).
-- Final spoken line is always `Brain.summarize` with personality from
-  `~/.ami/personality.prompt` or `~/.ami/data/corespace/personality.prompt`.
+## Not yet (P3+)
 
-Domain headspaces do the work; corespace personality frames how the human hears it.
-
-## Not yet (P2+)
-
-- Per-headspace `filespace/skills/*.md` loader + self-improve drafts
 - Direct tool RPC (`call_headspace_tool`) without nested agent
-- GUI tree view of turn receipts
+- GUI tree view of turn receipts / skill browser
+- Failure-linked pitfall auto-append
 - Streaming partial peer observations to the glass

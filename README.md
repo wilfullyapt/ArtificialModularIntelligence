@@ -14,7 +14,7 @@
 | Speak | `routing.speak: auto\|thin\|llm` (thin avoids a second LLM when possible) |
 | Inference | `llm.backend: ollama \| xai \| anthropic` |
 | STT | `stt.backend: local` (faster-whisper, optional dep) or `google` |
-| Hardware notes | [ASSEMBLY.md](ASSEMBLY.md) |
+| Hardware notes | [ASSEMBLY.md](ASSEMBLY.md) · [I2S audio HAT brief](docs/hardware/PCB_BRIEF_I2S_AUDIO.md) |
 | CI | `.github/workflows/headless.yml` (unit tests, no GUI/audio) |
 
 **Related products:** [mobile-ami](https://github.com/wilfullyapt/mobile-ami) (handheld); **Stronghold** (household infra / optional neighbor directory). Hermes doorway (narthex) is a separate path.

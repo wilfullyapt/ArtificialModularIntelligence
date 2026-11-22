@@ -44,6 +44,8 @@ Omit row 5–6 for **cloud-only** or **CPU Ollama** desks. Software must boot ei
 
 **Locked (2026-11-21):** custom **I2S HAT-style** board — 2× speaker out + 1× mic in, Pi I2S/HAT interface. USB speakerphone remains valid for software day-0 before PCB rev A.
 
+**PCB brief (H1):** [`docs/hardware/PCB_BRIEF_I2S_AUDIO.md`](docs/hardware/PCB_BRIEF_I2S_AUDIO.md) — pin map GPIO18–21, block design, connectors, ICD waits on print dims.
+
 
 | # | Part | Qty | Notes | ~$ |
 |---|------|-----|-------|-----|

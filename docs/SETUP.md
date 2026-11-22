@@ -136,6 +136,7 @@ ami run                  # foreground full glass appliance
 Installer: `bash rpi_install.sh` (idempotent; `AMI_BRANCH` pin; **does not** delete `~/.ami`).
 
 Audio target: **I2S HAT-style** custom PCB (2 spk + mic). Interim USB OK for software bring-up.
+PCB brief: `docs/hardware/PCB_BRIEF_I2S_AUDIO.md`.
 
 ## 4. Initial configuration
 

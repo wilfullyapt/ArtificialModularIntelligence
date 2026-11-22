@@ -1,11 +1,15 @@
-"""AMI operator CLI (Python-first).
+"""AMI operator CLI (Python-first) — primary kiosk launcher surface.
 
 Config SoR: ~/.ami/ami_config.yaml → enabled_headspaces: [list]
 Releases:  ~/.ami/releases/{CURRENT,PREVIOUS,<tag>/}
 Plugins:   ~/.ami/plugins/<id>/
+Secrets:   ~/.ami/.env
 
 Usage:
+  python -m ami.cli init
   python -m ami.cli doctor
+  python -m ami.cli secrets check
+  python -m ami.cli systemd install|status
   python -m ami.cli plugin list|enable|disable|install|validate
   python -m ami.cli release status|install|activate|rollback|list
   python -m ami.cli directory serve
@@ -202,6 +206,8 @@ def cmd_doctor() -> int:
     speak = (data.get("routing") or {}).get("speak", "auto")
     print(f"  speak:      {speak}")
     print(f"  convos:     {cfg.convos_dir}")
+    env_path = cfg.data_dir / ".env"
+    print(f"  secrets:    {env_path} ({'ok' if env_path.is_file() else 'MISSING — ami init'})")
 
     # last receipt
     last = None
@@ -261,6 +267,101 @@ def cmd_run(*, use_release: bool = False) -> int:
         print(f"Running from release CURRENT → {current}")
         return subprocess.call([sys.executable, "-m", "ami.main"], env=env)
     return subprocess.call([sys.executable, "-m", "ami.main"], env=env)
+
+
+
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parent.parent
+
+
+def cmd_init(
+    *,
+    ami_home: Optional[Path] = None,
+    force_config: bool = False,
+    force_env: bool = False,
+) -> int:
+    """Day-zero: dirs + config template + secrets scaffold (never wipe secrets by default)."""
+    from ami.day0 import bootstrap
+
+    template = _repo_root() / "config_template.yaml"
+    result = bootstrap(
+        ami_home=ami_home,
+        template_path=template,
+        force_config=force_config,
+        force_env=force_env,
+    )
+    print("AMI init")
+    for msg in result.messages:
+        print(f"  {msg}")
+    print("  next: edit config/secrets, then `ami doctor` and `ami run`")
+    return 0
+
+
+def cmd_secrets_check(*, ami_home: Optional[Path] = None) -> int:
+    """Presence-only secrets report (never prints values)."""
+    from ami.day0 import secrets_status
+
+    home = Path(ami_home) if ami_home is not None else Path.home() / ".ami"
+    st = secrets_status(home / ".env")
+    print("AMI secrets check")
+    print(f"  env:     {st['env_path']} ({'ok' if st['exists'] else 'MISSING'})")
+    keys_set = st.get("keys_set") or []
+    missing = st.get("keys_missing_known") or []
+    print(f"  set:     {', '.join(keys_set) if keys_set else '(none)'}")
+    print(f"  missing: {', '.join(missing) if missing else '(none of known list)'}")
+    print("  note:    empty values count as missing; values are never shown")
+    return 0 if st["exists"] else 1
+
+
+def cmd_systemd_install(
+    *,
+    repo_dir: Optional[Path] = None,
+    display: str = ":0",
+    unit_path: Optional[Path] = None,
+) -> int:
+    """Write user systemd unit targeting this checkout's python -m ami.cli run."""
+    from ami.day0.systemd_unit import default_unit_path, write_user_unit
+
+    root = Path(repo_dir) if repo_dir else _repo_root()
+    root = root.resolve()
+    venv_py = root / ".venv" / "bin" / "python"
+    if venv_py.is_file():
+        exec_start = f"{venv_py} -m ami.cli run"
+    else:
+        exec_start = f"{sys.executable} -m ami.cli run"
+    path = Path(unit_path) if unit_path else default_unit_path()
+    write_user_unit(
+        unit_path=path,
+        exec_start=exec_start,
+        working_directory=str(root),
+        display=display or ":0",
+    )
+    print(f"wrote {path}")
+    print("  systemctl --user daemon-reload")
+    print("  systemctl --user enable --now ami.service")
+    print("  journalctl --user -u ami.service -f")
+    return 0
+
+
+def cmd_systemd_status(*, unit_path: Optional[Path] = None) -> int:
+    from ami.day0.systemd_unit import default_unit_path
+
+    path = Path(unit_path) if unit_path else default_unit_path()
+    print(f"unit file: {path} ({'ok' if path.is_file() else 'MISSING'})")
+    if path.is_file():
+        # show ExecStart line only
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if line.startswith("ExecStart=") or line.startswith("WorkingDirectory="):
+                print(f"  {line}")
+    # best-effort systemctl
+    r = subprocess.run(
+        ["systemctl", "--user", "is-active", "ami.service"],
+        capture_output=True,
+        text=True,
+    )
+    state = (r.stdout or r.stderr or "").strip() or f"exit {r.returncode}"
+    print(f"  active:   {state}")
+    return 0
 
 
 def cmd_directory_serve(
@@ -327,6 +428,23 @@ def build_parser() -> argparse.ArgumentParser:
     dserve.add_argument("--token", default=os.environ.get("AMI_NEIGHBORS_TOKEN", ""))
     dserve.add_argument("--ttl", type=float, default=float(os.environ.get("AMI_DIRECTORY_TTL", "3600")))
 
+    init_p = sub.add_parser("init", help="Day-zero: ~/.ami dirs, config, secrets scaffold")
+    init_p.add_argument("--force-config", action="store_true", help="Overwrite ami_config.yaml from template")
+    init_p.add_argument("--force-env", action="store_true", help="Overwrite .env scaffold (DESTROYS keys)")
+    init_p.add_argument("--ami-home", default="", help="Override ~/.ami (tests)")
+
+    sec = sub.add_parser("secrets", help="Secrets file helpers (never print values)")
+    sec_sub = sec.add_subparsers(dest="secrets_cmd", required=True)
+    sec_sub.add_parser("check", help="Presence-only report for ~/.ami/.env")
+
+    sd = sub.add_parser("systemd", help="User systemd unit for kiosk autostart")
+    sd_sub = sd.add_subparsers(dest="systemd_cmd", required=True)
+    sdi = sd_sub.add_parser("install", help="Write ~/.config/systemd/user/ami.service")
+    sdi.add_argument("--repo-dir", default="", help="Checkout path (default: this repo)")
+    sdi.add_argument("--display", default=os.environ.get("DISPLAY", ":0"))
+    sdi.add_argument("--unit-path", default="", help="Override unit path (tests)")
+    sd_sub.add_parser("status", help="Show unit file + is-active")
+
     return p
 
 
@@ -369,6 +487,27 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 token=str(args.token or ""),
                 ttl=float(args.ttl),
             )
+    if args.cmd == "init":
+        home = Path(args.ami_home) if getattr(args, "ami_home", "") else None
+        return cmd_init(
+            ami_home=home,
+            force_config=bool(getattr(args, "force_config", False)),
+            force_env=bool(getattr(args, "force_env", False)),
+        )
+    if args.cmd == "secrets":
+        if args.secrets_cmd == "check":
+            return cmd_secrets_check()
+    if args.cmd == "systemd":
+        if args.systemd_cmd == "install":
+            rd = Path(args.repo_dir) if getattr(args, "repo_dir", "") else None
+            up = Path(args.unit_path) if getattr(args, "unit_path", "") else None
+            return cmd_systemd_install(
+                repo_dir=rd,
+                display=str(getattr(args, "display", None) or ":0"),
+                unit_path=up,
+            )
+        if args.systemd_cmd == "status":
+            return cmd_systemd_status()
     parser.error(f"unknown command: {args.cmd}")
     return 2
 

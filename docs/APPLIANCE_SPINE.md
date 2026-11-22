@@ -44,6 +44,14 @@
 - [x] mobile-ami mesh client (parity package + tests on handheld tip)
 - [x] Public GitHub mirror of template (`wilfullyapt/ami-headspace-template`)
 
+## Phase P0 — Day-zero kiosk ops
+
+- [x] Safe `rpi_install.sh` (no checkout wipe, no `~/.ami` wipe, branch pin)
+- [x] `ami init` / `ami secrets check`
+- [x] User `systemd` unit via `ami systemd install`
+- [x] Launcher: `~/.local/bin/ami` → `python -m ami.cli` (pyproject `ami` entry = cli)
+- [x] Audio architecture locked: **I2S HAT-style** PCB (2 speakers + mic)
+
 ## Operator cheatsheet
 
 ```bash
@@ -57,6 +65,9 @@ python -m ami.cli directory serve --host 0.0.0.0 --port 4178
 python -m ami.neighbors_directory --data ~/.ami/directory/peers.json
 python -m ami.cli run              # dev checkout
 python -m ami.cli run --release    # activated CURRENT tree
+python -m ami.cli init
+python -m ami.cli secrets check
+python -m ami.cli systemd install
 python -m ami.cli doctor
 # pip install 'ArtificialModularIntelligence[stt]'  # local whisper on Pi
 ```

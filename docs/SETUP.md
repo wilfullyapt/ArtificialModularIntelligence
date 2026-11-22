@@ -122,6 +122,21 @@ Dev checkout run stays default (`run` without `--release`).
 
 ---
 
+## 3b. Day-zero commands (P0)
+
+```bash
+ami init                 # ~/.ami + config + .env scaffold
+ami secrets check        # presence only — never prints values
+ami doctor
+ami systemd install      # user unit → ami run
+systemctl --user enable --now ami.service
+ami run                  # foreground full glass appliance
+```
+
+Installer: `bash rpi_install.sh` (idempotent; `AMI_BRANCH` pin; **does not** delete `~/.ami`).
+
+Audio target: **I2S HAT-style** custom PCB (2 spk + mic). Interim USB OK for software bring-up.
+
 ## 4. Initial configuration
 
 ### 4.1 Generate config

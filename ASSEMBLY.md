@@ -42,6 +42,9 @@ Omit row 5–6 for **cloud-only** or **CPU Ollama** desks. Software must boot ei
 
 ### Audio I/O
 
+**Locked (2026-11-21):** custom **I2S HAT-style** board — 2× speaker out + 1× mic in, Pi I2S/HAT interface. USB speakerphone remains valid for software day-0 before PCB rev A.
+
+
 | # | Part | Qty | Notes | ~$ |
 |---|------|-----|-------|-----|
 | 7 | **USB speakerphone** *or* ReSpeaker / I2S mic HAT + powered speakers | 1 | v0 recommends **USB speakerphone** for simplest bring-up (no I2S driver fight). ReSpeaker path can share mobile-ami lessons later | 30–80 |
@@ -96,9 +99,9 @@ Omit row 5–6 for **cloud-only** or **CPU Ollama** desks. Software must boot ei
 3. Flash OS; enable SSH; set locale/timezone.  
 4. Connect HDMI glass + USB speakerphone (or wire I2S audio HAT per vendor docs).  
 5. Ethernet to home LAN (same L2 as other AMI units for mesh).  
-6. Clone repo, `make install` (or fixed `rpi_install.sh`).  
-7. Copy `config_template.yaml` → `~/.ami/ami_config.yaml`; set `llm`, `stt`, `neighbors` blocks.  
-8. `ami run` / systemd autostart when ready.  
+6. `bash rpi_install.sh` (safe; or `AMI_BRANCH=prod bash rpi_install.sh`).  
+7. `ami init` already ran — edit `~/.ami/ami_config.yaml` + `~/.ami/.env`.  
+8. `systemctl --user enable --now ami.service` (or `ami run`).  
 9. Second unit: same image → `list_neighbors` should show the peer after both `announce_presence`.
 
 ---
@@ -115,6 +118,6 @@ Omit row 5–6 for **cloud-only** or **CPU Ollama** desks. Software must boot ei
 ## Open decisions (Wil)
 
 - [ ] Final glass: consumer HDMI vs MM two-way mirror kit  
-- [ ] Default audio: USB speakerphone vs ReSpeaker family  
+- [x] **Audio plane locked:** custom **I2S HAT-style PCB** (2 speakers + mic). USB speakerphone = interim bring-up only.  
 - [ ] Default `llm.backend`: `ollama` vs `xai` for family builds  
 - [ ] Whether AI HAT is **in** the “standard” kit or **addon SKU** only  

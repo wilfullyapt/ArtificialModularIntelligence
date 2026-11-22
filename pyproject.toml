@@ -43,7 +43,8 @@ build-backend = "hatchling.build"
 packages = ["ami"]
 
 [project.scripts]
-ami = "ami.main:main"
+ami = "ami.cli:main"
+ami-kiosk = "ami.main:main"
 
 [tool.uv]
 package = true

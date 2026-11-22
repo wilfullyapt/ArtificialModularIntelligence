@@ -1,0 +1,19 @@
+# Template — prefer: python -m ami.cli systemd install
+# which fills WorkingDirectory + ExecStart for this machine.
+
+[Unit]
+Description=AMI home kiosk appliance
+After=network-online.target graphical-session.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/ArtificialModularIntelligence
+ExecStart=%h/ArtificialModularIntelligence/.venv/bin/python -m ami.cli run
+Restart=on-failure
+RestartSec=5
+Environment=DISPLAY=:0
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=default.target
